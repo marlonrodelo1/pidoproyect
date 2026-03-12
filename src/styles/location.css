@@ -1,0 +1,454 @@
+.location-screen {
+	position: relative;
+	min-height: 100vh;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	overflow: hidden;
+	opacity: 1;
+	transition: opacity 400ms ease;
+	contain: paint;
+}
+
+.location-screen-gradient {
+	position: absolute;
+	inset: 0;
+	background:
+		linear-gradient(155deg, rgba(15, 23, 42, 0.3) 0%, rgba(15, 23, 42, 0.9) 40%, #020617 100%),
+		radial-gradient(circle at 0% 0%, rgba(249, 115, 22, 0.25), transparent 55%),
+		radial-gradient(circle at 100% 100%, rgba(249, 115, 22, 0.18), transparent 60%);
+	background-size: 200% 200%;
+	animation: locationGradientFlow 14s ease-in-out infinite;
+}
+
+.location-screen-content {
+	position: relative;
+	z-index: 4;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: flex-start;
+	width: 100%;
+	padding: 48px 20px 24px;
+	text-align: center;
+	gap: 14px;
+}
+
+.location-page {
+	background: #0f172a;
+	color: #ffffff;
+}
+
+.location-map-layer {
+	position: absolute;
+	inset: 0;
+	z-index: 1;
+	filter: blur(8px);
+	opacity: 0.74;
+	will-change: transform;
+}
+
+.map-blob {
+	position: absolute;
+	display: block;
+	border-radius: 50%;
+	background: radial-gradient(circle at 30% 30%, rgba(255, 196, 142, 0.45), rgba(255, 196, 142, 0));
+	animation: blobFloat 12s ease-in-out infinite;
+}
+
+.map-blob.blob-a {
+	width: 260px;
+	height: 260px;
+	top: -50px;
+	left: -70px;
+}
+
+.map-blob.blob-b {
+	width: 300px;
+	height: 300px;
+	right: -90px;
+	bottom: 8%;
+	animation-delay: 2.5s;
+}
+
+.map-blob.blob-c {
+	width: 220px;
+	height: 220px;
+	top: 36%;
+	left: 36%;
+	animation-delay: 1.4s;
+}
+
+.map-grid {
+	position: absolute;
+	inset: 0;
+	background-image:
+		linear-gradient(rgba(255, 162, 72, 0.08) 1px, transparent 1px),
+		linear-gradient(90deg, rgba(255, 162, 72, 0.08) 1px, transparent 1px);
+	background-size: 34px 34px;
+	transform: scale(1.08);
+	opacity: 0.58;
+}
+
+.location-scan-line {
+	position: absolute;
+	left: 0;
+	right: 0;
+	top: -20%;
+	height: 64px;
+	z-index: 3;
+	background: linear-gradient(to bottom, rgba(255, 122, 0, 0), rgba(255, 122, 0, 0.24), rgba(255, 122, 0, 0));
+	mix-blend-mode: multiply;
+	animation: scanSweep 2.5s linear infinite;
+}
+
+.location-radar-pro {
+	position: relative;
+	width: 126px;
+	height: 126px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.location-radar-center {
+	width: 24px;
+	height: 24px;
+	border-radius: 50%;
+	background: #f97316;
+	box-shadow: 0 0 0 10px rgba(249, 115, 22, 0.2);
+	position: relative;
+	z-index: 3;
+}
+
+.location-radar-wave {
+	position: absolute;
+	inset: 0;
+	border-radius: 50%;
+	border: 2px solid rgba(255, 122, 0, 0.32);
+	transform: scale(0.45);
+	opacity: 0;
+	animation: locationRadarWave 2.2s ease-out infinite;
+	will-change: transform, opacity;
+}
+
+.location-radar-wave.wave-2 {
+	animation-delay: 1.1s;
+}
+
+.location-rotating-text {
+	margin: 0;
+	min-height: 52px;
+	max-width: 320px;
+	font-size: 1rem;
+	font-weight: 600;
+	line-height: 1.35;
+	color: #e5e7eb;
+	animation: locationTextFadeIn 320ms ease;
+}
+
+.location-error-text {
+	margin: -2px 0 0;
+	max-width: 320px;
+	font-size: 0.83rem;
+	line-height: 1.4;
+	color: #b42318;
+	animation: locationTextFadeIn 260ms ease;
+}
+
+.location-card {
+	background: rgba(255, 255, 255, 0.05);
+	border-radius: 16px;
+	padding: 24px 20px 20px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 12px;
+	box-shadow: 0 18px 45px rgba(15, 23, 42, 0.6);
+}
+
+.location-title {
+	margin: 10px 0 4px;
+	font-size: 1.1rem;
+	font-weight: 600;
+	text-align: center;
+}
+
+.location-actions {
+	margin-top: 8px;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	width: 100%;
+}
+
+.primary-button {
+	background: #f97316;
+	color: #ffffff;
+	border-radius: 12px;
+	border: none;
+	padding: 12px 16px;
+	font-size: 0.95rem;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.primary-button:disabled {
+	opacity: 0.7;
+	cursor: default;
+}
+
+.secondary-button {
+	background: transparent;
+	color: #f97316;
+	border-radius: 12px;
+	border: 1px solid rgba(249, 115, 22, 0.7);
+	padding: 10px 16px;
+	font-size: 0.9rem;
+	font-weight: 500;
+	cursor: pointer;
+}
+
+.business-card {
+	background: rgba(15, 23, 42, 0.85);
+	border-radius: 24px;
+	padding: 22px 18px 18px;
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	gap: 16px;
+	box-shadow: 0 18px 45px rgba(15, 23, 42, 0.8);
+	max-width: 360px;
+	width: 100%;
+}
+
+.business-hero-wrapper {
+	width: 220px;
+	height: 220px;
+	border-radius: 40px;
+	overflow: hidden;
+	box-shadow: 0 14px 36px rgba(15, 23, 42, 0.9);
+	background: transparent;
+	margin-bottom: 20px;
+}
+
+.business-hero {
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+	transform: none;
+}
+
+.business-title {
+	margin: 0;
+	font-size: 1.25rem;
+	font-weight: 700;
+	text-align: center;
+}
+
+.business-subtitle {
+	margin: 2px 0 6px;
+	font-size: 0.95rem;
+	color: #e5e7eb;
+	text-align: center;
+}
+
+.business-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 10px;
+	margin-top: 6px;
+}
+
+.business-item {
+	border: 1px solid rgba(148, 163, 184, 0.35);
+	border-radius: 18px;
+	padding: 10px 12px;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	justify-content: center;
+	background: rgba(15, 23, 42, 0.9);
+	color: #f9fafb;
+	box-shadow: 0 8px 20px rgba(15, 23, 42, 0.8);
+	font-size: 0.9rem;
+	font-weight: 600;
+	gap: 4px;
+	text-align: left;
+	cursor: pointer;
+	transition:
+		background 160ms ease,
+		transform 160ms ease,
+		box-shadow 160ms ease;
+	animation: businessEnter 260ms ease-out both, businessPulse 2200ms ease-in-out infinite;
+}
+
+.business-item-main {
+	background: linear-gradient(135deg, #fbbf24, #f97316);
+	color: #111827;
+	border-color: rgba(15, 23, 42, 0.35);
+}
+
+.business-item:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 12px 30px rgba(15, 23, 42, 0.9);
+	background: rgba(15, 23, 42, 0.96);
+}
+
+.business-item-main:hover {
+	background: linear-gradient(135deg, #facc15, #fb923c);
+}
+
+.business-icon {
+	font-size: 1.3rem;
+}
+
+.business-label {
+	font-size: 0.95rem;
+}
+
+.business-error {
+	margin-top: 6px;
+	text-align: left;
+}
+
+.privacy-text {
+	margin-top: 10px;
+	font-size: 0.72rem;
+	color: rgba(229, 231, 235, 0.7);
+	text-align: left;
+}
+
+.privacy-text a {
+	color: #f97316;
+	text-decoration: underline;
+}
+
+.business-grid .business-item:nth-child(1) {
+	animation-delay: 0ms;
+}
+
+.business-grid .business-item:nth-child(2) {
+	animation-delay: 80ms;
+}
+
+.business-grid .business-item:nth-child(3) {
+	animation-delay: 140ms;
+}
+
+.business-grid .business-item:nth-child(4) {
+	animation-delay: 200ms;
+}
+
+@keyframes businessEnter {
+	0% {
+		opacity: 0;
+		transform: translateY(8px) scale(0.97);
+	}
+	100% {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+}
+
+@keyframes businessPulse {
+	0% {
+		transform: translateY(0) scale(1);
+	}
+	50% {
+		transform: translateY(-1px) scale(1.03);
+	}
+	100% {
+		transform: translateY(0) scale(1);
+	}
+}
+
+@keyframes locationGradientFlow {
+	0% {
+		background-position: 0% 50%;
+	}
+	50% {
+		background-position: 100% 50%;
+	}
+	100% {
+		background-position: 0% 50%;
+	}
+}
+
+@keyframes locationRadarWave {
+	0% {
+		transform: scale(0.45);
+		opacity: 0.65;
+	}
+	100% {
+		transform: scale(1);
+		opacity: 0;
+	}
+}
+
+@keyframes scanSweep {
+	0% {
+		transform: translateY(-30vh);
+		opacity: 0;
+	}
+	10% {
+		opacity: 1;
+	}
+	90% {
+		opacity: 1;
+	}
+	100% {
+		transform: translateY(130vh);
+		opacity: 0;
+	}
+}
+
+@keyframes blobFloat {
+	0%,
+	100% {
+		transform: translate3d(0, 0, 0) scale(1);
+	}
+	50% {
+		transform: translate3d(0, -10px, 0) scale(1.04);
+	}
+}
+
+@keyframes locationTextFadeIn {
+	from {
+		opacity: 0;
+		transform: translateY(5px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@media (max-width: 360px) {
+	.location-radar-pro {
+		width: 108px;
+		height: 108px;
+	}
+
+	.location-radar-center {
+		width: 22px;
+		height: 22px;
+	}
+
+	.location-rotating-text {
+		font-size: 0.94rem;
+		min-height: 50px;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.location-screen,
+	.location-screen-gradient,
+	.location-scan-line,
+	.location-radar-wave,
+	.location-rotating-text,
+	.map-blob {
+		animation: none;
+		transition: none;
+	}
+}

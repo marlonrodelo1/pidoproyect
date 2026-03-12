@@ -1,0 +1,15 @@
+{
+  "appId": "co.median.ios.bnlkxpx",
+  "appName": "Pidoo",
+  "webDir": "dist",
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": false,
+      "backgroundColor": "#FFFFFFFF",
+      "showSpinner": false,
+      "splashFullScreen": true,
+      "splashImmersive": true,
+      "androidScaleType": "CENTER_CROP"
+    }
+  }
+}

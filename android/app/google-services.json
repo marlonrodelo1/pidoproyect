@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "981404913458",
+    "project_id": "pidogo-14626",
+    "storage_bucket": "pidogo-14626.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:981404913458:android:24327d109b69c095e2112b",
+        "android_client_info": {
+          "package_name": "co.median.ios.bnlkxpx"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAxjQDHeTeBMC83mIRAcqOdFhXUsc8aly8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

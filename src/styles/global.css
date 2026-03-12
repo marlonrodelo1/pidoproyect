@@ -1,0 +1,365 @@
+/* Contenedor principal de la app (revertido) */
+
+/* Ajuste de espacio superior para el título principal en HomePage */
+/* Safe Area Support (iOS notch / Dynamic Island, Android 13+, Web) */
+#root {
+	/* Compatibilidad antigua iOS */
+	padding-top: constant(safe-area-inset-top);
+	padding-bottom: constant(safe-area-inset-bottom);
+	/* Implementación moderna */
+	padding-top: env(safe-area-inset-top);
+	padding-bottom: env(safe-area-inset-bottom);
+}
+
+.page-safe-container {
+	/* Solo layout horizontal y spacing general, sin safe-area extra */
+	padding-left: 10px;
+	padding-right: 10px;
+	padding-bottom: 12px;
+}
+
+.page-container {
+	height: 100%;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	-webkit-overflow-scrolling: touch;
+}
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+	margin: 0;
+	padding: 0;
+}
+
+
+
+
+body {
+	margin: 0;
+	font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+	background-color: #0f172a;
+	color: #f9fafb;
+}
+
+.privacy-page {
+	min-height: 100vh;
+	padding: 16px 16px 32px;
+	background-color: #020617;
+	color: #e5e7eb;
+	overflow-y: auto;
+}
+
+.privacy-page .page-content {
+
+  max-width: 800px;
+	margin: 0 auto;
+}
+
+.privacy-back-button {
+	margin-bottom: 12px;
+	padding: 8px 12px;
+	border-radius: 999px;
+	border: none;
+	background: rgba(15, 23, 42, 0.9);
+	color: #f9fafb;
+	font-size: 0.85rem;
+	cursor: pointer;
+}
+
+.privacy-content {
+	margin-top: 12px;
+	white-space: pre-wrap;
+	font-size: 0.9rem;
+	line-height: 1.5;
+	background: transparent;
+	color: #e5e7eb;
+	border-radius: 8px;
+	padding-bottom: 16px;
+}
+
+.privacy-bottom-button {
+	position: fixed;
+	left: 0;
+	right: 0;
+	bottom: 20px;
+	display: flex;
+	justify-content: center;
+	z-index: 1300;
+}
+
+.privacy-bottom-button {
+	margin: 0 auto;
+	max-width: min(96vw, 600px);
+	padding: 10px 16px;
+	border-radius: 999px;
+	border: none;
+	background: #f97316;
+	color: #ffffff;
+	font-size: 0.9rem;
+	font-weight: 600;
+	cursor: pointer;
+	box-shadow: 0 8px 20px rgba(15, 23, 42, 0.65);
+}
+html,
+body,
+#root {
+	height: 100%;
+}
+
+h1,
+h2,
+h3 {
+	font-weight: 600;
+}
+
+
+
+button {
+	border-radius: 12px;
+	padding: 12px;
+	font-weight: 500;
+}
+
+.page-enter {
+	animation: fadeIn 0.25s ease;
+}
+
+@keyframes fadeIn {
+	from {
+		opacity: 0;
+		transform: translateY(8px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.section {
+	margin-top: 28px;
+}
+
+.section-title {
+	font-size: 18px;
+	font-weight: 600;
+	margin-bottom: 12px;
+}
+
+.section-card {
+	background: #111827;
+	border-radius: 14px;
+	overflow: hidden;
+	margin-bottom: 12px;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.section-card img {
+	width: 100%;
+	height: 140px;
+	object-fit: cover;
+}
+
+
+.bottom-nav-wrapper {
+	position: fixed;
+	bottom: 20px;
+	width: 100%;
+	display: flex;
+	justify-content: center;
+	z-index: 1200;
+}
+
+.bottom-nav {
+	background: transparent;
+	backdrop-filter: none;
+	border-radius: 0;
+	padding: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 10px;
+	box-shadow: none;
+	max-width: min(96vw, 600px);
+}
+
+.bottom-nav-group {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.bottom-nav-search {
+	width: 180px;
+	height: 44px;
+	border-radius: 30px;
+	background: #020617;
+	box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 0 12px;
+	flex: 0 0 auto;
+}
+
+.bottom-nav-search svg {
+	color: #475467;
+	flex-shrink: 0;
+}
+
+.bottom-nav-search input {
+	width: 100%;
+	border: none;
+	outline: none;
+	background: transparent;
+	/* Tamaño 16px para evitar zoom raro en iOS al enfocar inputs */
+	font-size: 1rem;
+	color: #e5e7eb;
+}
+
+.bottom-nav-search input::placeholder {
+	color: #64748b;
+}
+
+.bottom-nav-btn {
+	width: 48px;
+	height: 48px;
+	border-radius: 50%;
+	background: #1f2937;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: none;
+	box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+	transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.bottom-nav-btn svg {
+	color: #f9fafb;
+}
+
+.bottom-nav-btn:active {
+	transform: scale(0.9);
+}
+
+.bottom-nav-btn--notifications {
+	position: relative;
+}
+
+.bottom-nav-badge {
+	position: absolute;
+	top: -3px;
+	right: -3px;
+	min-width: 18px;
+	height: 18px;
+	padding: 0 5px;
+	border-radius: 999px;
+	background: #f97316;
+	color: #ffffff;
+	font-size: 11px;
+	font-weight: 600;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.9);
+}
+
+.map-container {
+	height: 100vh;
+	padding-bottom: 120px;
+	background: #f5f6f8;
+}
+
+.notifications-page{
+	padding:20px;
+}
+
+.notification-card{
+	background: rgba(255,255,255,0.08);
+	backdrop-filter: blur(20px);
+	border-radius:16px;
+	padding:14px;
+	margin-bottom:12px;
+	color:white;
+}
+
+.notification-title{
+	font-weight:600;
+	font-size:15px;
+}
+
+.notification-body{
+	opacity:0.8;
+	font-size:14px;
+	margin-top:4px;
+}
+
+.notification-date{
+	font-size:12px;
+	opacity:0.6;
+	margin-top:6px;
+}
+
+.custom-marker {
+	position: relative;
+	width: 50px;
+	height: 50px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: transparent;
+	border: none;
+}
+
+.pulse-wrapper {
+	position: absolute;
+	inset: 0;
+	border-radius: 50%;
+	background: rgba(16, 24, 40, 0.2);
+	animation: pulse-ring 1.8s ease-out infinite;
+}
+
+.marker-logo {
+	position: relative;
+	width: 50px;
+	height: 50px;
+	border-radius: 50%;
+	object-fit: cover;
+	border: 3px solid #ffffff;
+	background: #ffffff;
+	box-shadow: 0 8px 20px rgba(16, 24, 40, 0.28);
+}
+
+@keyframes pulse-ring {
+	0% {
+		transform: scale(0.95);
+		opacity: 0.7;
+	}
+	70% {
+		transform: scale(1.55);
+		opacity: 0;
+	}
+	100% {
+		transform: scale(1.55);
+		opacity: 0;
+	}
+}
+
+.pulse-marker {
+	width: 40px;
+	height: 40px;
+	border-radius: 50%;
+	animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+	0% {
+		transform: scale(1);
+	}
+	50% {
+		transform: scale(1.15);
+	}
+	100% {
+		transform: scale(1);
+	}
+}
