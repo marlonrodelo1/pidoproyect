@@ -61,8 +61,8 @@ export default function Login() {
   const iconStyle = { position: 'absolute', left: 14, top: 14, color: 'var(--c-muted)' }
   const inputStyle = {
     width: '100%', padding: '14px 16px 14px 44px', borderRadius: 12,
-    border: '1px solid var(--c-border)', fontSize: 14, fontFamily: 'inherit',
-    background: 'var(--c-surface)', color: 'var(--c-text)', outline: 'none',
+    border: '1px solid rgba(255,255,255,0.12)', fontSize: 14, fontFamily: 'inherit',
+    background: 'rgba(255,255,255,0.08)', color: 'var(--c-text)', outline: 'none',
     boxSizing: 'border-box', transition: 'border 0.2s',
   }
   const inputError = { ...inputStyle, borderColor: '#EF4444' }
@@ -98,7 +98,7 @@ export default function Login() {
 
       <div style={{ width: '100%', maxWidth: 340 }}>
         {modo !== 'reset' ? (
-          <div style={{ display: 'flex', background: 'var(--c-surface2)', borderRadius: 12, padding: 3, marginBottom: 20 }}>
+          <div style={{ display: 'flex', background: 'rgba(255,255,255,0.06)', borderRadius: 12, padding: 3, marginBottom: 20 }}>
             {['login', 'registro'].map(m => (
               <button key={m} onClick={() => { setModo(m); setError(null); setErrores({}) }} style={{
                 flex: 1, padding: '10px 0', borderRadius: 10, border: 'none',

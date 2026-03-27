@@ -62,7 +62,8 @@ function AppContent() {
       {/* Header */}
       <div style={{
         padding: '12px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        background: 'var(--c-surface)', borderBottom: '1px solid var(--c-border)',
+        background: 'rgba(255,255,255,0.06)', borderBottom: '1px solid rgba(255,255,255,0.08)',
+        backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ fontWeight: 800, fontSize: 24, color: 'var(--c-primary)', letterSpacing: -1 }}>pidoo</div>
@@ -131,14 +132,16 @@ function AppContent() {
 
 const shellStyle = {
   '--c-primary': '#FF6B2C',
-  '--c-primary-light': '#FFF3ED',
-  '--c-primary-soft': '#FFD6C0',
-  '--c-bg': '#FAFAF8',
-  '--c-surface': '#FFFFFF',
-  '--c-surface2': '#F3F2EF',
-  '--c-border': '#E8E6E1',
-  '--c-text': '#1A1A18',
-  '--c-muted': '#8C8A85',
+  '--c-primary-light': 'rgba(255,107,44,0.15)',
+  '--c-primary-soft': 'rgba(255,107,44,0.25)',
+  '--c-bg': '#0D0D0D',
+  '--c-surface': 'rgba(255,255,255,0.08)',
+  '--c-surface2': 'rgba(255,255,255,0.05)',
+  '--c-border': 'rgba(255,255,255,0.1)',
+  '--c-text': '#F5F5F5',
+  '--c-muted': 'rgba(255,255,255,0.45)',
+  '--c-glass': 'rgba(255,255,255,0.06)',
+  '--c-glass-border': 'rgba(255,255,255,0.12)',
   fontFamily: "'DM Sans', sans-serif",
   maxWidth: 420,
   margin: '0 auto',
@@ -154,7 +157,7 @@ const globalCss = `
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
 *{box-sizing:border-box;margin:0;padding:0}
 ::-webkit-scrollbar{display:none}
-body{background:#FAFAF8;margin:0}
+body{background:#0D0D0D;margin:0}
 `
 
 export default function App() {

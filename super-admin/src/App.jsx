@@ -29,7 +29,7 @@ function AppContent() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', fontFamily: "'DM Sans', sans-serif" }}>
       <Sidebar active={seccion} onChange={setSeccion} onLogout={logout} />
-      <main style={{ flex: 1, marginLeft: 240, padding: '28px 32px', background: '#F3F4F6', minHeight: '100vh' }}>
+      <main style={{ flex: 1, marginLeft: 240, padding: '28px 32px', background: '#0D0D0D', minHeight: '100vh' }}>
         {seccion === 'dashboard' && <Dashboard />}
         {seccion === 'establecimientos' && <Establecimientos />}
         {seccion === 'socios' && <Socios />}

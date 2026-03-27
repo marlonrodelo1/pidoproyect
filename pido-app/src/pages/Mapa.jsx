@@ -66,7 +66,7 @@ export default function Mapa() {
         <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--c-muted)', fontSize: 13 }}>No hay riders activos en este momento</div>
       )}
       {sociosActivos.map(r => (
-        <div key={r.id} style={{ background: 'var(--c-surface)', borderRadius: 12, padding: '12px 14px', border: '1px solid var(--c-border)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div key={r.id} style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 12, padding: '12px 14px', border: '1px solid var(--c-border)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--c-primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🛵</div>
           <div>
             <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--c-text)' }}>{r.nombre}</div>

@@ -100,9 +100,9 @@ function AppContent() {
 }
 
 const shell = {
-  '--c-accent': '#FF5733', '--c-accent-light': '#FFF0EC', '--c-accent-soft': '#FFD6CC',
-  '--c-bg': '#FAFAF8', '--c-surface': '#FFFFFF', '--c-surface2': '#F3F2EF',
-  '--c-border': '#E8E6E1', '--c-text': '#1A1A18', '--c-muted': '#8C8A85',
+  '--c-accent': '#FF5733', '--c-accent-light': 'rgba(255,87,51,0.15)', '--c-accent-soft': 'rgba(255,87,51,0.25)',
+  '--c-bg': '#0D0D0D', '--c-surface': 'rgba(255,255,255,0.08)', '--c-surface2': 'rgba(255,255,255,0.05)',
+  '--c-border': 'rgba(255,255,255,0.1)', '--c-text': '#F5F5F5', '--c-muted': 'rgba(255,255,255,0.45)',
   fontFamily: "'DM Sans', sans-serif", maxWidth: 420, margin: '0 auto',
   background: 'var(--c-bg)', color: 'var(--c-text)',
 }
@@ -113,7 +113,7 @@ const css = `
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
 *{box-sizing:border-box;margin:0;padding:0}
 ::-webkit-scrollbar{display:none}
-body{background:#FAFAF8;margin:0}
+body{background:#0D0D0D;margin:0}
 `
 
 export default function App() {

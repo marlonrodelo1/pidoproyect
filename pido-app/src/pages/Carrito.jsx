@@ -73,7 +73,7 @@ function FormularioPago({ clientSecret, total, onSuccess, onCancel, loading: par
       </div>
 
       <div style={{
-        background: 'var(--c-surface)', borderRadius: 14, border: '1px solid var(--c-border)',
+        background: 'rgba(255,255,255,0.08)', borderRadius: 14, border: '1px solid var(--c-border)',
         padding: '16px 14px', marginBottom: 16,
       }}>
         <CardElement options={cardStyle} />
@@ -269,7 +269,7 @@ export default function Carrito({ onPedidoCreado }) {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--c-text)' }}>{(item.precio_unitario * item.cantidad).toFixed(2)} €</span>
-                      <button onClick={() => removeItem(idx)} style={{ width: 22, height: 22, borderRadius: 6, border: '1px solid var(--c-border)', background: 'var(--c-surface)', cursor: 'pointer', fontSize: 10, color: '#991B1B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+                      <button onClick={() => removeItem(idx)} style={{ width: 22, height: 22, borderRadius: 6, border: '1px solid var(--c-border)', background: 'rgba(255,255,255,0.08)', cursor: 'pointer', fontSize: 10, color: '#991B1B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
                     </div>
                   </div>
                 ))}

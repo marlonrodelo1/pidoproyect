@@ -53,7 +53,7 @@ export default function MisPedidos({ onTrack }) {
       {pedidos.map(p => {
         const colors = ESTADO_COLORS[p.estado] || ESTADO_COLORS.nuevo
         return (
-          <div key={p.id} style={{ background: 'var(--c-surface)', borderRadius: 14, padding: '14px 16px', border: '1px solid var(--c-border)', marginBottom: 10 }}>
+          <div key={p.id} style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 14, padding: '14px 16px', border: '1px solid var(--c-border)', marginBottom: 10 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
               <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--c-text)' }}>{p.establecimientos?.nombre || 'Restaurante'}</span>
               <span style={{ background: colors.bg, color: colors.c, fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 6, textTransform: 'capitalize' }}>{p.estado.replace('_', ' ')}</span>

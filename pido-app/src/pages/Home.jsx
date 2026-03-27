@@ -109,7 +109,7 @@ export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
       </div>
 
       {/* Buscador */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--c-surface)', borderRadius: 14, padding: '12px 16px', border: '1px solid var(--c-border)', marginBottom: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.08)', borderRadius: 14, padding: '12px 16px', border: '1px solid rgba(255,255,255,0.1)', marginBottom: 20, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
         <Search size={18} strokeWidth={1.8} color="var(--c-muted)" />
         <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar restaurante o plato..."
           style={{ border: 'none', outline: 'none', fontSize: 14, fontFamily: 'inherit', background: 'transparent', flex: 1, color: 'var(--c-text)' }} />
@@ -126,8 +126,8 @@ export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
           }}>
             <div style={{
               width: 50, height: 50, borderRadius: 14,
-              background: catActiva === c.nombre ? 'var(--c-primary)' : 'var(--c-surface)',
-              border: catActiva === c.nombre ? 'none' : '1px solid var(--c-border)',
+              background: catActiva === c.nombre ? 'var(--c-primary)' : 'rgba(255,255,255,0.08)',
+              border: catActiva === c.nombre ? 'none' : '1px solid rgba(255,255,255,0.1)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, transition: 'all 0.2s',
             }}>{c.emoji}</div>
             <span style={{ fontSize: 10, fontWeight: 600, color: catActiva === c.nombre ? 'var(--c-primary)' : 'var(--c-muted)' }}>{c.nombre}</span>
@@ -142,8 +142,9 @@ export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
           <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 6 }}>
             {destacados.map(r => (
               <div key={r.id} onClick={() => onOpenRest(r)} style={{
-                minWidth: 240, flexShrink: 0, background: 'var(--c-surface)', borderRadius: 16,
-                overflow: 'hidden', cursor: 'pointer', border: '1px solid var(--c-border)',
+                minWidth: 240, flexShrink: 0, background: 'rgba(255,255,255,0.08)', borderRadius: 16,
+                overflow: 'hidden', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.1)',
+                backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
               }}>
                 <div style={{
                   height: 100, background: r.banner_url ? `url(${r.banner_url}) center/cover` : 'linear-gradient(135deg, var(--c-primary-light), var(--c-primary-soft))',
@@ -156,7 +157,7 @@ export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
                     width: 42, height: 42, borderRadius: 11, border: '3px solid #fff',
                     boxShadow: '0 2px 8px rgba(0,0,0,0.12)', overflow: 'hidden',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: 'var(--c-surface)', fontSize: 18,
+                    background: 'rgba(255,255,255,0.1)', fontSize: 18,
                     position: 'absolute', top: -21, left: 12,
                   }}>
                     {r.logo_url ? <img src={r.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '🍽️'}
@@ -210,8 +211,9 @@ export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
         const isFav = favoritos.includes(r.id)
         return (
           <div key={r.id} onClick={() => onOpenRest(r)} style={{
-            background: 'var(--c-surface)', borderRadius: 16, overflow: 'hidden',
-            marginBottom: 14, cursor: 'pointer', border: '1px solid var(--c-border)',
+            background: 'rgba(255,255,255,0.06)', borderRadius: 16, overflow: 'hidden',
+            marginBottom: 14, cursor: 'pointer', border: '1px solid rgba(255,255,255,0.1)',
+            backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
           }}>
             {/* Banner sin logo */}
             <div style={{
@@ -226,7 +228,7 @@ export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
               </div>
               <button onClick={e => { e.stopPropagation(); toggleFav(r.id) }} style={{
                 position: 'absolute', top: 8, right: 8,
-                width: 32, height: 32, borderRadius: 10, background: 'rgba(255,255,255,0.9)',
+                width: 32, height: 32, borderRadius: 10, background: 'rgba(0,0,0,0.5)',
                 border: 'none', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
                 backdropFilter: 'blur(4px)',
               }}>
@@ -239,7 +241,7 @@ export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
                 width: 52, height: 52, borderRadius: 14, border: '3px solid #fff',
                 boxShadow: '0 2px 10px rgba(0,0,0,0.12)', overflow: 'hidden',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: 'var(--c-surface)', fontSize: 24,
+                background: 'rgba(255,255,255,0.12)', fontSize: 24,
                 position: 'absolute', top: -26, left: 16,
               }}>
                 {r.logo_url ? <img src={r.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '🍽️'}
@@ -260,7 +262,7 @@ export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
                   {ridersActivos[r.id] && (
                     <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 50, background: 'var(--c-primary-light)', color: 'var(--c-primary)', backdropFilter: 'blur(4px)' }}>Delivery</span>
                   )}
-                  <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 50, background: 'var(--c-surface2)', color: 'var(--c-muted)' }}>Recogida</span>
+                  <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 50, background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)' }}>Recogida</span>
                 </div>
               </div>
             </div>

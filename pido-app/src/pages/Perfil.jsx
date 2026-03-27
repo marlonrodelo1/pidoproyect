@@ -52,7 +52,7 @@ export default function Perfil() {
   const inputStyle = {
     width: '100%', padding: '12px 14px 12px 40px', borderRadius: 10,
     border: '1px solid var(--c-border)', fontSize: 14, fontFamily: 'inherit',
-    background: 'var(--c-surface)', color: 'var(--c-text)', outline: 'none',
+    background: 'rgba(255,255,255,0.06)', color: 'var(--c-text)', outline: 'none',
     boxSizing: 'border-box',
   }
   const iconInput = { position: 'absolute', left: 12, top: 13, color: 'var(--c-muted)' }
@@ -72,7 +72,7 @@ export default function Perfil() {
         {subSeccion === 'direcciones' && (
           <>
             <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 16 }}>Mis direcciones</h2>
-            <div style={{ background: 'var(--c-surface)', borderRadius: 14, border: '1px solid var(--c-border)', padding: 16 }}>
+            <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 14, border: '1px solid var(--c-border)', padding: 16 }}>
               <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-muted)', marginBottom: 6, display: 'block' }}>
                 Dirección de entrega
               </label>
@@ -97,7 +97,7 @@ export default function Perfil() {
           <>
             <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 16 }}>Métodos de pago</h2>
             <div style={{
-              background: 'var(--c-surface)', borderRadius: 14, border: '1px solid var(--c-border)',
+              background: 'rgba(255,255,255,0.06)', borderRadius: 14, border: '1px solid var(--c-border)',
               padding: 24, textAlign: 'center',
             }}>
               <CreditCard size={32} strokeWidth={1.5} color="var(--c-muted)" style={{ marginBottom: 12 }} />
@@ -115,7 +115,7 @@ export default function Perfil() {
           <>
             <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 16 }}>Promociones</h2>
             <div style={{
-              background: 'var(--c-surface)', borderRadius: 14, border: '1px solid var(--c-border)',
+              background: 'rgba(255,255,255,0.06)', borderRadius: 14, border: '1px solid var(--c-border)',
               padding: 24, textAlign: 'center',
             }}>
               <Tag size={32} strokeWidth={1.5} color="var(--c-muted)" style={{ marginBottom: 12 }} />
@@ -132,7 +132,7 @@ export default function Perfil() {
         {subSeccion === 'config' && (
           <>
             <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 16 }}>Configuración</h2>
-            <div style={{ background: 'var(--c-surface)', borderRadius: 14, border: '1px solid var(--c-border)' }}>
+            <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 14, border: '1px solid var(--c-border)' }}>
               {[
                 { label: 'Notificaciones', desc: 'Activadas' },
                 { label: 'Idioma', desc: 'Español' },
@@ -152,7 +152,7 @@ export default function Perfil() {
         {subSeccion === 'ayuda' && (
           <>
             <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 16 }}>Ayuda</h2>
-            <div style={{ background: 'var(--c-surface)', borderRadius: 14, border: '1px solid var(--c-border)' }}>
+            <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 14, border: '1px solid var(--c-border)' }}>
               {[
                 { q: '¿Cómo hago un pedido?', a: 'Elige un restaurante, añade productos al carrito y confirma tu pedido.' },
                 { q: '¿Cómo contacto con soporte?', a: 'Escríbenos a soporte@pidoo.es' },
@@ -194,7 +194,7 @@ export default function Perfil() {
           </div>
           <button onClick={() => setEditando(true)} style={{
             position: 'absolute', bottom: -4, right: -4, width: 28, height: 28,
-            borderRadius: 10, background: 'var(--c-surface)', border: '2px solid var(--c-border)',
+            borderRadius: 10, background: 'rgba(255,255,255,0.06)', border: '2px solid var(--c-border)',
             cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
             <Camera size={13} strokeWidth={2} color="var(--c-primary)" />
@@ -212,7 +212,7 @@ export default function Perfil() {
           setEditando(true)
         }} style={{
           marginTop: 10, padding: '6px 16px', borderRadius: 8, border: '1px solid var(--c-border)',
-          background: 'var(--c-surface)', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+          background: 'rgba(255,255,255,0.06)', fontSize: 12, fontWeight: 700, cursor: 'pointer',
           fontFamily: 'inherit', color: 'var(--c-primary)',
         }}>
           Editar perfil
@@ -220,7 +220,7 @@ export default function Perfil() {
       </div>
 
       {/* Menu */}
-      <div style={{ background: 'var(--c-surface)', borderRadius: 14, border: '1px solid var(--c-border)' }}>
+      <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 14, border: '1px solid var(--c-border)' }}>
         {menuItems.map((item, i) => (
           <button key={i} onClick={item.action} style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -257,14 +257,14 @@ export default function Perfil() {
           display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
         }} onClick={e => e.target === e.currentTarget && setEditando(false)}>
           <div style={{
-            width: '100%', maxWidth: 420, background: 'var(--c-surface)',
+            width: '100%', maxWidth: 420, background: 'rgba(255,255,255,0.06)',
             borderRadius: '20px 20px 0 0', padding: 24,
             animation: 'slideUp 0.3s ease',
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <h3 style={{ fontSize: 18, fontWeight: 800 }}>Editar perfil</h3>
               <button onClick={() => setEditando(false)} style={{
-                width: 32, height: 32, borderRadius: 10, background: 'var(--c-surface2)',
+                width: 32, height: 32, borderRadius: 10, background: 'rgba(255,255,255,0.08)',
                 border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
                 <X size={16} strokeWidth={2} />

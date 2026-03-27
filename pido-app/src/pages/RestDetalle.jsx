@@ -219,7 +219,7 @@ export default function RestDetalle({ establecimiento, onBack }) {
 
             {/* Cantidad */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20, marginBottom: 16 }}>
-              <button onClick={() => setCant(Math.max(1, cant - 1))} style={{ width: 38, height: 38, borderRadius: 10, border: '1px solid var(--c-border)', background: 'var(--c-surface)', fontSize: 18, cursor: 'pointer', fontFamily: 'inherit', color: 'var(--c-text)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+              <button onClick={() => setCant(Math.max(1, cant - 1))} style={{ width: 38, height: 38, borderRadius: 10, border: '1px solid var(--c-border)', background: 'rgba(255,255,255,0.08)', fontSize: 18, cursor: 'pointer', fontFamily: 'inherit', color: 'var(--c-text)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
               <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--c-text)' }}>{cant}</span>
               <button onClick={() => setCant(cant + 1)} style={{ width: 38, height: 38, borderRadius: 10, border: 'none', background: 'var(--c-primary)', color: '#fff', fontSize: 18, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
             </div>

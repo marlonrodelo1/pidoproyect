@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 
 const CATS = [
-  { id: 'comida', nombre: 'Comida', emoji: '🍕', desc: 'Restaurantes y cafeterías', color: '#FF6B2C', bg: 'linear-gradient(135deg, #FFF3ED 0%, #FFE0CC 100%)' },
-  { id: 'farmacia', nombre: 'Farmacia', emoji: '💊', desc: 'Medicamentos e higiene', color: '#16A34A', bg: 'linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%)' },
-  { id: 'marketplace', nombre: 'Marketplace', emoji: '🛒', desc: 'Minimarkets y tiendas', color: '#2563EB', bg: 'linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)' },
+  { id: 'comida', nombre: 'Comida', emoji: '🍕', desc: 'Restaurantes y cafeterías', color: '#FF6B2C', bg: 'rgba(255,107,44,0.1)' },
+  { id: 'farmacia', nombre: 'Farmacia', emoji: '💊', desc: 'Medicamentos e higiene', color: '#16A34A', bg: 'rgba(22,163,74,0.1)' },
+  { id: 'marketplace', nombre: 'Marketplace', emoji: '🛒', desc: 'Minimarkets y tiendas', color: '#2563EB', bg: 'rgba(37,99,235,0.1)' },
 ]
 
 const ANIMATIONS = `
@@ -79,7 +79,7 @@ export default function Onboarding({ onComplete }) {
               opacity: 0,
             }}>
             <div style={{
-              width: 60, height: 60, borderRadius: 18, background: '#fff',
+              width: 60, height: 60, borderRadius: 18, background: 'rgba(255,255,255,0.1)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 30, boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
               animation: hovered === c.id ? 'emojiBounce 0.4s ease' : 'none', flexShrink: 0,
@@ -90,7 +90,7 @@ export default function Onboarding({ onComplete }) {
             </div>
             <div style={{
               width: 36, height: 36, borderRadius: 10,
-              background: hovered === c.id ? c.color : 'rgba(0,0,0,0.04)',
+              background: hovered === c.id ? c.color : 'rgba(255,255,255,0.06)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               transition: 'all 0.25s ease', flexShrink: 0,
             }}>

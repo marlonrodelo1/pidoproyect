@@ -2,5 +2,5 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 ::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 3px; }
-body { background: #F3F4F6; margin: 0; font-family: 'DM Sans', sans-serif; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+body { background: #0D0D0D; margin: 0; font-family: 'DM Sans', sans-serif; color: #F5F5F5; }

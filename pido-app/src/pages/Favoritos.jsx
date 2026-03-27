@@ -45,7 +45,7 @@ export default function Favoritos({ onOpenRest }) {
       )}
       {restaurantes.map(r => (
         <div key={r.id} onClick={() => onOpenRest(r)} style={{
-          background: 'var(--c-surface)', borderRadius: 14, padding: '14px 16px',
+          background: 'rgba(255,255,255,0.08)', borderRadius: 14, padding: '14px 16px',
           border: '1px solid var(--c-border)', marginBottom: 10, cursor: 'pointer',
           display: 'flex', alignItems: 'center', gap: 12,
         }}>

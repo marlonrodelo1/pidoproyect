@@ -1,51 +1,55 @@
-// Design System PIDO
+// Design System PIDO - Dark Theme
 // Paleta unica - solo estos colores en toda la app
 
 export const colors = {
   // Principal
   primary: '#FF6B2C',
-  primaryLight: '#FFF3ED',
-  primarySoft: '#FFD6C0',
+  primaryLight: 'rgba(255,107,44,0.15)',
+  primarySoft: 'rgba(255,107,44,0.25)',
 
-  // Neutros
-  bg: '#FAFAF8',
-  surface: '#FFFFFF',
-  surface2: '#F3F2EF',
-  border: '#E8E6E1',
-  text: '#1A1A18',
-  textSecondary: '#6B6966',
-  muted: '#8C8A85',
+  // Neutros (Dark)
+  bg: '#0D0D0D',
+  surface: 'rgba(255,255,255,0.08)',
+  surface2: 'rgba(255,255,255,0.05)',
+  border: 'rgba(255,255,255,0.1)',
+  text: '#F5F5F5',
+  textSecondary: 'rgba(255,255,255,0.6)',
+  muted: 'rgba(255,255,255,0.45)',
+
+  // Glass
+  glass: 'rgba(255,255,255,0.06)',
+  glassBorder: 'rgba(255,255,255,0.12)',
 
   // Estados (solo estos 2)
   success: '#22C55E',
-  successLight: '#F0FDF4',
+  successLight: 'rgba(34,197,94,0.15)',
   error: '#EF4444',
-  errorLight: '#FEF2F2',
+  errorLight: 'rgba(239,68,68,0.15)',
 }
 
 // Badge styles unificados
 export const badge = (type) => {
   const map = {
     tarjeta: { bg: colors.primaryLight, color: colors.primary },
-    efectivo: { bg: colors.successLight, color: '#166534' },
+    efectivo: { bg: colors.successLight, color: colors.success },
     pido: { bg: colors.primaryLight, color: colors.primary },
-    pidogo: { bg: colors.successLight, color: '#166534' },
-    activo: { bg: colors.successLight, color: '#166534' },
+    pidogo: { bg: colors.successLight, color: colors.success },
+    activo: { bg: colors.successLight, color: colors.success },
     inactivo: { bg: colors.errorLight, color: colors.error },
     nuevo: { bg: colors.primaryLight, color: colors.primary },
     aceptado: { bg: colors.primaryLight, color: colors.primary },
     preparando: { bg: colors.primaryLight, color: colors.primary },
     listo: { bg: colors.primaryLight, color: colors.primary },
     en_camino: { bg: colors.primaryLight, color: colors.primary },
-    entregado: { bg: colors.successLight, color: '#166534' },
+    entregado: { bg: colors.successLight, color: colors.success },
     cancelado: { bg: colors.errorLight, color: colors.error },
     fallido: { bg: colors.errorLight, color: colors.error },
-    recogida: { bg: colors.surface2, color: colors.textSecondary },
+    recogida: { bg: colors.surface, color: colors.muted },
     reparto: { bg: colors.primaryLight, color: colors.primary },
-    pendiente: { bg: colors.surface2, color: colors.muted },
-    pagado: { bg: colors.successLight, color: '#166534' },
+    pendiente: { bg: colors.surface, color: colors.muted },
+    pagado: { bg: colors.successLight, color: colors.success },
   }
-  const style = map[type] || { bg: colors.surface2, color: colors.muted }
+  const style = map[type] || { bg: colors.surface, color: colors.muted }
   return {
     background: style.bg, color: style.color,
     fontSize: 10, fontWeight: 700, padding: '3px 10px',
