@@ -172,6 +172,27 @@ export default function EnVivo() {
   ]
   const etapaIdx = etapa ? etapas.findIndex(e => e.id === etapa) : -1
 
+  // Pedidos pendientes de aceptar por este rider
+  const pendientes = pedidos.filter(p => p.rider_estado === 'pendiente' && p.socio_id === socio?.id)
+  const enProgreso = pedidos.filter(p => p.rider_estado === 'aceptado' && ['preparando', 'listo', 'recogido', 'en_camino'].includes(p.estado))
+
+  // Countdown para pedidos pendientes (debe estar antes de cualquier return condicional)
+  useEffect(() => {
+    if (pendientes.length === 0) { stopAlarm(); return }
+    const interval = setInterval(() => {
+      const now = Date.now()
+      const cd = {}
+      pendientes.forEach(p => {
+        const asignado = new Date(p.rider_asignado_at).getTime()
+        const restante = Math.max(0, 120 - Math.floor((now - asignado) / 1000))
+        cd[p.id] = restante
+        if (restante <= 0) rechazarPedido(p)
+      })
+      setCountdowns(cd)
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [pendientes.length])
+
   // Pedido activo
   if (pedidoActivo) {
     const irAlRestaurante = etapa === 'ir_recoger'
@@ -282,28 +303,6 @@ export default function EnVivo() {
     )
   }
 
-  // Pedidos pendientes de aceptar por este rider (rider_estado = 'pendiente')
-  const pendientes = pedidos.filter(p => p.rider_estado === 'pendiente' && p.socio_id === socio.id)
-  // Pedidos aceptados por este rider
-  const enProgreso = pedidos.filter(p => p.rider_estado === 'aceptado' && ['preparando', 'listo', 'recogido', 'en_camino'].includes(p.estado))
-  // Countdown para pedidos pendientes
-
-  useEffect(() => {
-    if (pendientes.length === 0) { stopAlarm(); return }
-    const interval = setInterval(() => {
-      const now = Date.now()
-      const cd = {}
-      pendientes.forEach(p => {
-        const asignado = new Date(p.rider_asignado_at).getTime()
-        const restante = Math.max(0, 120 - Math.floor((now - asignado) / 1000))
-        cd[p.id] = restante
-        // Auto-rechazar si se acabó el tiempo
-        if (restante <= 0) rechazarPedido(p)
-      })
-      setCountdowns(cd)
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [pendientes.length])
 
   return (
     <div>
