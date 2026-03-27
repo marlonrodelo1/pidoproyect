@@ -31,6 +31,7 @@ export default function EnVivo() {
   const [items, setItems] = useState([])
   const [etapa, setEtapa] = useState(null)
   const [cliente, setCliente] = useState(null)
+  const [countdowns, setCountdowns] = useState({})
 
   // Tracking de posicion del socio cada 10s
   useEffect(() => {
@@ -286,7 +287,6 @@ export default function EnVivo() {
   // Pedidos aceptados por este rider
   const enProgreso = pedidos.filter(p => p.rider_estado === 'aceptado' && ['preparando', 'listo', 'recogido', 'en_camino'].includes(p.estado))
   // Countdown para pedidos pendientes
-  const [countdowns, setCountdowns] = useState({})
 
   useEffect(() => {
     if (pendientes.length === 0) { stopAlarm(); return }
