@@ -10,6 +10,7 @@ import Pedidos from './pages/Pedidos'
 import SoporteAdmin from './pages/SoporteAdmin'
 import Finanzas from './pages/Finanzas'
 import Configuracion from './pages/Configuracion'
+import Notificaciones from './pages/Notificaciones'
 import MapaAdmin from './pages/MapaAdmin'
 import './index.css'
 
@@ -37,6 +38,7 @@ function AppContent() {
         {seccion === 'usuarios' && <Usuarios />}
         {seccion === 'pedidos' && <Pedidos />}
         {seccion === 'mapa' && <MapaAdmin />}
+        {seccion === 'notificaciones' && <Notificaciones />}
         {seccion === 'soporte' && <SoporteAdmin />}
         {seccion === 'finanzas' && <Finanzas />}
         {seccion === 'config' && <Configuracion />}

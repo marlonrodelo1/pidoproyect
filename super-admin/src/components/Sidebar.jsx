@@ -1,4 +1,4 @@
-import { LayoutGrid, Store, Users, User, ClipboardList, MessageCircle, DollarSign, Settings, LogOut, Map } from 'lucide-react'
+import { LayoutGrid, Store, Users, User, ClipboardList, MessageCircle, DollarSign, Settings, LogOut, Map, Bell } from 'lucide-react'
 
 const menuItems = [
   { id: 'dashboard', label: 'Dashboard', Icon: LayoutGrid },
@@ -7,6 +7,7 @@ const menuItems = [
   { id: 'usuarios', label: 'Usuarios', Icon: User },
   { id: 'pedidos', label: 'Pedidos', Icon: ClipboardList },
   { id: 'mapa', label: 'Mapa en vivo', Icon: Map },
+  { id: 'notificaciones', label: 'Notificaciones', Icon: Bell },
   { id: 'soporte', label: 'Soporte', Icon: MessageCircle },
   { id: 'finanzas', label: 'Finanzas', Icon: DollarSign },
   { id: 'config', label: 'Configuracion', Icon: Settings },
