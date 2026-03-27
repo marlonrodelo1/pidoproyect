@@ -16,7 +16,7 @@ const CATEGORIAS_EMOJI = [
 ]
 
 export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
-  const { perfil } = useAuth()
+  const { perfil, updatePerfil } = useAuth()
   const [establecimientos, setEstablecimientos] = useState([])
   const [ridersActivos, setRidersActivos] = useState({}) // {establecimiento_id: true/false}
   const [busqueda, setBusqueda] = useState('')
@@ -91,7 +91,7 @@ export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
     setFavoritos(newFavs)
 
     if (perfil) {
-      await supabase.from('usuarios').update({ favoritos: newFavs }).eq('id', perfil.id)
+      await updatePerfil({ favoritos: newFavs })
     }
   }
 
