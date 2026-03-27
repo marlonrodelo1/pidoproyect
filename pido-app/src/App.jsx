@@ -56,7 +56,7 @@ function AppContent() {
   const catLabel = categoriaPadre === 'comida' ? 'Comida' : categoriaPadre === 'farmacia' ? 'Farmacia' : 'Market'
 
   return (
-    <div style={{ ...shellStyle, minHeight: '100vh', position: 'relative', paddingBottom: 80 }}>
+    <div style={{ ...shellStyle, minHeight: '100vh', position: 'relative', paddingBottom: 90 }}>
       <style>{globalCss}</style>
 
       {/* Header */}
