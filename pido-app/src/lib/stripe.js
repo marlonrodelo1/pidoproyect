@@ -1,29 +1,29 @@
-import { supabase } from './supabase'
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 export async function crearPagoStripe({ amount, pedidoCodigo, customerEmail }) {
-  const { data, error } = await supabase.functions.invoke('crear_pago_stripe', {
-    body: {
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/crear_pago_stripe`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'apikey': SUPABASE_ANON_KEY,
+    },
+    body: JSON.stringify({
       amount,
       currency: 'eur',
       pedido_codigo: pedidoCodigo,
       customer_email: customerEmail,
-    },
+    }),
   })
 
-  if (error) {
-    // Extraer mensaje útil del error
-    const msg = error.message || 'Error al conectar con pagos'
-    if (msg.includes('STRIPE_SECRET_KEY')) {
-      throw new Error('El sistema de pagos no está configurado. Contacta con soporte.')
-    }
-    throw new Error(msg)
+  const data = await res.json()
+
+  if (!res.ok) {
+    throw new Error(data.error || 'Error al procesar el pago')
   }
 
-  if (data?.error) {
-    throw new Error(data.error)
-  }
-
-  if (!data?.clientSecret) {
+  if (!data.clientSecret) {
     throw new Error('No se recibió respuesta del sistema de pagos')
   }
 
