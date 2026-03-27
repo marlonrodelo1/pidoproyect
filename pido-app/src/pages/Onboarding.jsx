@@ -17,6 +17,8 @@ const ANIMATIONS = `
 @keyframes cardIn2{from{opacity:0;transform:translateX(40px) scale(0.9)}to{opacity:1;transform:translateX(0) scale(1)}}
 @keyframes emojiBounce{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
 @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes wave{0%{transform:rotate(0deg)}10%{transform:rotate(14deg)}20%{transform:rotate(-8deg)}30%{transform:rotate(14deg)}40%{transform:rotate(-4deg)}50%{transform:rotate(10deg)}60%{transform:rotate(0deg)}100%{transform:rotate(0deg)}}
+@keyframes flagWave{0%,100%{clip-path:polygon(0 0,100% 2%,98% 100%,0 98%)}25%{clip-path:polygon(0 2%,100% 0,100% 98%,0 100%)}50%{clip-path:polygon(0 0,98% 0,100% 100%,2% 98%)}75%{clip-path:polygon(2% 0,100% 2%,98% 100%,0 100%)}}
 `
 
 const EMOJIS = ['🍕','🍔','🍣','💊','🛒','🥤','🍰','🫓','☕']
@@ -59,8 +61,32 @@ export default function Onboarding({ onComplete }) {
       }}>¿Qué necesitas hoy?</p>
       <p style={{
         fontSize: 13, color: 'var(--c-muted)', textAlign: 'center',
-        animation: ready ? 'textIn 0.5s ease 0.35s both' : 'none', opacity: 0, marginBottom: 36,
+        animation: ready ? 'textIn 0.5s ease 0.35s both' : 'none', opacity: 0, marginBottom: 16,
       }}>Elige y te llevamos lo que quieras</p>
+
+      {/* Bandera de Canarias ondeándose */}
+      <div style={{
+        animation: ready ? 'textIn 0.5s ease 0.45s both' : 'none', opacity: 0, marginBottom: 24,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+      }}>
+        <div style={{
+          display: 'inline-flex', animation: 'wave 2.5s ease-in-out infinite',
+          transformOrigin: '0% 50%',
+        }}>
+          <svg width="48" height="32" viewBox="0 0 48 32" style={{ animation: 'flagWave 3s ease-in-out infinite', filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.3))' }}>
+            {/* Franja blanca */}
+            <rect x="0" y="0" width="16" height="32" fill="#FFFFFF"/>
+            {/* Franja azul */}
+            <rect x="16" y="0" width="16" height="32" fill="#004EA8"/>
+            {/* Franja amarilla */}
+            <rect x="32" y="0" width="16" height="32" fill="#FECB00"/>
+            {/* Escudo simplificado */}
+            <circle cx="24" cy="16" r="5" fill="#004EA8" stroke="#FECB00" strokeWidth="1"/>
+            <text x="24" y="18.5" textAnchor="middle" fontSize="6" fill="#FECB00" fontWeight="bold">IC</text>
+          </svg>
+        </div>
+        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', fontWeight: 600, letterSpacing: 1 }}>HECHO EN CANARIAS</span>
+      </div>
 
       {/* Tarjetas */}
       <div style={{ width: '100%', maxWidth: 340, display: 'flex', flexDirection: 'column', gap: 16, position: 'relative', zIndex: 1 }}>
