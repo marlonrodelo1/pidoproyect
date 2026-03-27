@@ -144,19 +144,11 @@ export default function Carrito({ onPedidoCreado }) {
     setLoading(true)
     try {
       const codigo = codOverride || codigoPedido || `PD-${Date.now()}`
-      let socioAsignado = null
-      if (modoEntrega === 'delivery') {
-        const estId = carrito[0].establecimiento_id
-        const { data: relaciones } = await supabase.from('socio_establecimiento').select('socio_id').eq('establecimiento_id', estId).eq('estado', 'aceptado')
-        if (relaciones && relaciones.length > 0) {
-          const socioIds = relaciones.map(r => r.socio_id)
-          const { data: sociosActivos } = await supabase.from('socios').select('id').in('id', socioIds).eq('activo', true).eq('en_servicio', true).limit(1)
-          if (sociosActivos && sociosActivos.length > 0) socioAsignado = sociosActivos[0].id
-        }
-      }
+      // El socio se asigna cuando el restaurante acepta el pedido, no al crear
       const { data: pedido, error: pedidoError } = await supabase.from('pedidos').insert({
         codigo, usuario_id: user?.id || null, establecimiento_id: carrito[0].establecimiento_id,
-        socio_id: socioAsignado, canal: 'pido', estado: 'nuevo', metodo_pago: metodoPago,
+        socio_id: null, canal: 'pido', estado: 'nuevo', metodo_pago: metodoPago,
+        modo_entrega: modoEntrega,
         stripe_payment_id: stripePaymentId, subtotal, coste_envio: envio, propina, total, notas: '',
       }).select().single()
       if (pedidoError) throw pedidoError

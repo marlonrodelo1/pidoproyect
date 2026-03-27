@@ -92,18 +92,40 @@ export default function PedidosEnVivo() {
   }
 
   async function aceptarPedido(pedido, minutos) {
-    await supabase.from('pedidos').update({ estado: 'preparando', minutos_preparacion: minutos, aceptado_at: new Date().toISOString() }).eq('id', pedido.id)
+    // Buscar socio/rider más cercano disponible
+    let socioAsignado = null
+    const { data: relaciones } = await supabase
+      .from('socio_establecimiento').select('socio_id')
+      .eq('establecimiento_id', restaurante.id).eq('estado', 'aceptado')
+
+    if (relaciones && relaciones.length > 0) {
+      const socioIds = relaciones.map(r => r.socio_id)
+      const { data: sociosActivos } = await supabase
+        .from('socios').select('id, nombre')
+        .in('id', socioIds).eq('activo', true).eq('en_servicio', true).limit(1)
+      if (sociosActivos && sociosActivos.length > 0) {
+        socioAsignado = sociosActivos[0].id
+      }
+    }
+
+    await supabase.from('pedidos').update({
+      estado: 'preparando', minutos_preparacion: minutos,
+      aceptado_at: new Date().toISOString(),
+      socio_id: socioAsignado,
+    }).eq('id', pedido.id)
+
     setEntrantes(prev => {
       const remaining = prev.filter(p => p.id !== pedido.id)
       if (remaining.length === 0) stopAlarm()
       return remaining
     })
-    setActivos(prev => [{ ...pedido, estado: 'preparando', minutos_preparacion: minutos }, ...prev])
+    setActivos(prev => [{ ...pedido, estado: 'preparando', minutos_preparacion: minutos, socio_id: socioAsignado }, ...prev])
     setTimers(prev => { const n = { ...prev }; delete n[pedido.id]; return n })
+
     // Notificar al cliente
     if (pedido.usuario_id) sendPush({ targetType: 'cliente', targetId: pedido.usuario_id, title: 'Pedido aceptado', body: `Tu pedido ${pedido.codigo} está siendo preparado (~${minutos} min)` })
-    // Notificar al socio/rider
-    if (pedido.socio_id) sendPush({ targetType: 'socio', targetId: pedido.socio_id, title: 'Nuevo pedido asignado', body: `Pedido ${pedido.codigo} en preparación` })
+    // Notificar al socio/rider asignado
+    if (socioAsignado) sendPush({ targetType: 'socio', targetId: socioAsignado, title: 'Nuevo pedido asignado', body: `Pedido ${pedido.codigo} - ${pedido.total?.toFixed(2)} € · Preparación ~${minutos} min` })
   }
 
   async function rechazarPedido(id) {
