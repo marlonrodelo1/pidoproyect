@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { registerWebPush } from '../lib/webPush'
+import { registerPushNotifications } from '../lib/pushNotifications'
 
 const RestContext = createContext({})
 
@@ -38,7 +39,10 @@ export function RestProvider({ children }) {
         .eq('email', email)
         .single()
       setRestaurante(data)
-      if (data) registerWebPush('restaurante', { establecimiento_id: data.id })
+      if (data) {
+        registerWebPush('restaurante', { establecimiento_id: data.id })
+        registerPushNotifications('restaurante', { establecimiento_id: data.id })
+      }
     }
     setLoading(false)
   }

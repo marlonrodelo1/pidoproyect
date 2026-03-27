@@ -1,55 +1,56 @@
 import { PushNotifications } from '@capacitor/push-notifications'
 import { Capacitor } from '@capacitor/core'
+import { supabase } from './supabase'
 
 /**
- * Registra el dispositivo para recibir push notifications (Firebase).
- * Devuelve el token FCM para guardarlo en el backend.
+ * Registra push notifications nativas (FCM/APNs via Capacitor).
+ * Guarda el token en Supabase para enviar push desde el servidor.
+ * @param {string} userType - 'cliente' | 'restaurante' | 'socio'
+ * @param {object} ids - { user_id, establecimiento_id, socio_id }
+ * @param {function} onNotification - callback cuando llega una notificación
  */
-export async function registerPushNotifications(onNotification) {
-  if (!Capacitor.isNativePlatform()) {
-    console.log('Push notifications solo disponibles en nativo')
-    return null
-  }
+export async function registerPushNotifications(userType, ids = {}, onNotification) {
+  if (!Capacitor.isNativePlatform()) return null
 
-  // Solicitar permiso
   const perm = await PushNotifications.requestPermissions()
-  if (perm.receive !== 'granted') {
-    console.warn('Permiso de notificaciones denegado')
-    return null
-  }
+  if (perm.receive !== 'granted') return null
 
-  // Registrar
   await PushNotifications.register()
 
-  // Listener para obtener el token
-  let token = null
-  PushNotifications.addListener('registration', (t) => {
-    token = t.value
-    console.log('FCM Token:', token)
+  // Obtener token FCM y guardarlo en DB
+  PushNotifications.addListener('registration', async (t) => {
+    const fcmToken = t.value
+    console.log('FCM Token:', fcmToken)
+
+    // Guardar en push_subscriptions
+    await supabase.from('push_subscriptions').upsert({
+      endpoint: `fcm:${fcmToken}`,
+      p256dh: '',
+      auth: '',
+      fcm_token: fcmToken,
+      user_type: userType,
+      user_id: ids.user_id || null,
+      establecimiento_id: ids.establecimiento_id || null,
+      socio_id: ids.socio_id || null,
+    }, { onConflict: 'endpoint' })
   })
 
   PushNotifications.addListener('registrationError', (err) => {
     console.error('Error registrando push:', err)
   })
 
-  // Listener para notificaciones recibidas (app en primer plano)
+  // Notificación recibida en primer plano
   PushNotifications.addListener('pushNotificationReceived', (notification) => {
     console.log('Push recibida:', notification)
     if (onNotification) onNotification(notification)
   })
 
-  // Listener para cuando el usuario toca la notificación
+  // Usuario toca la notificación
   PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
-    console.log('Push action:', action)
     if (onNotification) onNotification(action.notification, true)
   })
-
-  return token
 }
 
-/**
- * Elimina todos los listeners de push notifications.
- */
 export async function unregisterPushNotifications() {
   if (!Capacitor.isNativePlatform()) return
   await PushNotifications.removeAllListeners()
