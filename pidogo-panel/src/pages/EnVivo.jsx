@@ -66,12 +66,14 @@ export default function EnVivo() {
       }, payload => {
         if (payload.eventType === 'INSERT') {
           setPedidos(prev => [payload.new, ...prev])
-          startAlarm()
+          if (payload.new.rider_estado === 'pendiente') startAlarm()
         } else if (payload.eventType === 'UPDATE') {
           setPedidos(prev => prev.map(p => p.id === payload.new.id ? payload.new : p))
           if (pedidoActivo && payload.new.id === pedidoActivo.id) {
             setPedidoActivo(prev => ({ ...prev, ...payload.new }))
           }
+          // Sonar alarma si un pedido pasa a pendiente (restaurante aceptó y nos asignó)
+          if (payload.new.rider_estado === 'pendiente' && payload.new.socio_id === socio.id) startAlarm()
         }
       })
       .subscribe()
@@ -87,6 +89,10 @@ export default function EnVivo() {
       .in('estado', ['nuevo', 'aceptado', 'preparando', 'listo', 'recogido', 'en_camino'])
       .order('created_at', { ascending: false })
     setPedidos(data || [])
+    // Si hay pedidos pendientes de aceptar, sonar alarma
+    if ((data || []).some(p => p.rider_estado === 'pendiente' && p.socio_id === socio.id)) {
+      startAlarm()
+    }
   }
 
   async function loadCliente(usuarioId) {
@@ -283,7 +289,7 @@ export default function EnVivo() {
   const [countdowns, setCountdowns] = useState({})
 
   useEffect(() => {
-    if (pendientes.length === 0) return
+    if (pendientes.length === 0) { stopAlarm(); return }
     const interval = setInterval(() => {
       const now = Date.now()
       const cd = {}
