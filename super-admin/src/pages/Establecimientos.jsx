@@ -163,7 +163,7 @@ export default function Establecimientos() {
           }} onClick={() => bannerRef.current?.click()}>
             <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: 0, transition: '0.2s' }}
               onMouseEnter={e => e.currentTarget.style.opacity = 1} onMouseLeave={e => e.currentTarget.style.opacity = 0}>
-              <Upload size={16} color="#fff" /><span style={{ color: '#fff', fontSize: 12, fontWeight: 600 }}>{uploading === 'banner_url' ? 'Subiendo...' : 'Cambiar banner'}</span>
+              <Upload size={16} color="#fff" /><span style={{ color: '#fff', fontSize: 12, fontWeight: 600 }}>{uploading === 'banner_url' ? 'Subiendo...' : 'Cambiar banner (800x300 px)'}</span>
             </div>
             <input ref={bannerRef} type="file" accept="image/*" hidden onChange={e => handleUpload(e.target.files[0], 'banner_url')} />
           </div>
@@ -313,13 +313,13 @@ export default function Establecimientos() {
               <div><label style={ds.label}>Radio (km)</label><input type="number" value={form.radio_cobertura_km} onChange={e => setForm({ ...form, radio_cobertura_km: +e.target.value })} style={ds.formInput} /></div>
               <div><label style={ds.label}>Logo</label>
                 <label style={{ ...ds.formInput, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-                  <Upload size={14} /> {form.logo_url ? 'Logo subido ✓' : 'Subir logo...'}
+                  <Upload size={14} /> {form.logo_url ? 'Logo subido ✓' : 'Subir logo (200x200 px)'}
                   <input type="file" accept="image/*" hidden onChange={e => handleUpload(e.target.files[0], 'logo_url')} />
                 </label>
               </div>
               <div style={{ gridColumn: '1/-1' }}><label style={ds.label}>Banner</label>
                 <label style={{ ...ds.formInput, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-                  <Upload size={14} /> {form.banner_url ? 'Banner subido ✓' : 'Subir banner...'}
+                  <Upload size={14} /> {form.banner_url ? 'Banner subido ✓' : 'Subir banner (800x300 px)'}
                   <input type="file" accept="image/*" hidden onChange={e => handleUpload(e.target.files[0], 'banner_url')} />
                 </label>
               </div>

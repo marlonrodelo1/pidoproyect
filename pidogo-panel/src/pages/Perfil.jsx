@@ -47,10 +47,10 @@ export default function Perfil() {
       <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 20px' }}>Mi perfil</h2>
 
       {/* Estado servicio */}
-      <div style={{ background: enServicio ? '#DCFCE7' : '#FEF3C7', borderRadius: 14, padding: '16px 18px', marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ background: enServicio ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)', borderRadius: 14, padding: '16px 18px', marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <div style={{ fontWeight: 700, fontSize: 14, color: enServicio ? '#166534' : '#92400E' }}>{enServicio ? 'En servicio' : 'Fuera de servicio'}</div>
-          <div style={{ fontSize: 12, color: enServicio ? '#15803D' : '#A16207', marginTop: 2 }}>{enServicio ? 'Estás recibiendo pedidos' : 'No recibirás pedidos'}</div>
+          <div style={{ fontWeight: 700, fontSize: 14, color: enServicio ? '#4ADE80' : '#FBBF24' }}>{enServicio ? 'En servicio' : 'Fuera de servicio'}</div>
+          <div style={{ fontSize: 12, color: enServicio ? '#22C55E' : '#F59E0B', marginTop: 2 }}>{enServicio ? 'Estás recibiendo pedidos' : 'No recibirás pedidos'}</div>
         </div>
         <button onClick={toggleServicio} style={{ width: 52, height: 28, borderRadius: 14, border: 'none', background: enServicio ? '#16A34A' : '#D1D5DB', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}>
           <span style={{ position: 'absolute', top: 3, left: enServicio ? 27 : 3, width: 22, height: 22, borderRadius: 11, background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
@@ -152,7 +152,7 @@ export default function Perfil() {
       </div>
 
       {/* Cerrar sesión */}
-      <button onClick={logout} style={{ width: '100%', padding: '14px 0', borderRadius: 14, border: 'none', background: '#FEF2F2', color: '#991B1B', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Cerrar sesión</button>
+      <button onClick={logout} style={{ width: '100%', padding: '14px 0', borderRadius: 14, border: 'none', background: 'rgba(239,68,68,0.12)', color: '#EF4444', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Cerrar sesión</button>
     </div>
   )
 }
