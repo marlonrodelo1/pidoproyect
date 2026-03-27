@@ -26,9 +26,14 @@ export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
   const [userLocation, setUserLocation] = useState(null)
 
   useEffect(() => {
-    // Pedir geolocalización al montar
+    // Pedir geolocalización al montar y guardar en perfil
     getCurrentPosition()
-      .then(pos => setUserLocation(pos))
+      .then(async pos => {
+        setUserLocation(pos)
+        if (perfil?.id && (!perfil.latitud || !perfil.longitud)) {
+          await supabase.from('usuarios').update({ latitud: pos.lat, longitud: pos.lng }).eq('id', perfil.id)
+        }
+      })
       .catch(() => {})
     fetchEstablecimientos()
   }, [categoriaPadre])
