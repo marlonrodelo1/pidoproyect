@@ -1,4 +1,4 @@
-import { LayoutGrid, Store, Users, User, ClipboardList, MessageCircle, DollarSign, Settings, LogOut } from 'lucide-react'
+import { LayoutGrid, Store, Users, User, ClipboardList, MessageCircle, DollarSign, Settings, LogOut, Map } from 'lucide-react'
 
 const menuItems = [
   { id: 'dashboard', label: 'Dashboard', Icon: LayoutGrid },
@@ -6,6 +6,7 @@ const menuItems = [
   { id: 'socios', label: 'Socios / Riders', Icon: Users },
   { id: 'usuarios', label: 'Usuarios', Icon: User },
   { id: 'pedidos', label: 'Pedidos', Icon: ClipboardList },
+  { id: 'mapa', label: 'Mapa en vivo', Icon: Map },
   { id: 'soporte', label: 'Soporte', Icon: MessageCircle },
   { id: 'finanzas', label: 'Finanzas', Icon: DollarSign },
   { id: 'config', label: 'Configuracion', Icon: Settings },
@@ -16,7 +17,7 @@ export default function Sidebar({ active, onChange, onLogout }) {
     <div style={styles.sidebar}>
       <div style={styles.logo}>
         <span style={{ fontWeight: 800, fontSize: 22, color: '#FF6B2C', letterSpacing: -1 }}>pidoo</span>
-        <span style={{ fontSize: 10, fontWeight: 600, color: '#9CA3AF', marginTop: 2 }}>Super Admin</span>
+        <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>Super Admin</span>
       </div>
 
       <nav style={styles.nav}>
@@ -26,8 +27,8 @@ export default function Sidebar({ active, onChange, onLogout }) {
             onClick={() => onChange(item.id)}
             style={{
               ...styles.navItem,
-              background: active === item.id ? '#FFF3ED' : 'transparent',
-              color: active === item.id ? '#FF6B2C' : '#6B7280',
+              background: active === item.id ? 'rgba(255,107,44,0.15)' : 'transparent',
+              color: active === item.id ? '#FF6B2C' : 'rgba(255,255,255,0.5)',
               fontWeight: active === item.id ? 700 : 500,
             }}
           >
@@ -47,12 +48,12 @@ export default function Sidebar({ active, onChange, onLogout }) {
 
 const styles = {
   sidebar: {
-    width: 240, minHeight: '100vh', background: '#FFFFFF', borderRight: '1px solid #E5E7EB',
+    width: 240, minHeight: '100vh', background: '#111111', borderRight: '1px solid rgba(255,255,255,0.08)',
     display: 'flex', flexDirection: 'column', padding: '20px 12px', position: 'fixed', left: 0, top: 0,
   },
   logo: {
     display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '0 12px 24px',
-    borderBottom: '1px solid #F3F4F6', marginBottom: 16,
+    borderBottom: '1px solid rgba(255,255,255,0.08)', marginBottom: 16,
   },
   nav: { display: 'flex', flexDirection: 'column', gap: 2, flex: 1 },
   navItem: {

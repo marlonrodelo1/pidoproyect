@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { ds } from '../lib/darkStyles'
 
-function StatCard({ label, value, sub, color = '#FF6B2C' }) {
+function StatCard({ label, value, color = '#FF6B2C' }) {
   return (
-    <div style={styles.card}>
-      <div style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 600, marginBottom: 6 }}>{label}</div>
+    <div style={ds.card}>
+      <div style={{ fontSize: 11, ...ds.muted, fontWeight: 600, marginBottom: 6 }}>{label}</div>
       <div style={{ fontSize: 28, fontWeight: 800, color, letterSpacing: -1 }}>{value}</div>
-      {sub && <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>{sub}</div>}
     </div>
   )
 }
@@ -16,10 +16,7 @@ export default function Dashboard() {
   const [periodo, setPeriodo] = useState('hoy')
   const [recientes, setRecientes] = useState([])
 
-  useEffect(() => {
-    loadStats()
-    loadRecientes()
-  }, [periodo])
+  useEffect(() => { loadStats(); loadRecientes() }, [periodo])
 
   async function loadStats() {
     const now = new Date()
@@ -34,25 +31,14 @@ export default function Dashboard() {
       supabase.from('socios').select('id', { count: 'exact', head: true }),
       supabase.from('establecimientos').select('id', { count: 'exact', head: true }),
     ])
-
     const pedidos = pedidosRes.data || []
     const entregados = pedidos.filter(p => p.estado === 'entregado')
     const ventas = entregados.reduce((s, p) => s + (p.total || 0), 0)
-
-    setStats({
-      pedidos: pedidos.length,
-      ventas,
-      comisiones: ventas * 0.10,
-      usuarios: usersRes.count || 0,
-      socios: sociosRes.count || 0,
-      establecimientos: estRes.count || 0,
-    })
+    setStats({ pedidos: pedidos.length, ventas, comisiones: ventas * 0.10, usuarios: usersRes.count || 0, socios: sociosRes.count || 0, establecimientos: estRes.count || 0 })
   }
 
   async function loadRecientes() {
-    const { data } = await supabase.from('pedidos')
-      .select('id, codigo, total, estado, metodo_pago, canal, created_at')
-      .order('created_at', { ascending: false }).limit(10)
+    const { data } = await supabase.from('pedidos').select('id, codigo, total, estado, metodo_pago, canal, created_at').order('created_at', { ascending: false }).limit(10)
     setRecientes(data || [])
   }
 
@@ -61,13 +47,12 @@ export default function Dashboard() {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 800, color: '#111827' }}>Dashboard</h1>
+        <h1 style={ds.h1}>Dashboard</h1>
         <div style={{ display: 'flex', gap: 6 }}>
           {['hoy', 'semana', 'mes'].map(p => (
             <button key={p} onClick={() => setPeriodo(p)} style={{
-              padding: '6px 14px', borderRadius: 8, border: 'none', fontSize: 12, fontWeight: 600,
-              cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
-              background: periodo === p ? '#FF6B2C' : '#F3F4F6', color: periodo === p ? '#fff' : '#6B7280',
+              ...ds.filterBtn, background: periodo === p ? '#FF6B2C' : 'rgba(255,255,255,0.08)',
+              color: periodo === p ? '#fff' : 'rgba(255,255,255,0.5)',
             }}>{p.charAt(0).toUpperCase() + p.slice(1)}</button>
           ))}
         </div>
@@ -75,17 +60,17 @@ export default function Dashboard() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginBottom: 32 }}>
         <StatCard label="Total Pedidos" value={stats.pedidos} />
-        <StatCard label="Ventas" value={`${stats.ventas.toFixed(2)}EUR`} color="#16A34A" />
-        <StatCard label="Comisiones Plataforma" value={`${stats.comisiones.toFixed(2)}EUR`} color="#8B5CF6" />
+        <StatCard label="Ventas" value={`${stats.ventas.toFixed(2)}€`} color="#16A34A" />
+        <StatCard label="Comisiones" value={`${stats.comisiones.toFixed(2)}€`} color="#8B5CF6" />
         <StatCard label="Usuarios" value={stats.usuarios} color="#3B82F6" />
-        <StatCard label="Socios Activos" value={stats.socios} color="#F59E0B" />
+        <StatCard label="Socios" value={stats.socios} color="#F59E0B" />
         <StatCard label="Establecimientos" value={stats.establecimientos} color="#EF4444" />
       </div>
 
-      <h2 style={{ fontSize: 16, fontWeight: 700, color: '#111827', marginBottom: 12 }}>Pedidos recientes</h2>
-      <div style={styles.table}>
-        <div style={styles.tableHeader}>
-          <span style={{ width: 90 }}>Codigo</span>
+      <h2 style={ds.h2}>Pedidos recientes</h2>
+      <div style={ds.table}>
+        <div style={ds.tableHeader}>
+          <span style={{ width: 100 }}>Codigo</span>
           <span style={{ width: 80 }}>Total</span>
           <span style={{ width: 80 }}>Estado</span>
           <span style={{ width: 70 }}>Pago</span>
@@ -93,44 +78,27 @@ export default function Dashboard() {
           <span style={{ flex: 1 }}>Fecha</span>
         </div>
         {recientes.map(p => (
-          <div key={p.id} style={styles.tableRow}>
-            <span style={{ width: 90, fontWeight: 700, fontSize: 12 }}>{p.codigo}</span>
-            <span style={{ width: 80, fontSize: 12 }}>{p.total?.toFixed(2)}EUR</span>
+          <div key={p.id} style={ds.tableRow}>
+            <span style={{ width: 100, fontWeight: 700, fontSize: 12 }}>{p.codigo}</span>
+            <span style={{ width: 80, fontSize: 12 }}>{p.total?.toFixed(2)}€</span>
             <span style={{ width: 80 }}>
-              <span style={{ ...styles.badge, background: (estadoColor[p.estado] || '#6B7280') + '15', color: estadoColor[p.estado] || '#6B7280' }}>{p.estado}</span>
+              <span style={{ ...ds.badge, background: (estadoColor[p.estado] || '#6B7280') + '25', color: estadoColor[p.estado] || '#6B7280' }}>{p.estado}</span>
             </span>
             <span style={{ width: 70 }}>
-              <span style={{ ...styles.badge, background: p.metodo_pago === 'tarjeta' ? '#DBEAFE' : '#FEF3C7', color: p.metodo_pago === 'tarjeta' ? '#1D4ED8' : '#92400E' }}>
+              <span style={{ ...ds.badge, background: p.metodo_pago === 'tarjeta' ? 'rgba(59,130,246,0.15)' : 'rgba(245,158,11,0.15)', color: p.metodo_pago === 'tarjeta' ? '#60A5FA' : '#FBBF24' }}>
                 {p.metodo_pago === 'tarjeta' ? 'Tarjeta' : 'Efectivo'}
               </span>
             </span>
             <span style={{ width: 70 }}>
-              <span style={{ ...styles.badge, background: p.canal === 'pido' ? '#FFF3ED' : '#F0FDF4', color: p.canal === 'pido' ? '#FF6B2C' : '#166534' }}>
+              <span style={{ ...ds.badge, background: p.canal === 'pido' ? 'rgba(255,107,44,0.15)' : 'rgba(34,197,94,0.15)', color: p.canal === 'pido' ? '#FF6B2C' : '#22C55E' }}>
                 {p.canal === 'pido' ? 'PIDO' : 'PIDOGO'}
               </span>
             </span>
-            <span style={{ flex: 1, fontSize: 11, color: '#9CA3AF' }}>{new Date(p.created_at).toLocaleString('es-ES')}</span>
+            <span style={{ flex: 1, fontSize: 11, ...ds.muted }}>{new Date(p.created_at).toLocaleString('es-ES')}</span>
           </div>
         ))}
-        {recientes.length === 0 && <div style={{ padding: 24, textAlign: 'center', color: '#9CA3AF', fontSize: 13 }}>Sin pedidos</div>}
+        {recientes.length === 0 && <div style={{ padding: 24, textAlign: 'center', ...ds.muted, fontSize: 13 }}>Sin pedidos</div>}
       </div>
     </div>
   )
-}
-
-const styles = {
-  card: {
-    background: '#fff', borderRadius: 14, padding: '20px 22px',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-  },
-  table: { background: '#fff', borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' },
-  tableHeader: {
-    display: 'flex', alignItems: 'center', padding: '12px 20px', gap: 12,
-    fontSize: 11, fontWeight: 700, color: '#9CA3AF', borderBottom: '1px solid #F3F4F6', textTransform: 'uppercase',
-  },
-  tableRow: {
-    display: 'flex', alignItems: 'center', padding: '12px 20px', gap: 12,
-    borderBottom: '1px solid #F9FAFB', transition: 'background 0.1s',
-  },
-  badge: { fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 6, textTransform: 'capitalize' },
 }

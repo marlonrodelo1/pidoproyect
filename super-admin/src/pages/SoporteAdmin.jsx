@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { ds } from '../lib/darkStyles'
 
 export default function SoporteAdmin() {
   const [conversaciones, setConversaciones] = useState([])
@@ -57,7 +58,7 @@ export default function SoporteAdmin() {
 
   return (
     <div>
-      <h1 style={{ fontSize: 22, fontWeight: 800, color: '#111827', marginBottom: 20 }}>Soporte</h1>
+      <h1 style={{ ...ds.h1, marginBottom: 20 }}>Soporte</h1>
 
       <div style={{ display: 'flex', gap: 16, height: 'calc(100vh - 160px)' }}>
         {/* Lista conversaciones */}
@@ -65,17 +66,17 @@ export default function SoporteAdmin() {
           {conversaciones.map(c => (
             <button key={c.socio_id} onClick={() => selectConv(c)} style={{
               ...styles.convItem,
-              background: selected?.socio_id === c.socio_id ? '#FFF3ED' : 'transparent',
+              background: selected?.socio_id === c.socio_id ? 'rgba(255,107,44,0.12)' : 'transparent',
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontWeight: 700, fontSize: 13 }}>{c.socio?.nombre_comercial || 'Socio'}</span>
+                <span style={{ fontWeight: 700, fontSize: 13, color: '#F5F5F5' }}>{c.socio?.nombre_comercial || 'Socio'}</span>
                 {c.sinLeer > 0 && <span style={styles.unread}>{c.sinLeer}</span>}
               </div>
-              <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.ultimo}</div>
-              <div style={{ fontSize: 10, color: '#D1D5DB', marginTop: 2 }}>{new Date(c.fecha).toLocaleString('es-ES')}</div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.ultimo}</div>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', marginTop: 2 }}>{new Date(c.fecha).toLocaleString('es-ES')}</div>
             </button>
           ))}
-          {conversaciones.length === 0 && <div style={{ padding: 24, textAlign: 'center', color: '#9CA3AF', fontSize: 13 }}>Sin conversaciones</div>}
+          {conversaciones.length === 0 && <div style={{ padding: 24, textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Sin conversaciones</div>}
         </div>
 
         {/* Chat */}
@@ -83,16 +84,16 @@ export default function SoporteAdmin() {
           {selected ? (
             <>
               <div style={styles.chatHeader}>
-                <span style={{ fontWeight: 700, fontSize: 14 }}>{selected.socio?.nombre || 'Socio'}</span>
-                <span style={{ fontSize: 11, color: '#9CA3AF' }}>{selected.socio?.nombre_comercial}</span>
+                <span style={{ fontWeight: 700, fontSize: 14, color: '#F5F5F5' }}>{selected.socio?.nombre || 'Socio'}</span>
+                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{selected.socio?.nombre_comercial}</span>
               </div>
               <div style={styles.chatMessages}>
                 {mensajes.map(m => (
                   <div key={m.id} style={{ display: 'flex', justifyContent: m.de === 'soporte' ? 'flex-end' : 'flex-start', marginBottom: 8 }}>
                     <div style={{
                       maxWidth: '70%', padding: '10px 14px', borderRadius: 14, fontSize: 13,
-                      background: m.de === 'soporte' ? '#FF6B2C' : '#F3F4F6',
-                      color: m.de === 'soporte' ? '#fff' : '#111827',
+                      background: m.de === 'soporte' ? '#FF6B2C' : 'rgba(255,255,255,0.08)',
+                      color: m.de === 'soporte' ? '#fff' : '#F5F5F5',
                       borderBottomRightRadius: m.de === 'soporte' ? 4 : 14,
                       borderBottomLeftRadius: m.de === 'soporte' ? 14 : 4,
                     }}>
@@ -107,11 +108,11 @@ export default function SoporteAdmin() {
                   value={texto} onChange={e => setTexto(e.target.value)}
                   placeholder="Escribe un mensaje..." style={styles.input}
                 />
-                <button type="submit" style={styles.sendBtn}>Enviar</button>
+                <button type="submit" style={ds.primaryBtn}>Enviar</button>
               </form>
             </>
           ) : (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#9CA3AF', fontSize: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'rgba(255,255,255,0.4)', fontSize: 14 }}>
               Selecciona una conversacion
             </div>
           )}
@@ -122,13 +123,12 @@ export default function SoporteAdmin() {
 }
 
 const styles = {
-  lista: { width: 300, background: '#fff', borderRadius: 14, overflow: 'auto', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' },
-  convItem: { width: '100%', padding: '14px 16px', border: 'none', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", textAlign: 'left', borderBottom: '1px solid #F9FAFB', display: 'block' },
+  lista: { width: 300, background: 'rgba(255,255,255,0.06)', borderRadius: 14, overflow: 'auto', border: '1px solid rgba(255,255,255,0.08)' },
+  convItem: { width: '100%', padding: '14px 16px', border: 'none', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", textAlign: 'left', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'block' },
   unread: { width: 18, height: 18, borderRadius: 9, background: '#FF6B2C', color: '#fff', fontSize: 10, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  chat: { flex: 1, background: '#fff', borderRadius: 14, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' },
-  chatHeader: { padding: '14px 20px', borderBottom: '1px solid #F3F4F6', display: 'flex', alignItems: 'center', gap: 10 },
+  chat: { flex: 1, background: 'rgba(255,255,255,0.06)', borderRadius: 14, display: 'flex', flexDirection: 'column', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' },
+  chatHeader: { padding: '14px 20px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', gap: 10 },
   chatMessages: { flex: 1, padding: 20, overflow: 'auto' },
-  chatInput: { padding: '12px 16px', borderTop: '1px solid #F3F4F6', display: 'flex', gap: 8 },
-  input: { flex: 1, padding: '10px 14px', borderRadius: 10, border: '1px solid #E5E7EB', fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: 'none' },
-  sendBtn: { padding: '10px 20px', borderRadius: 10, border: 'none', background: '#FF6B2C', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" },
+  chatInput: { padding: '12px 16px', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', gap: 8 },
+  input: { flex: 1, padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)', fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: 'none', background: 'rgba(255,255,255,0.06)', color: '#F5F5F5' },
 }
