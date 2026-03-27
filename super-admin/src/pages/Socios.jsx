@@ -1,14 +1,19 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { uploadImage } from '../lib/upload'
 import { ds } from '../lib/darkStyles'
-import { CheckCircle, XCircle, FileText, Eye } from 'lucide-react'
+import { CheckCircle, XCircle, FileText, Eye, Save, Upload } from 'lucide-react'
 
 export default function Socios() {
   const [items, setItems] = useState([])
   const [buscar, setBuscar] = useState('')
   const [filtro, setFiltro] = useState('todos')
   const [detalle, setDetalle] = useState(null)
+  const [editando, setEditando] = useState(false)
+  const [form, setForm] = useState({})
+  const [saving, setSaving] = useState(false)
   const [solicitudes, setSolicitudes] = useState([])
+  const logoRef = useRef()
 
   useEffect(() => { load() }, [])
 
@@ -33,6 +38,24 @@ export default function Socios() {
     load()
   }
 
+  async function guardarSocio() {
+    setSaving(true)
+    const { error } = await supabase.from('socios').update(form).eq('id', detalle.id)
+    if (error) alert('Error: ' + error.message)
+    else { setDetalle({ ...detalle, ...form }); setEditando(false); load() }
+    setSaving(false)
+  }
+
+  async function handleLogoUpload(file) {
+    if (!file) return
+    try {
+      const url = await uploadImage(file, 'logos', 'socios')
+      await supabase.from('socios').update({ logo_url: url }).eq('id', detalle.id)
+      setDetalle(prev => ({ ...prev, logo_url: url }))
+      setForm(prev => ({ ...prev, logo_url: url }))
+    } catch (e) { alert(e.message) }
+  }
+
   const filtrados = items.filter(s => {
     if (filtro === 'activos' && !s.activo) return false
     if (filtro === 'inactivos' && s.activo) return false
@@ -50,23 +73,50 @@ export default function Socios() {
             <div style={{ width: 60, height: 60, borderRadius: 14, background: '#FF5733', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 800, color: '#fff', overflow: 'hidden' }}>
               {detalle.logo_url ? <img src={detalle.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : detalle.nombre_comercial?.[0]?.toUpperCase()}
             </div>
-            <div>
+            <div style={{ flex: 1 }}>
               <h2 style={{ fontSize: 20, fontWeight: 800, color: '#F5F5F5' }}>{detalle.nombre}</h2>
               <div style={{ fontSize: 12, ...ds.muted }}>{detalle.nombre_comercial} · /{detalle.slug}</div>
             </div>
-            <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <span style={{ ...ds.badge, background: detalle.activo ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)', color: detalle.activo ? '#22C55E' : '#EF4444' }}>{detalle.activo ? 'Activo' : 'Inactivo'}</span>
-              <span style={{ ...ds.badge, background: detalle.en_servicio ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.08)', color: detalle.en_servicio ? '#60A5FA' : 'rgba(255,255,255,0.4)' }}>{detalle.en_servicio ? 'En servicio' : 'Fuera'}</span>
+              {!editando ? (
+                <button onClick={() => { setForm({ nombre: detalle.nombre, nombre_comercial: detalle.nombre_comercial, email: detalle.email, telefono: detalle.telefono, modo_entrega: detalle.modo_entrega, radio_km: detalle.radio_km }); setEditando(true) }} style={ds.primaryBtn}>Editar</button>
+              ) : (
+                <>
+                  <button onClick={guardarSocio} disabled={saving} style={{ ...ds.primaryBtn, display: 'flex', alignItems: 'center', gap: 4 }}><Save size={14} /> {saving ? 'Guardando...' : 'Guardar'}</button>
+                  <button onClick={() => setEditando(false)} style={ds.secondaryBtn}>Cancelar</button>
+                </>
+              )}
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 13, color: '#F5F5F5' }}>
-            <div><span style={ds.muted}>Email:</span> {detalle.email || '-'}</div>
-            <div><span style={ds.muted}>Telefono:</span> {detalle.telefono || '-'}</div>
-            <div><span style={ds.muted}>Modo entrega:</span> {detalle.modo_entrega}</div>
-            <div><span style={ds.muted}>Radio:</span> {detalle.radio_km} km</div>
-            <div><span style={ds.muted}>Rating:</span> {detalle.rating?.toFixed(1)} ({detalle.total_resenas} reseñas)</div>
-            <div><span style={ds.muted}>Creado:</span> {new Date(detalle.created_at).toLocaleDateString('es-ES')}</div>
-          </div>
+
+          {editando ? (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div><label style={ds.label}>Nombre</label><input value={form.nombre || ''} onChange={e => setForm({ ...form, nombre: e.target.value })} style={ds.formInput} /></div>
+              <div><label style={ds.label}>Nombre comercial</label><input value={form.nombre_comercial || ''} onChange={e => setForm({ ...form, nombre_comercial: e.target.value })} style={ds.formInput} /></div>
+              <div><label style={ds.label}>Email</label><input value={form.email || ''} onChange={e => setForm({ ...form, email: e.target.value })} style={ds.formInput} /></div>
+              <div><label style={ds.label}>Teléfono</label><input value={form.telefono || ''} onChange={e => setForm({ ...form, telefono: e.target.value })} style={ds.formInput} /></div>
+              <div><label style={ds.label}>Modo entrega</label><select value={form.modo_entrega || ''} onChange={e => setForm({ ...form, modo_entrega: e.target.value })} style={ds.select}>
+                <option value="delivery">Delivery</option><option value="recogida">Recogida</option><option value="ambos">Ambos</option>
+              </select></div>
+              <div><label style={ds.label}>Radio (km)</label><input type="number" value={form.radio_km || 0} onChange={e => setForm({ ...form, radio_km: +e.target.value })} style={ds.formInput} /></div>
+              <div><label style={ds.label}>Logo</label>
+                <label style={{ ...ds.formInput, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                  <Upload size={14} /> Subir logo...
+                  <input type="file" accept="image/*" hidden onChange={e => handleLogoUpload(e.target.files[0])} />
+                </label>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 13, color: '#F5F5F5' }}>
+              <div><span style={ds.muted}>Email:</span> {detalle.email || '-'}</div>
+              <div><span style={ds.muted}>Telefono:</span> {detalle.telefono || '-'}</div>
+              <div><span style={ds.muted}>Modo entrega:</span> {detalle.modo_entrega}</div>
+              <div><span style={ds.muted}>Radio:</span> {detalle.radio_km} km</div>
+              <div><span style={ds.muted}>Rating:</span> {detalle.rating?.toFixed(1)} ({detalle.total_resenas} reseñas)</div>
+              <div><span style={ds.muted}>Creado:</span> {new Date(detalle.created_at).toLocaleDateString('es-ES')}</div>
+            </div>
+          )}
 
           {/* Documentación */}
           <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
