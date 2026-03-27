@@ -67,6 +67,20 @@ export default function PedidosEnVivo() {
     return () => clearInterval(i)
   }, [entrantes.length])
 
+  // Polling: verificar timeouts de riders cada 30s
+  useEffect(() => {
+    if (activos.length === 0) return
+    const checkTimeouts = () => {
+      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/rider_timeout`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`, 'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY },
+        body: '{}',
+      }).then(() => fetchPedidos()).catch(() => {})
+    }
+    const interval = setInterval(checkTimeouts, 30000)
+    checkTimeouts()
+    return () => clearInterval(interval)
+  }, [activos.length])
+
   async function fetchPedidos() {
     const { data: nuevos } = await supabase.from('pedidos').select('*').eq('establecimiento_id', restaurante.id).eq('estado', 'nuevo').order('created_at', { ascending: false })
     const { data: prep } = await supabase.from('pedidos').select('*').eq('establecimiento_id', restaurante.id).in('estado', ['aceptado', 'preparando', 'listo']).order('created_at', { ascending: false })
@@ -91,27 +105,49 @@ export default function PedidosEnVivo() {
     }
   }
 
-  async function aceptarPedido(pedido, minutos) {
-    // Buscar socio/rider más cercano disponible
-    let socioAsignado = null
+  async function buscarYAsignarRider(pedidoId, establecimientoId, ridersRechazados = []) {
     const { data: relaciones } = await supabase
       .from('socio_establecimiento').select('socio_id')
-      .eq('establecimiento_id', restaurante.id).eq('estado', 'aceptado')
+      .eq('establecimiento_id', establecimientoId).eq('estado', 'aceptado')
 
-    if (relaciones && relaciones.length > 0) {
-      const socioIds = relaciones.map(r => r.socio_id)
-      const { data: sociosActivos } = await supabase
-        .from('socios').select('id, nombre')
-        .in('id', socioIds).eq('activo', true).eq('en_servicio', true).limit(1)
-      if (sociosActivos && sociosActivos.length > 0) {
-        socioAsignado = sociosActivos[0].id
-      }
-    }
+    if (!relaciones || relaciones.length === 0) return null
+
+    let socioIds = relaciones.map(r => r.socio_id)
+    // Excluir riders que ya rechazaron
+    if (ridersRechazados.length > 0) socioIds = socioIds.filter(id => !ridersRechazados.includes(id))
+
+    if (socioIds.length === 0) return null
+
+    const { data: sociosActivos } = await supabase
+      .from('socios').select('id')
+      .in('id', socioIds).eq('activo', true).eq('en_servicio', true).limit(1)
+
+    if (!sociosActivos || sociosActivos.length === 0) return null
+
+    const socioId = sociosActivos[0].id
+
+    await supabase.from('pedidos').update({
+      socio_id: socioId,
+      rider_estado: 'pendiente',
+      rider_asignado_at: new Date().toISOString(),
+    }).eq('id', pedidoId)
+
+    return socioId
+  }
+
+  async function aceptarPedido(pedido, minutos) {
+    const now = new Date().toISOString()
+
+    // Buscar rider más cercano disponible
+    const socioAsignado = await buscarYAsignarRider(pedido.id, restaurante.id)
 
     await supabase.from('pedidos').update({
       estado: 'preparando', minutos_preparacion: minutos,
-      aceptado_at: new Date().toISOString(),
+      aceptado_at: now,
+      rider_buscando_desde: now,
       socio_id: socioAsignado,
+      rider_estado: socioAsignado ? 'pendiente' : 'sin_rider',
+      rider_asignado_at: socioAsignado ? now : null,
     }).eq('id', pedido.id)
 
     setEntrantes(prev => {
@@ -119,13 +155,13 @@ export default function PedidosEnVivo() {
       if (remaining.length === 0) stopAlarm()
       return remaining
     })
-    setActivos(prev => [{ ...pedido, estado: 'preparando', minutos_preparacion: minutos, socio_id: socioAsignado }, ...prev])
+    setActivos(prev => [{ ...pedido, estado: 'preparando', minutos_preparacion: minutos, socio_id: socioAsignado, rider_estado: socioAsignado ? 'pendiente' : 'sin_rider' }, ...prev])
     setTimers(prev => { const n = { ...prev }; delete n[pedido.id]; return n })
 
     // Notificar al cliente
     if (pedido.usuario_id) sendPush({ targetType: 'cliente', targetId: pedido.usuario_id, title: 'Pedido aceptado', body: `Tu pedido ${pedido.codigo} está siendo preparado (~${minutos} min)` })
-    // Notificar al socio/rider asignado
-    if (socioAsignado) sendPush({ targetType: 'socio', targetId: socioAsignado, title: 'Nuevo pedido asignado', body: `Pedido ${pedido.codigo} - ${pedido.total?.toFixed(2)} € · Preparación ~${minutos} min` })
+    // Notificar al rider asignado
+    if (socioAsignado) sendPush({ targetType: 'socio', targetId: socioAsignado, title: 'Nuevo pedido', body: `Pedido ${pedido.codigo} - ${pedido.total?.toFixed(2)} € · Tienes 2 min para aceptar` })
   }
 
   async function rechazarPedido(id) {

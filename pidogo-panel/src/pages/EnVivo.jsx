@@ -97,17 +97,29 @@ export default function EnVivo() {
 
   async function aceptarPedido(pedido) {
     stopAlarm()
-    await supabase.from('pedidos').update({ estado: 'aceptado', aceptado_at: new Date().toISOString() }).eq('id', pedido.id)
+    // Rider acepta el pedido
+    await supabase.from('pedidos').update({
+      rider_estado: 'aceptado',
+    }).eq('id', pedido.id)
     const { data: pedidoItems } = await supabase.from('pedido_items').select('*').eq('pedido_id', pedido.id)
     setItems(pedidoItems || [])
     await loadCliente(pedido.usuario_id)
-    setPedidoActivo({ ...pedido, estado: 'aceptado' })
+    setPedidoActivo({ ...pedido, rider_estado: 'aceptado' })
     setEtapa('ir_recoger')
+    // Notificar al cliente
+    if (pedido.usuario_id) sendPush({ targetType: 'cliente', targetId: pedido.usuario_id, title: 'Repartidor asignado', body: `Un repartidor ha aceptado tu pedido ${pedido.codigo}` })
   }
 
   async function rechazarPedido(pedido) {
     stopAlarm()
-    await supabase.from('pedidos').update({ estado: 'cancelado' }).eq('id', pedido.id)
+    // Rider rechaza → se quita del pedido y se añade a rechazados
+    const rechazados = pedido.riders_rechazados || []
+    await supabase.from('pedidos').update({
+      socio_id: null,
+      rider_estado: 'buscando',
+      rider_asignado_at: null,
+      riders_rechazados: [...rechazados, socio.id],
+    }).eq('id', pedido.id)
     setPedidos(prev => prev.filter(p => p.id !== pedido.id))
   }
 
@@ -263,38 +275,73 @@ export default function EnVivo() {
     )
   }
 
-  // Lista de pedidos nuevos y en progreso
-  const nuevos = pedidos.filter(p => p.estado === 'nuevo')
-  const enProgreso = pedidos.filter(p => ['aceptado', 'preparando', 'listo', 'recogido', 'en_camino'].includes(p.estado))
+  // Pedidos pendientes de aceptar por este rider (rider_estado = 'pendiente')
+  const pendientes = pedidos.filter(p => p.rider_estado === 'pendiente' && p.socio_id === socio.id)
+  // Pedidos aceptados por este rider
+  const enProgreso = pedidos.filter(p => p.rider_estado === 'aceptado' && ['preparando', 'listo', 'recogido', 'en_camino'].includes(p.estado))
+  // Countdown para pedidos pendientes
+  const [countdowns, setCountdowns] = useState({})
+
+  useEffect(() => {
+    if (pendientes.length === 0) return
+    const interval = setInterval(() => {
+      const now = Date.now()
+      const cd = {}
+      pendientes.forEach(p => {
+        const asignado = new Date(p.rider_asignado_at).getTime()
+        const restante = Math.max(0, 120 - Math.floor((now - asignado) / 1000))
+        cd[p.id] = restante
+        // Auto-rechazar si se acabó el tiempo
+        if (restante <= 0) rechazarPedido(p)
+      })
+      setCountdowns(cd)
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [pendientes.length])
 
   return (
     <div>
       <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 8px' }}>Pedidos en vivo</h2>
       <p style={{ fontSize: 13, color: 'var(--c-muted)', marginBottom: 24 }}>Aqui aparecen los pedidos en tiempo real.</p>
 
-      {/* Pedidos nuevos */}
-      {nuevos.map(p => (
-        <div key={p.id} style={{ background: 'linear-gradient(135deg, #FF5733, #FF8F73)', borderRadius: 16, padding: 20, marginBottom: 16, animation: 'fadeIn 0.5s ease' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <div>
-              <div style={{ color: '#fff', fontSize: 11, fontWeight: 600, opacity: 0.7, marginBottom: 2 }}>NUEVO PEDIDO</div>
-              <div style={{ color: '#fff', fontSize: 18, fontWeight: 800 }}>{p.establecimientos?.nombre}</div>
+      {/* Pedidos pendientes de aceptar - con countdown 2 min */}
+      {pendientes.map(p => {
+        const segs = countdowns[p.id] ?? 120
+        const mins = Math.floor(segs / 60)
+        const secs = segs % 60
+        const urgente = segs < 30
+        return (
+          <div key={p.id} style={{ background: 'linear-gradient(135deg, #FF5733, #FF8F73)', borderRadius: 16, padding: 20, marginBottom: 16, animation: 'fadeIn 0.5s ease' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div>
+                <div style={{ color: '#fff', fontSize: 11, fontWeight: 600, opacity: 0.7, marginBottom: 2 }}>NUEVO PEDIDO</div>
+                <div style={{ color: '#fff', fontSize: 18, fontWeight: 800 }}>{p.establecimientos?.nombre}</div>
+              </div>
+              <div style={{
+                background: urgente ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.25)',
+                borderRadius: 10, padding: '6px 12px',
+                color: urgente ? '#DC2626' : '#fff',
+                fontSize: 18, fontWeight: 800, fontVariantNumeric: 'tabular-nums',
+                animation: urgente ? 'pulse 0.5s infinite' : 'none',
+              }}>
+                {mins}:{secs.toString().padStart(2, '0')}
+              </div>
             </div>
-            <div style={{ display: 'flex', gap: 6 }}>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
               <PagoBadge pago={p.metodo_pago} />
               <CanalBadge canal={p.canal} />
             </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#fff', fontSize: 14, fontWeight: 800, marginBottom: 16 }}>
+              <span>Total: {p.total?.toFixed(2)} €</span>
+              <span>Ganancia: +{(p.total * 0.1 + (p.coste_envio || 0) + (p.propina || 0)).toFixed(2)} €</span>
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => rechazarPedido(p)} style={{ flex: 1, padding: '14px 0', borderRadius: 12, border: '2px solid rgba(255,255,255,0.3)', background: 'transparent', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Rechazar</button>
+              <button onClick={() => aceptarPedido(p)} style={{ flex: 2, padding: '14px 0', borderRadius: 12, border: 'none', background: '#fff', color: 'var(--c-accent)', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>Aceptar pedido</button>
+            </div>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#fff', fontSize: 14, fontWeight: 800, marginBottom: 16 }}>
-            <span>Total: {p.total?.toFixed(2)} €</span>
-            <span>Ganancia: +{(p.total * 0.1 + (p.coste_envio || 0) + (p.propina || 0)).toFixed(2)} €</span>
-          </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button onClick={() => rechazarPedido(p)} style={{ flex: 1, padding: '14px 0', borderRadius: 12, border: '2px solid rgba(255,255,255,0.3)', background: 'transparent', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Rechazar</button>
-            <button onClick={() => aceptarPedido(p)} style={{ flex: 2, padding: '14px 0', borderRadius: 12, border: 'none', background: 'rgba(255,255,255,0.06)', color: 'var(--c-accent)', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>Aceptar pedido</button>
-          </div>
-        </div>
-      ))}
+        )
+      })}
 
       {/* Pedidos en progreso - retomar */}
       {enProgreso.map(p => (
