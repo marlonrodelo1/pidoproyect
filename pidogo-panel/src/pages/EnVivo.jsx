@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useSocio } from '../context/SocioContext'
 import { watchPosition, clearWatch } from '../lib/geolocation'
 import { startAlarm, stopAlarm } from '../lib/alarm'
+import { sendPush } from '../lib/webPush'
 
 function PagoBadge({ pago }) {
   const t = pago === 'tarjeta'
@@ -133,6 +134,11 @@ export default function EnVivo() {
 
     if (next.estado === 'entregado') {
       supabase.functions.invoke('calcular_comisiones', { body: { pedido_id: pedidoActivo.id } })
+      if (pedidoActivo.usuario_id) sendPush({ targetType: 'cliente', targetId: pedidoActivo.usuario_id, title: 'Pedido entregado', body: `Tu pedido ${pedidoActivo.codigo} ha sido entregado. ¡Buen provecho!` })
+    } else if (next.estado === 'en_camino') {
+      if (pedidoActivo.usuario_id) sendPush({ targetType: 'cliente', targetId: pedidoActivo.usuario_id, title: 'Pedido en camino', body: `Tu pedido ${pedidoActivo.codigo} va en camino` })
+    } else if (next.estado === 'recogido') {
+      if (pedidoActivo.usuario_id) sendPush({ targetType: 'cliente', targetId: pedidoActivo.usuario_id, title: 'Pedido recogido', body: `Tu repartidor ha recogido tu pedido ${pedidoActivo.codigo}` })
     }
 
     setPedidoActivo(prev => ({ ...prev, ...update }))

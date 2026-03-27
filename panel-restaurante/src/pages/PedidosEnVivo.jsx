@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useRest } from '../context/RestContext'
 import { startAlarm, stopAlarm, unlockAudio, requestNotificationPermission } from '../lib/alarm'
+import { sendPush } from '../lib/webPush'
 
 function PagoBadge({ pago }) {
   const t = pago === 'tarjeta'
@@ -99,25 +100,37 @@ export default function PedidosEnVivo() {
     })
     setActivos(prev => [{ ...pedido, estado: 'preparando', minutos_preparacion: minutos }, ...prev])
     setTimers(prev => { const n = { ...prev }; delete n[pedido.id]; return n })
+    // Notificar al cliente
+    if (pedido.usuario_id) sendPush({ targetType: 'cliente', targetId: pedido.usuario_id, title: 'Pedido aceptado', body: `Tu pedido ${pedido.codigo} está siendo preparado (~${minutos} min)` })
+    // Notificar al socio/rider
+    if (pedido.socio_id) sendPush({ targetType: 'socio', targetId: pedido.socio_id, title: 'Nuevo pedido asignado', body: `Pedido ${pedido.codigo} en preparación` })
   }
 
   async function rechazarPedido(id) {
+    const pedido = entrantes.find(p => p.id === id)
     await supabase.from('pedidos').update({ estado: 'cancelado' }).eq('id', id)
     setEntrantes(prev => {
       const remaining = prev.filter(p => p.id !== id)
       if (remaining.length === 0) stopAlarm()
       return remaining
     })
+    if (pedido?.usuario_id) sendPush({ targetType: 'cliente', targetId: pedido.usuario_id, title: 'Pedido cancelado', body: `Tu pedido ${pedido.codigo} ha sido cancelado por el restaurante` })
   }
 
   async function marcarListo(id) {
     await supabase.from('pedidos').update({ estado: 'listo' }).eq('id', id)
+    const pedido = activos.find(p => p.id === id)
     setActivos(prev => prev.map(p => p.id === id ? { ...p, estado: 'listo' } : p))
+    // Notificar al cliente y socio
+    if (pedido?.usuario_id) sendPush({ targetType: 'cliente', targetId: pedido.usuario_id, title: 'Pedido listo', body: `Tu pedido ${pedido.codigo} está listo para recoger` })
+    if (pedido?.socio_id) sendPush({ targetType: 'socio', targetId: pedido.socio_id, title: 'Pedido listo', body: `Pedido ${pedido.codigo} listo para recoger en el restaurante` })
   }
 
   async function marcarRecogido(id) {
     await supabase.from('pedidos').update({ estado: 'recogido', recogido_at: new Date().toISOString() }).eq('id', id)
+    const pedido = activos.find(p => p.id === id)
     setActivos(prev => prev.filter(p => p.id !== id))
+    if (pedido?.usuario_id) sendPush({ targetType: 'cliente', targetId: pedido.usuario_id, title: 'Pedido en camino', body: `Tu pedido ${pedido.codigo} va en camino` })
   }
 
   const formatTimer = s => { const m = Math.floor((s || 180) / 60); const sec = (s || 180) % 60; return `${m}:${sec.toString().padStart(2, '0')}` }
