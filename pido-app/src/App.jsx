@@ -15,6 +15,7 @@ import Notificaciones from './pages/Notificaciones'
 import Perfil from './pages/Perfil'
 import SerSocio from './pages/SerSocio'
 import BottomNav from './components/BottomNav'
+import TiendaSocio from './pages/TiendaSocio'
 
 function AppContent() {
   const { user, loading } = useAuth()
@@ -160,7 +161,42 @@ const globalCss = `
 body{background:#0D0D0D;margin:0}
 `
 
-export default function App() {
+function TiendaDetector() {
+  const [slugTienda, setSlugTienda] = useState(null)
+  const [checking, setChecking] = useState(true)
+
+  useState(() => {
+    const path = window.location.pathname.replace(/^\//, '')
+    if (path && path !== '') {
+      import('./lib/supabase').then(({ supabase }) => {
+        supabase.from('socios').select('slug').eq('slug', path).single().then(({ data }) => {
+          if (data) setSlugTienda(path)
+          setChecking(false)
+        }).catch(() => setChecking(false))
+      })
+    } else {
+      setChecking(false)
+    }
+  })
+
+  if (checking) {
+    return (
+      <div style={{ ...shellStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+        <style>{globalCss}</style>
+        <div style={{ fontSize: 48, fontWeight: 800, color: 'var(--c-primary)', letterSpacing: -2 }}>pidoo</div>
+      </div>
+    )
+  }
+
+  if (slugTienda) {
+    return (
+      <div style={{ ...shellStyle, minHeight: '100vh' }}>
+        <style>{globalCss}</style>
+        <TiendaSocio slug={slugTienda} />
+      </div>
+    )
+  }
+
   return (
     <AuthProvider>
       <CartProvider>
@@ -168,4 +204,8 @@ export default function App() {
       </CartProvider>
     </AuthProvider>
   )
+}
+
+export default function App() {
+  return <TiendaDetector />
 }
