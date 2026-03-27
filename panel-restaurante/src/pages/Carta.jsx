@@ -4,16 +4,12 @@ import { useRest } from '../context/RestContext'
 
 export default function Carta() {
   const { restaurante } = useRest()
-  const [categorias, setCategorias] = useState([])
+  const [categoriasGenerales, setCategoriasGenerales] = useState([])
   const [productos, setProductos] = useState([])
   const [gruposExtras, setGruposExtras] = useState([])
   const [catFiltro, setCatFiltro] = useState(null)
   const [gestionExtras, setGestionExtras] = useState(false)
   const [loading, setLoading] = useState(true)
-
-  // Crear categoría
-  const [showAddCat, setShowAddCat] = useState(false)
-  const [nuevaCat, setNuevaCat] = useState('')
 
   // Crear/editar producto
   const [showAddProd, setShowAddProd] = useState(false)
@@ -27,11 +23,11 @@ export default function Carta() {
   async function fetchCarta() {
     setLoading(true)
     const [catRes, prodRes, grpRes] = await Promise.all([
-      supabase.from('categorias').select('*').eq('establecimiento_id', restaurante.id).order('orden'),
+      supabase.from('categorias_generales').select('*').eq('activa', true).order('orden'),
       supabase.from('productos').select('*').eq('establecimiento_id', restaurante.id).order('orden'),
       supabase.from('grupos_extras').select('*, extras_opciones(*)').eq('establecimiento_id', restaurante.id),
     ])
-    setCategorias(catRes.data || [])
+    setCategoriasGenerales(catRes.data || [])
     setProductos(prodRes.data || [])
     setGruposExtras(grpRes.data || [])
     setLoading(false)
@@ -54,29 +50,9 @@ export default function Carta() {
     return publicUrl
   }
 
-  // --- Categorías ---
-  async function crearCategoria() {
-    if (!nuevaCat.trim()) return
-    await supabase.from('categorias').insert({
-      establecimiento_id: restaurante.id,
-      nombre: nuevaCat.trim(),
-      orden: categorias.length,
-      activa: true,
-    })
-    setNuevaCat('')
-    setShowAddCat(false)
-    fetchCarta()
-  }
-
-  async function eliminarCategoria(id) {
-    if (!confirm('¿Eliminar esta categoría? Los productos quedarán sin categoría.')) return
-    await supabase.from('categorias').delete().eq('id', id)
-    fetchCarta()
-  }
-
   // --- Productos ---
   function abrirCrearProducto() {
-    setProdForm({ nombre: '', descripcion: '', precio: '', categoria_id: catFiltro || categorias[0]?.id || '', imagen_url: '' })
+    setProdForm({ nombre: '', descripcion: '', precio: '', categoria_id: catFiltro || categoriasGenerales[0]?.id || '', imagen_url: '' })
     setEditProd(null)
     setShowAddProd(true)
   }
@@ -100,7 +76,6 @@ export default function Carta() {
       disponible: true,
       orden: productos.length,
     }
-
     if (editProd) {
       await supabase.from('productos').update(data).eq('id', editProd.id)
     } else {
@@ -124,7 +99,6 @@ export default function Carta() {
       const url = await subirImagenProducto(file, editProd.id)
       setProdForm(prev => ({ ...prev, imagen_url: url }))
     } else {
-      // Subir y guardar URL temporal
       const ext = file.name.split('.').pop()
       const path = `${restaurante.id}/temp_${Date.now()}.${ext}`
       await supabase.storage.from('productos').upload(path, file, { upsert: true })
@@ -133,7 +107,15 @@ export default function Carta() {
     }
   }
 
+  // Filtrar productos por categoría seleccionada
   const filtrados = catFiltro ? productos.filter(p => p.categoria_id === catFiltro) : productos
+
+  // Categorías que el restaurante usa (tienen al menos 1 producto)
+  const catsUsadas = [...new Set(productos.map(p => p.categoria_id).filter(Boolean))]
+  const catLabel = (id) => {
+    const cat = categoriasGenerales.find(c => c.id === id)
+    return cat ? `${cat.emoji} ${cat.nombre}` : 'Sin categoría'
+  }
 
   // --- Extras ---
   if (gestionExtras) {
@@ -162,45 +144,22 @@ export default function Carta() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>Mi carta</h2>
-        <div style={{ display: 'flex', gap: 6 }}>
-          <button onClick={() => setShowAddCat(true)} style={s.btnSecondary}>+ Categoría</button>
-          <button onClick={abrirCrearProducto} disabled={categorias.length === 0} style={{ ...s.btnPrimary, opacity: categorias.length === 0 ? 0.4 : 1 }}>+ Producto</button>
-        </div>
+        <button onClick={abrirCrearProducto} style={s.btnPrimary}>+ Producto</button>
       </div>
-
-      {categorias.length === 0 && !loading && (
-        <div style={{ ...s.card, textAlign: 'center', padding: 24, marginBottom: 16 }}>
-          <div style={{ fontSize: 28, marginBottom: 8 }}>📂</div>
-          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>Crea tu primera categoría</div>
-          <div style={{ fontSize: 12, color: 'var(--c-muted)', marginBottom: 12 }}>Ej: Pizzas, Burgers, Entrantes, Bebidas...</div>
-          <button onClick={() => setShowAddCat(true)} style={s.btnPrimary}>Crear categoría</button>
-        </div>
-      )}
 
       <button onClick={() => setGestionExtras(true)} style={{ width: '100%', padding: '10px 0', borderRadius: 10, border: '1px solid var(--c-border)', background: 'var(--c-surface)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', color: 'var(--c-primary)', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
         Gestionar extras ({gruposExtras.length})
       </button>
 
-      {/* Categorías filter + manage */}
-      <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 20, paddingBottom: 4, alignItems: 'center' }}>
-        <button onClick={() => setCatFiltro(null)} style={{ ...s.catBtn, background: !catFiltro ? 'var(--c-primary)' : 'var(--c-surface2)', color: !catFiltro ? '#fff' : 'var(--c-text)' }}>Todos</button>
-        {categorias.map(c => (
-          <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <button onClick={() => setCatFiltro(c.id)} style={{ ...s.catBtn, background: catFiltro === c.id ? 'var(--c-primary)' : 'var(--c-surface2)', color: catFiltro === c.id ? '#fff' : 'var(--c-text)', opacity: c.activa ? 1 : 0.5 }}>{c.nombre}</button>
-            <button onClick={() => eliminarCategoria(c.id)} style={{ background: 'none', border: 'none', fontSize: 10, color: 'var(--c-muted)', cursor: 'pointer', padding: '2px' }}>×</button>
-          </div>
+      {/* Filtro por categorías */}
+      <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 20, paddingBottom: 4 }}>
+        <button onClick={() => setCatFiltro(null)} style={{ ...s.catBtn, background: !catFiltro ? 'var(--c-primary)' : 'var(--c-surface2)', color: !catFiltro ? '#fff' : 'var(--c-text)' }}>Todos ({productos.length})</button>
+        {categoriasGenerales.filter(c => catsUsadas.includes(c.id)).map(c => (
+          <button key={c.id} onClick={() => setCatFiltro(c.id)} style={{ ...s.catBtn, background: catFiltro === c.id ? 'var(--c-primary)' : 'var(--c-surface2)', color: catFiltro === c.id ? '#fff' : 'var(--c-text)' }}>
+            {c.emoji} {c.nombre}
+          </button>
         ))}
       </div>
-
-      {/* Crear categoría inline */}
-      {showAddCat && (
-        <div style={{ ...s.card, marginBottom: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
-          <input value={nuevaCat} onChange={e => setNuevaCat(e.target.value)} placeholder="Nombre de la categoría..." style={s.input}
-            onKeyDown={e => e.key === 'Enter' && crearCategoria()} autoFocus />
-          <button onClick={crearCategoria} style={s.btnPrimary}>Crear</button>
-          <button onClick={() => setShowAddCat(false)} style={s.btnSecondary}>Cancelar</button>
-        </div>
-      )}
 
       {loading && <div style={{ textAlign: 'center', padding: '30px 0', color: 'var(--c-muted)' }}>Cargando...</div>}
 
@@ -222,6 +181,7 @@ export default function Carta() {
                   <span style={{ position: 'absolute', top: 2, left: p.disponible ? 20 : 2, width: 20, height: 20, borderRadius: 10, background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }} />
                 </button>
               </div>
+              {p.categoria_id && <div style={{ fontSize: 10, color: 'var(--c-muted)', marginBottom: 2 }}>{catLabel(p.categoria_id)}</div>}
               {p.descripcion && <div style={{ fontSize: 11, color: 'var(--c-muted)', marginBottom: 4 }}>{p.descripcion}</div>}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--c-primary)' }}>{p.precio.toFixed(2)} €</span>
@@ -235,13 +195,13 @@ export default function Carta() {
         </div>
       ))}
 
-      {!loading && filtrados.length === 0 && categorias.length > 0 && (
+      {!loading && filtrados.length === 0 && (
         <div style={{ textAlign: 'center', padding: 32, color: 'var(--c-muted)', fontSize: 13 }}>
           Sin productos. Pulsa "+ Producto" para añadir.
         </div>
       )}
 
-      {/* Input oculto para subir imagen de producto existente */}
+      {/* Input oculto para subir imagen */}
       <input ref={imgRef} type="file" accept="image/*" hidden onChange={e => {
         if (e.target.files[0] && editProd) subirImagenProducto(e.target.files[0], editProd.id)
       }} />
@@ -249,17 +209,17 @@ export default function Carta() {
       {/* Modal crear/editar producto */}
       {showAddProd && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 200, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={() => setShowAddProd(false)}>
-          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--c-bg)', borderRadius: '20px 20px 0 0', padding: 24, width: '100%', maxWidth: 420, maxHeight: '80vh', overflowY: 'auto', animation: 'slideUp 0.3s ease' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#1A1A1A', borderRadius: '20px 20px 0 0', padding: 24, width: '100%', maxWidth: 420, maxHeight: '80vh', overflowY: 'auto', animation: 'slideUp 0.3s ease', border: '1px solid rgba(255,255,255,0.08)', borderBottom: 'none' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>{editProd ? 'Editar producto' : 'Nuevo producto'}</h3>
-              <button onClick={() => setShowAddProd(false)} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: 'var(--c-muted)' }}>×</button>
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#F5F5F5' }}>{editProd ? 'Editar producto' : 'Nuevo producto'}</h3>
+              <button onClick={() => setShowAddProd(false)} style={{ background: 'rgba(255,255,255,0.08)', border: 'none', fontSize: 18, cursor: 'pointer', color: '#F5F5F5', width: 32, height: 32, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
             </div>
 
             <div style={{ marginBottom: 12 }}>
               <label style={s.label}>Categoría *</label>
               <select value={prodForm.categoria_id} onChange={e => setProdForm({ ...prodForm, categoria_id: e.target.value })} style={s.formInput}>
                 <option value="">Sin categoría</option>
-                {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                {categoriasGenerales.map(c => <option key={c.id} value={c.id}>{c.emoji} {c.nombre}</option>)}
               </select>
             </div>
             <div style={{ marginBottom: 12 }}>
@@ -301,10 +261,8 @@ const s = {
   card: { background: 'var(--c-surface)', borderRadius: 14, padding: '14px 16px', border: '1px solid var(--c-border)' },
   backBtn: { background: 'none', border: 'none', color: 'var(--c-primary)', fontSize: 14, fontWeight: 600, cursor: 'pointer', marginBottom: 16, padding: 0, fontFamily: 'inherit' },
   btnPrimary: { padding: '8px 14px', borderRadius: 10, border: 'none', background: 'var(--c-primary)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
-  btnSecondary: { padding: '8px 14px', borderRadius: 10, border: '1px solid var(--c-border)', background: 'transparent', color: 'var(--c-text)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' },
   catBtn: { padding: '7px 14px', borderRadius: 50, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' },
   miniBtn: { padding: '3px 8px', borderRadius: 6, border: 'none', fontSize: 10, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', background: 'var(--c-surface2)', color: 'var(--c-primary)' },
-  input: { flex: 1, padding: '10px 14px', borderRadius: 10, border: '1px solid var(--c-border)', fontSize: 13, fontFamily: 'inherit', background: 'var(--c-surface)', color: 'var(--c-text)', outline: 'none' },
-  formInput: { width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid var(--c-border)', fontSize: 13, fontFamily: 'inherit', background: 'var(--c-surface)', color: 'var(--c-text)', outline: 'none', boxSizing: 'border-box' },
-  label: { fontSize: 12, fontWeight: 600, color: 'var(--c-muted)', marginBottom: 4, display: 'block' },
+  formInput: { width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)', fontSize: 13, fontFamily: 'inherit', background: 'rgba(255,255,255,0.06)', color: '#F5F5F5', outline: 'none', boxSizing: 'border-box' },
+  label: { fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.45)', marginBottom: 4, display: 'block' },
 }
