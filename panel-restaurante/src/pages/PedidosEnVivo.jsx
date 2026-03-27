@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useRest } from '../context/RestContext'
-import { startAlarm, stopAlarm } from '../lib/alarm'
+import { startAlarm, stopAlarm, unlockAudio, requestNotificationPermission } from '../lib/alarm'
 
 function PagoBadge({ pago }) {
   const t = pago === 'tarjeta'
@@ -21,6 +21,18 @@ export default function PedidosEnVivo() {
   const [activos, setActivos] = useState([])
   const [itemsMap, setItemsMap] = useState({})
   const [timers, setTimers] = useState({})
+
+  // Desbloquear audio al primer click y pedir permisos de notificación
+  useEffect(() => {
+    requestNotificationPermission()
+    const handler = () => unlockAudio()
+    document.addEventListener('click', handler, { once: true })
+    document.addEventListener('touchstart', handler, { once: true })
+    return () => {
+      document.removeEventListener('click', handler)
+      document.removeEventListener('touchstart', handler)
+    }
+  }, [])
 
   useEffect(() => {
     if (!restaurante) return

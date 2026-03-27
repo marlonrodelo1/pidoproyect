@@ -36,23 +36,42 @@ export function AuthProvider({ children }) {
 
   async function login(email, password) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) throw error
+    if (error) throw new Error(traducirError(error.message))
     return data
   }
 
   async function registro(email, password, nombre, telefono) {
     const { data, error } = await supabase.auth.signUp({ email, password })
-    if (error) throw error
+    if (error) throw new Error(traducirError(error.message))
 
-    // Crear perfil en tabla usuarios
     const { error: perfilError } = await supabase.from('usuarios').insert({
       id: data.user.id,
       nombre,
       email,
       telefono,
     })
-    if (perfilError) throw perfilError
+    if (perfilError) throw new Error('Error al crear el perfil. Intenta de nuevo.')
     return data
+  }
+
+  async function updatePerfil(campos) {
+    if (!perfil?.id) throw new Error('No hay sesión activa')
+    const { data, error } = await supabase
+      .from('usuarios')
+      .update(campos)
+      .eq('id', perfil.id)
+      .select()
+      .single()
+    if (error) throw new Error('Error al actualizar el perfil')
+    setPerfil(data)
+    return data
+  }
+
+  async function resetPassword(email) {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin,
+    })
+    if (error) throw new Error(traducirError(error.message))
   }
 
   async function logout() {
@@ -62,10 +81,24 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, perfil, loading, login, registro, logout, fetchPerfil }}>
+    <AuthContext.Provider value={{ user, perfil, loading, login, registro, logout, fetchPerfil, updatePerfil, resetPassword }}>
       {children}
     </AuthContext.Provider>
   )
+}
+
+function traducirError(msg) {
+  const map = {
+    'Invalid login credentials': 'Email o contraseña incorrectos',
+    'Email not confirmed': 'Confirma tu email antes de iniciar sesión',
+    'User already registered': 'Este email ya está registrado',
+    'Password should be at least 6 characters': 'La contraseña debe tener al menos 6 caracteres',
+    'Unable to validate email address: invalid format': 'Formato de email inválido',
+    'Signup requires a valid password': 'Introduce una contraseña válida',
+    'Email rate limit exceeded': 'Demasiados intentos. Espera unos minutos.',
+    'For security purposes, you can only request this once every 60 seconds': 'Espera 60 segundos antes de intentar de nuevo',
+  }
+  return map[msg] || msg
 }
 
 export const useAuth = () => useContext(AuthContext)
