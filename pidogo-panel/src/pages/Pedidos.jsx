@@ -3,13 +3,13 @@ import { supabase } from '../lib/supabase'
 import { useSocio } from '../context/SocioContext'
 
 function EstadoBadge({ estado }) {
-  const c = { entregado: { bg: '#DCFCE7', c: '#166534' }, cancelado: { bg: '#FEE2E2', c: '#991B1B' }, fallido: { bg: '#FEF3C7', c: '#92400E' } }[estado] || { bg: '#F3F2EF', c: '#8C8A85' }
+  const c = { entregado: { bg: 'rgba(74,222,128,0.12)', c: '#4ADE80' }, cancelado: { bg: 'rgba(239,68,68,0.12)', c: '#EF4444' }, fallido: { bg: 'rgba(251,191,36,0.12)', c: '#FBBF24' } }[estado] || { bg: 'rgba(255,255,255,0.06)', c: 'rgba(255,255,255,0.4)' }
   return <span style={{ background: c.bg, color: c.c, fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 6, textTransform: 'capitalize' }}>{estado?.replace('_', ' ')}</span>
 }
 
 function PagoBadge({ pago }) {
   const t = pago === 'tarjeta'
-  return <span style={{ background: t ? '#DBEAFE' : '#DCFCE7', color: t ? '#1E40AF' : '#166534', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 6 }}>{t ? '💳' : '💵'} {t ? 'Tarjeta' : 'Efectivo'}</span>
+  return <span style={{ background: t ? 'rgba(96,165,250,0.15)' : 'rgba(74,222,128,0.12)', color: t ? '#60A5FA' : '#4ADE80', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 6 }}>{t ? '💳' : '💵'} {t ? 'Tarjeta' : 'Efectivo'}</span>
 }
 
 export default function Pedidos() {

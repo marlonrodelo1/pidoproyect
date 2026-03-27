@@ -7,12 +7,12 @@ import { sendPush } from '../lib/webPush'
 
 function PagoBadge({ pago }) {
   const t = pago === 'tarjeta'
-  return <span style={{ background: t ? '#DBEAFE' : '#DCFCE7', color: t ? '#1E40AF' : '#166534', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 3 }}>{t ? '💳 Tarjeta' : '💵 Efectivo'}</span>
+  return <span style={{ background: t ? 'rgba(96,165,250,0.15)' : 'rgba(74,222,128,0.12)', color: t ? '#60A5FA' : '#4ADE80', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 3 }}>{t ? '💳 Tarjeta' : '💵 Efectivo'}</span>
 }
 
 function CanalBadge({ canal }) {
   const p = canal === 'pidogo'
-  return <span style={{ background: p ? '#DBEAFE' : '#F3E8FF', color: p ? '#1E40AF' : '#6B21A8', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 6 }}>{p ? 'Tu tienda' : 'App PIDO'}</span>
+  return <span style={{ background: p ? 'rgba(96,165,250,0.15)' : 'rgba(168,85,247,0.15)', color: p ? '#60A5FA' : '#A855F7', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 6 }}>{p ? 'Tu tienda' : 'App PIDO'}</span>
 }
 
 function openGoogleMaps(lat, lng, label) {
@@ -191,22 +191,22 @@ export default function EnVivo() {
             </div>
           ))}
           {pedidoActivo.notas && (
-            <div style={{ fontSize: 12, color: '#92400E', background: '#FEF3C7', borderRadius: 8, padding: '8px 10px', marginTop: 8 }}>{pedidoActivo.notas}</div>
+            <div style={{ fontSize: 12, color: '#FBBF24', background: 'rgba(251,191,36,0.12)', borderRadius: 8, padding: '8px 10px', marginTop: 8 }}>{pedidoActivo.notas}</div>
           )}
           <div style={{ fontWeight: 800, fontSize: 15, marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--c-border)' }}>
             Total: {pedidoActivo.total?.toFixed(2)} €
-            {pedidoActivo.metodo_pago === 'efectivo' && <span style={{ fontSize: 12, fontWeight: 600, color: '#166534', marginLeft: 8 }}>Cobrar en efectivo</span>}
+            {pedidoActivo.metodo_pago === 'efectivo' && <span style={{ fontSize: 12, fontWeight: 600, color: '#4ADE80', marginLeft: 8 }}>Cobrar en efectivo</span>}
           </div>
         </div>
 
         {/* Destino con navegacion */}
         {etapa !== 'entregado' && (
           <div style={{
-            background: irAlRestaurante ? '#FFF7ED' : '#F0FDF4',
+            background: irAlRestaurante ? 'rgba(255,107,44,0.1)' : 'rgba(74,222,128,0.1)',
             borderRadius: 14, padding: '16px 18px', marginBottom: 12,
-            border: irAlRestaurante ? '1px solid #FED7AA' : '1px solid #BBF7D0',
+            border: irAlRestaurante ? '1px solid rgba(255,107,44,0.2)' : '1px solid rgba(74,222,128,0.2)',
           }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: irAlRestaurante ? '#C2410C' : '#15803D', marginBottom: 6, textTransform: 'uppercase' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: irAlRestaurante ? '#FF6B2C' : '#4ADE80', marginBottom: 6, textTransform: 'uppercase' }}>
               {irAlRestaurante ? '📍 Ir al restaurante' : '📍 Ir al cliente'}
             </div>
             <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 2 }}>{destNombre}</div>
@@ -221,8 +221,8 @@ export default function EnVivo() {
 
         {/* Contactar cliente */}
         {irAlCliente && etapa !== 'entregado' && (
-          <div style={{ background: '#EFF6FF', borderRadius: 14, padding: '14px 18px', marginBottom: 12, border: '1px solid #BFDBFE' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#1D4ED8', marginBottom: 8, textTransform: 'uppercase' }}>👤 Cliente</div>
+          <div style={{ background: 'rgba(96,165,250,0.1)', borderRadius: 14, padding: '14px 18px', marginBottom: 12, border: '1px solid rgba(96,165,250,0.2)' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#60A5FA', marginBottom: 8, textTransform: 'uppercase' }}>👤 Cliente</div>
             <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 2 }}>{cliente?.nombre || 'Cliente'} {cliente?.apellido || ''}</div>
             {cliente?.telefono && <div style={{ fontSize: 12, color: 'var(--c-muted)', marginBottom: 10 }}>{cliente.telefono}</div>}
             <div style={{ display: 'flex', gap: 8 }}>
@@ -250,13 +250,13 @@ export default function EnVivo() {
             </button>
           </div>
         ) : (
-          <div style={{ background: '#DCFCE7', borderRadius: 14, padding: 20, textAlign: 'center', marginTop: 8 }}>
+          <div style={{ background: 'rgba(74,222,128,0.12)', borderRadius: 14, padding: 20, textAlign: 'center', marginTop: 8 }}>
             <div style={{ fontSize: 32, marginBottom: 8 }}>✅</div>
-            <div style={{ fontWeight: 800, fontSize: 16, color: '#166534', marginBottom: 4 }}>Pedido entregado</div>
-            <div style={{ fontSize: 13, color: '#15803D', marginBottom: 16 }}>
+            <div style={{ fontWeight: 800, fontSize: 16, color: '#4ADE80', marginBottom: 4 }}>Pedido entregado</div>
+            <div style={{ fontSize: 13, color: '#4ADE80', marginBottom: 16 }}>
               Ganancia: +{(pedidoActivo.total * 0.1 + (pedidoActivo.coste_envio || 0) + (pedidoActivo.propina || 0)).toFixed(2)} €
             </div>
-            <button onClick={() => { setPedidoActivo(null); setEtapa(null); setCliente(null); fetchPedidos() }} style={{ padding: '10px 24px', borderRadius: 10, border: 'none', background: '#166534', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Volver</button>
+            <button onClick={() => { setPedidoActivo(null); setEtapa(null); setCliente(null); fetchPedidos() }} style={{ padding: '10px 24px', borderRadius: 10, border: 'none', background: '#4ADE80', color: '#0D0D0D', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Volver</button>
           </div>
         )}
       </div>
@@ -291,7 +291,7 @@ export default function EnVivo() {
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <button onClick={() => rechazarPedido(p)} style={{ flex: 1, padding: '14px 0', borderRadius: 12, border: '2px solid rgba(255,255,255,0.3)', background: 'transparent', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Rechazar</button>
-            <button onClick={() => aceptarPedido(p)} style={{ flex: 2, padding: '14px 0', borderRadius: 12, border: 'none', background: '#fff', color: 'var(--c-accent)', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>Aceptar pedido</button>
+            <button onClick={() => aceptarPedido(p)} style={{ flex: 2, padding: '14px 0', borderRadius: 12, border: 'none', background: 'rgba(255,255,255,0.06)', color: 'var(--c-accent)', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>Aceptar pedido</button>
           </div>
         </div>
       ))}
@@ -301,7 +301,7 @@ export default function EnVivo() {
         <div key={p.id} style={{ background: 'var(--c-surface)', borderRadius: 14, padding: '16px 18px', border: '1px solid var(--c-border)', marginBottom: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <span style={{ fontWeight: 700, fontSize: 14 }}>{p.codigo}</span>
-            <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 6, background: '#FEF3C7', color: '#92400E', textTransform: 'capitalize' }}>{p.estado?.replace('_', ' ')}</span>
+            <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 6, background: 'rgba(251,191,36,0.12)', color: '#FBBF24', textTransform: 'capitalize' }}>{p.estado?.replace('_', ' ')}</span>
           </div>
           <div style={{ fontSize: 13, color: 'var(--c-muted)', marginBottom: 8 }}>{p.establecimientos?.nombre} — {p.total?.toFixed(2)} €</div>
           <button onClick={async () => {
@@ -342,8 +342,8 @@ const styles = {
     cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
   },
   failBtn: {
-    width: '100%', padding: '12px 0', borderRadius: 12, border: '1px solid #FCA5A5',
-    background: '#FEF2F2', color: '#DC2626', fontSize: 13, fontWeight: 700,
+    width: '100%', padding: '12px 0', borderRadius: 12, border: '1px solid rgba(239,68,68,0.2)',
+    background: 'rgba(239,68,68,0.1)', color: '#EF4444', fontSize: 13, fontWeight: 700,
     cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
   },
 }

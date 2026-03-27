@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useSocio } from '../context/SocioContext'
 
 function EstadoBadge({ estado }) {
-  const c = { aceptado: { bg: '#DCFCE7', c: '#166534', l: 'Aceptado' }, pendiente: { bg: '#FEF3C7', c: '#92400E', l: 'Pendiente' }, rechazado: { bg: '#FEE2E2', c: '#991B1B', l: 'Rechazado' } }[estado] || { bg: '#F3F2EF', c: '#8C8A85', l: 'Nuevo' }
+  const c = { aceptado: { bg: 'rgba(74,222,128,0.12)', c: '#4ADE80', l: 'Aceptado' }, pendiente: { bg: 'rgba(251,191,36,0.12)', c: '#FBBF24', l: 'Pendiente' }, rechazado: { bg: 'rgba(239,68,68,0.12)', c: '#EF4444', l: 'Rechazado' } }[estado] || { bg: 'rgba(255,255,255,0.06)', c: 'rgba(255,255,255,0.4)', l: 'Nuevo' }
   return <span style={{ background: c.bg, color: c.c, fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 6 }}>{c.l}</span>
 }
 
@@ -68,10 +68,10 @@ export default function Negocios() {
               <button onClick={() => toggleDestacado(r)} style={{ padding: '8px 18px', borderRadius: 10, border: '1px solid var(--c-border)', background: r.destacado ? 'var(--c-accent)' : 'var(--c-surface)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', color: r.destacado ? '#fff' : 'var(--c-text)' }}>
                 {r.destacado ? '★ Destacado' : 'Destacar'}
               </button>
-              <button onClick={() => desvincular(r.id)} style={{ padding: '8px 18px', borderRadius: 10, border: '1px solid #FEE2E2', background: '#FEF2F2', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', color: '#991B1B' }}>Desvincular</button>
+              <button onClick={() => desvincular(r.id)} style={{ padding: '8px 18px', borderRadius: 10, border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.1)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', color: '#EF4444' }}>Desvincular</button>
             </div>
           )}
-          {r.estado === 'pendiente' && <span style={{ fontSize: 12, color: '#92400E', fontWeight: 600 }}>Esperando aprobación...</span>}
+          {r.estado === 'pendiente' && <span style={{ fontSize: 12, color: '#FBBF24', fontWeight: 600 }}>Esperando aprobación...</span>}
         </div>
       ))}
 

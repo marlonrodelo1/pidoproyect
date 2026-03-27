@@ -25,7 +25,7 @@ export default function Login() {
       <div style={{ width: '100%', maxWidth: 340 }}>
         <input placeholder="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} style={input} />
         <input placeholder="Contraseña" type="password" value={password} onChange={e => setPassword(e.target.value)} style={input} />
-        {error && <div style={{ color: '#DC2626', fontSize: 12, marginBottom: 10, textAlign: 'center' }}>{error}</div>}
+        {error && <div style={{ color: '#EF4444', fontSize: 12, marginBottom: 10, textAlign: 'center' }}>{error}</div>}
         <button onClick={handleSubmit} disabled={loading} style={{
           width: '100%', padding: '16px 0', borderRadius: 14, border: 'none',
           background: loading ? 'var(--c-muted)' : 'var(--c-accent)', color: '#fff',

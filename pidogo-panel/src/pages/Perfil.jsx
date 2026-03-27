@@ -52,7 +52,7 @@ export default function Perfil() {
           <div style={{ fontWeight: 700, fontSize: 14, color: enServicio ? '#4ADE80' : '#FBBF24' }}>{enServicio ? 'En servicio' : 'Fuera de servicio'}</div>
           <div style={{ fontSize: 12, color: enServicio ? '#22C55E' : '#F59E0B', marginTop: 2 }}>{enServicio ? 'Estás recibiendo pedidos' : 'No recibirás pedidos'}</div>
         </div>
-        <button onClick={toggleServicio} style={{ width: 52, height: 28, borderRadius: 14, border: 'none', background: enServicio ? '#16A34A' : '#D1D5DB', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}>
+        <button onClick={toggleServicio} style={{ width: 52, height: 28, borderRadius: 14, border: 'none', background: enServicio ? '#16A34A' : 'rgba(255,255,255,0.2)', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}>
           <span style={{ position: 'absolute', top: 3, left: enServicio ? 27 : 3, width: 22, height: 22, borderRadius: 11, background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
         </button>
       </div>

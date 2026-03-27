@@ -14,11 +14,11 @@ function StatCard({ label, value, sub, accent }) {
 
 function PagoBadge({ pago }) {
   const t = pago === 'tarjeta'
-  return <span style={{ background: t ? '#DBEAFE' : '#DCFCE7', color: t ? '#1E40AF' : '#166534', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 6 }}>{t ? '💳' : '💵'} {t ? 'Tarjeta' : 'Efectivo'}</span>
+  return <span style={{ background: t ? 'rgba(96,165,250,0.15)' : 'rgba(74,222,128,0.12)', color: t ? '#60A5FA' : '#4ADE80', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 6 }}>{t ? '💳' : '💵'} {t ? 'Tarjeta' : 'Efectivo'}</span>
 }
 
 function EstadoBadge({ estado }) {
-  const c = { entregado: { bg: '#DCFCE7', color: '#166534' }, cancelado: { bg: '#FEE2E2', color: '#991B1B' }, fallido: { bg: '#FEF3C7', color: '#92400E' } }[estado] || { bg: '#F3F2EF', color: '#8C8A85' }
+  const c = { entregado: { bg: 'rgba(74,222,128,0.12)', color: '#4ADE80' }, cancelado: { bg: 'rgba(239,68,68,0.12)', color: '#EF4444' }, fallido: { bg: 'rgba(251,191,36,0.12)', color: '#FBBF24' } }[estado] || { bg: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)' }
   return <span style={{ background: c.bg, color: c.color, fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 6, textTransform: 'capitalize' }}>{estado?.replace('_', ' ')}</span>
 }
 

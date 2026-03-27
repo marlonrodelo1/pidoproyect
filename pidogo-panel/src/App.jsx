@@ -47,7 +47,7 @@ function AppContent() {
           <div style={{ width: 38, height: 38, borderRadius: 12, background: 'var(--c-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, color: '#fff', overflow: 'hidden' }}>
             {socio.logo_url ? <img src={socio.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : socio.nombre_comercial?.[0]?.toUpperCase()}
           </div>
-          <div style={{ width: 8, height: 8, borderRadius: 4, background: socio.en_servicio ? '#16A34A' : '#D1D5DB', boxShadow: socio.en_servicio ? '0 0 6px rgba(22,163,74,0.5)' : 'none' }} />
+          <div style={{ width: 8, height: 8, borderRadius: 4, background: socio.en_servicio ? '#16A34A' : 'rgba(255,255,255,0.2)', boxShadow: socio.en_servicio ? '0 0 6px rgba(22,163,74,0.5)' : 'none' }} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button onClick={() => setSeccion('envivo')} style={{
