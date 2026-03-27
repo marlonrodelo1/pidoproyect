@@ -65,11 +65,15 @@ export default function Perfil() {
           { label: 'Nombre comercial', value: socio?.nombre_comercial },
           { label: 'Email', value: socio?.email },
           { label: 'Teléfono', value: socio?.telefono },
-          { label: 'URL tienda', value: `pido.com/${socio?.slug}`, accent: true },
+          { label: 'URL tienda', value: `socio.pidoo.es/${socio?.slug}`, url: `https://socio.pidoo.es/${socio?.slug}`, accent: true },
         ].map((item, i) => (
           <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: i < 4 ? '1px solid var(--c-border)' : 'none' }}>
             <span style={{ fontSize: 13, color: 'var(--c-muted)' }}>{item.label}</span>
-            <span style={{ fontSize: 13, fontWeight: 600, color: item.accent ? 'var(--c-accent)' : 'var(--c-text)' }}>{item.value}</span>
+            {item.url ? (
+              <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-accent)', textDecoration: 'none' }}>{item.value}</a>
+            ) : (
+              <span style={{ fontSize: 13, fontWeight: 600, color: item.accent ? 'var(--c-accent)' : 'var(--c-text)' }}>{item.value}</span>
+            )}
           </div>
         ))}
       </div>
