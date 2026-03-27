@@ -6,24 +6,22 @@ import { getCurrentPosition } from '../lib/geolocation'
 import Stars from '../components/Stars'
 import EntregaBadge from '../components/EntregaBadge'
 
-const CATEGORIAS_EMOJI = [
-  { nombre: 'Pizzas', emoji: '🍕' },
-  { nombre: 'Burgers', emoji: '🍔' },
-  { nombre: 'Sushi', emoji: '🍣' },
-  { nombre: 'Postres', emoji: '🍰' },
-  { nombre: 'Bebidas', emoji: '🥤' },
-  { nombre: 'Latina', emoji: '🫓' },
-]
-
 export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
   const { perfil, updatePerfil } = useAuth()
   const [establecimientos, setEstablecimientos] = useState([])
-  const [ridersActivos, setRidersActivos] = useState({}) // {establecimiento_id: true/false}
+  const [ridersActivos, setRidersActivos] = useState({})
   const [busqueda, setBusqueda] = useState('')
   const [catActiva, setCatActiva] = useState(null)
   const [favoritos, setFavoritos] = useState(perfil?.favoritos || [])
   const [loading, setLoading] = useState(true)
   const [userLocation, setUserLocation] = useState(null)
+  const [categoriasGenerales, setCategoriasGenerales] = useState([])
+
+  useEffect(() => {
+    // Cargar categorías generales desde DB
+    supabase.from('categorias_generales').select('*').eq('activa', true).order('orden')
+      .then(({ data }) => setCategoriasGenerales(data || []))
+  }, [])
 
   useEffect(() => {
     // Pedir geolocalización al montar y guardar en perfil
@@ -123,7 +121,7 @@ export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
 
       {/* Categorías */}
       <div style={{ display: 'flex', gap: 10, overflowX: 'auto', marginBottom: 24, paddingBottom: 4 }}>
-        {CATEGORIAS_EMOJI.map(c => (
+        {categoriasGenerales.map(c => (
           <button key={c.nombre} onClick={() => setCatActiva(catActiva === c.nombre ? null : c.nombre)} style={{
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
             background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', minWidth: 56,
