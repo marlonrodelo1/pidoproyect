@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { crearPagoStripe, listarTarjetas, pagarConTarjetaGuardada } from '../lib/stripe'
+import { sendPush } from '../lib/webPush'
 import { CreditCard, Lock, X, ArrowLeft, Check } from 'lucide-react'
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
@@ -165,6 +166,12 @@ export default function Carrito({ onPedidoCreado }) {
       }))
       await supabase.from('pedido_items').insert(items)
       clearCart(); setOpen(false); setPasoTarjeta(false); setClientSecret(null); setCodigoPedido(null)
+      // Notificar al restaurante
+      sendPush({
+        targetType: 'restaurante', targetId: pedido.establecimiento_id,
+        title: 'Nuevo pedido', body: `Pedido ${pedido.codigo} - ${total.toFixed(2)} €`,
+        data: { pedido_id: pedido.id },
+      })
       onPedidoCreado(pedido)
     } catch (err) { alert('Error al crear pedido: ' + err.message) }
     finally { setLoading(false) }

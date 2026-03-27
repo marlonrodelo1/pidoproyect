@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { registerWebPush } from '../lib/webPush'
 
 const AuthContext = createContext({})
 
@@ -32,6 +33,8 @@ export function AuthProvider({ children }) {
       .single()
     setPerfil(data)
     setLoading(false)
+    // Registrar push notifications
+    registerWebPush('cliente', { user_id: userId })
   }
 
   async function login(email, password) {

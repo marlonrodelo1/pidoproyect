@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { registerWebPush } from '../lib/webPush'
 
 const SocioContext = createContext({})
 
@@ -32,6 +33,7 @@ export function SocioProvider({ children }) {
       .single()
     setSocio(data)
     setLoading(false)
+    if (data) registerWebPush('socio', { socio_id: data.id })
   }
 
   async function updateSocio(updates) {
