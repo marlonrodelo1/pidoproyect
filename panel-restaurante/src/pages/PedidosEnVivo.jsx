@@ -88,6 +88,9 @@ export default function PedidosEnVivo() {
     setEntrantes(nuevos || [])
     setActivos(prep || [])
 
+    // Sonar alarma si hay pedidos nuevos pendientes
+    if ((nuevos || []).length > 0) startAlarm()
+
     const t = {}
     for (const p of nuevos || []) t[p.id] = 180
     setTimers(t)
@@ -195,7 +198,12 @@ export default function PedidosEnVivo() {
 
   return (
     <div>
-      <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 16px' }}>Pedidos en vivo</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>Pedidos en vivo</h2>
+        <button onClick={() => { unlockAudio(); startAlarm(); setTimeout(stopAlarm, 2000) }} style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid var(--c-border)', background: 'var(--c-surface)', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', color: 'var(--c-muted)' }}>
+          🔔 Probar alarma
+        </button>
+      </div>
 
       {/* Alerta */}
       {entrantes.length > 0 && (
