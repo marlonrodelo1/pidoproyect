@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { crearPagoStripe } from '../lib/stripe'
 import Stars from '../components/Stars'
+import AddressInput from '../components/AddressInput'
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
 
@@ -600,7 +601,20 @@ function PaginaPerfil({ user, perfil, onLogin, onLogout, updatePerfil }) {
         </button>
         <div style={{ ...glass, padding: 16 }}>
           <label style={lbl}>Dirección de entrega</label>
-          <input value={direccion} onChange={e => setDireccion(e.target.value)} placeholder="Ej: Calle San Felipe 12, Puerto de la Cruz" style={inp} />
+          <AddressInput
+            value={direccion}
+            onChange={setDireccion}
+            onSelect={async (place) => {
+              setDireccion(place.direccion)
+              if (place.lat && place.lng) {
+                await updatePerfil({ direccion: place.direccion, latitud: place.lat, longitud: place.lng })
+                setMsg('Dirección guardada')
+                setTimeout(() => setMsg(null), 1500)
+              }
+            }}
+            placeholder="Buscar dirección..."
+            style={inp}
+          />
           <button onClick={handleGuardarDir} disabled={savingDir} style={{ width: '100%', padding: '12px', borderRadius: 10, border: 'none', background: savingDir ? 'rgba(255,255,255,0.2)' : '#FF6B2C', color: '#fff', fontSize: 14, fontWeight: 700, cursor: savingDir ? 'default' : 'pointer', fontFamily: 'inherit', marginTop: 12 }}>
             {savingDir ? 'Guardando...' : 'Guardar dirección'}
           </button>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { getCurrentPosition } from '../lib/geolocation'
 import { MapPin, CreditCard, Tag, Settings, HelpCircle, LogOut, ChevronRight, X, Check, Camera, User, Phone, Mail, Navigation } from 'lucide-react'
+import AddressInput from '../components/AddressInput'
 
 export default function Perfil() {
   const { perfil, logout, updatePerfil } = useAuth()
@@ -91,9 +92,21 @@ export default function Perfil() {
             <div style={{ ...glass, padding: 16 }}>
               <label style={labelStyle}>Dirección de entrega</label>
               <div style={{ position: 'relative', marginBottom: 12 }}>
-                <MapPin size={15} strokeWidth={1.8} style={{ position: 'absolute', left: 12, top: 13, color: 'var(--c-muted)' }} />
-                <input value={direccion} onChange={e => setDireccion(e.target.value)}
-                  placeholder="Ej: Calle Gran Vía 12, 3B" style={{ ...inputDark, paddingLeft: 38 }} />
+                <MapPin size={15} strokeWidth={1.8} style={{ position: 'absolute', left: 12, top: 13, color: 'var(--c-muted)', zIndex: 1 }} />
+                <AddressInput
+                  value={direccion}
+                  onChange={setDireccion}
+                  onSelect={async (place) => {
+                    setDireccion(place.direccion)
+                    if (place.lat && place.lng) {
+                      await updatePerfil({ direccion: place.direccion, latitud: place.lat, longitud: place.lng })
+                      setMsg('Dirección guardada')
+                      setTimeout(() => setMsg(null), 1500)
+                    }
+                  }}
+                  placeholder="Buscar dirección..."
+                  style={{ ...inputDark, paddingLeft: 38 }}
+                />
               </div>
               <button onClick={handleGuardarDir} disabled={savingDir} style={{
                 width: '100%', padding: '12px', borderRadius: 10, border: 'none',
