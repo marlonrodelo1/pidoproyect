@@ -1,95 +1,165 @@
 import { useState, useEffect } from 'react'
+import { Home, ClipboardList, ShoppingCart, User, Search, X, ArrowLeft } from 'lucide-react'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
 import { crearPagoStripe } from '../lib/stripe'
 import Stars from '../components/Stars'
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
 
-// --- Componentes auxiliares ---
-function ModoEntregaBadge({ modo, radioKm }) {
-  const config = {
-    recogida: { label: 'Solo recogida', icon: '🏪', bg: '#FEF3C7', color: '#92400E' },
-    reparto: { label: `Reparto · ${radioKm} km`, icon: '🛵', bg: '#DCFCE7', color: '#166534' },
-    ambos: { label: `Recogida y reparto · ${radioKm} km`, icon: '🛵', bg: '#DBEAFE', color: '#1E40AF' },
-  }
-  const c = config[modo] || config.ambos
+// ===================== COMPONENTES AUXILIARES =====================
+
+function TiendaBottomNav({ active, onChange, carritoCount }) {
+  const items = [
+    { id: 'inicio', l: 'Inicio', Icon: Home },
+    { id: 'pedidos', l: 'Pedidos', Icon: ClipboardList },
+    { id: 'carrito', l: 'Carrito', Icon: ShoppingCart, badge: carritoCount },
+    { id: 'perfil', l: 'Perfil', Icon: User },
+  ]
   return (
-    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: c.bg, color: c.color, fontSize: 12, fontWeight: 700, padding: '6px 14px', borderRadius: 50, marginTop: 8 }}>
-      <span>{c.icon}</span> {c.label}
+    <div style={{
+      position: 'fixed', bottom: 10, left: '50%', transform: 'translateX(-50%)',
+      width: 'calc(100% - 32px)', maxWidth: 388,
+      background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+      borderRadius: 22, display: 'flex', justifyContent: 'space-around', alignItems: 'center',
+      padding: '8px 6px', zIndex: 40, boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+    }}>
+      {items.map(n => {
+        const isActive = active === n.id
+        return (
+          <button key={n.id} onClick={() => onChange(n.id)} style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+            background: isActive ? 'rgba(255,255,255,0.15)' : 'transparent',
+            border: 'none', cursor: 'pointer', fontFamily: 'inherit', position: 'relative',
+            color: isActive ? '#FF6B2C' : 'rgba(255,255,255,0.5)',
+            fontSize: 9, fontWeight: 600, padding: '8px 12px', borderRadius: 14, transition: 'all 0.2s ease',
+          }}>
+            <n.Icon size={20} strokeWidth={isActive ? 2.5 : 1.8} />
+            {n.l}
+            {n.badge > 0 && <span style={{ position: 'absolute', top: 2, right: 4, background: '#FF6B2C', color: '#fff', fontSize: 8, fontWeight: 800, width: 16, height: 16, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{n.badge}</span>}
+          </button>
+        )
+      })}
     </div>
   )
 }
 
-function BannerPidoApp() {
+function EstadoBadge({ estado }) {
+  const c = { entregado: '#4ADE80', cancelado: '#EF4444', fallido: '#FBBF24', nuevo: '#60A5FA', aceptado: '#60A5FA', preparando: '#FBBF24', listo: '#A855F7', en_camino: '#FF6B2C', recogido: '#FF6B2C' }
+  return <span style={{ background: `${c[estado] || '#666'}20`, color: c[estado] || '#666', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 6, textTransform: 'capitalize' }}>{estado?.replace('_', ' ')}</span>
+}
+
+function PagoBadge({ pago }) {
+  const t = pago === 'tarjeta'
+  return <span style={{ fontSize: 10, fontWeight: 700, color: t ? '#60A5FA' : '#4ADE80' }}>{t ? '💳' : '💵'}</span>
+}
+
+// Haversine
+function calcDistanciaKm(lat1, lng1, lat2, lng2) {
+  const R = 6371
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLng = (lng2 - lng1) * Math.PI / 180
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+// ===================== FORMULARIO PAGO STRIPE =====================
+
+const cardStyle = { style: { base: { fontSize: '16px', fontFamily: "'DM Sans', sans-serif", color: '#F5F5F5', '::placeholder': { color: 'rgba(255,255,255,0.3)' } }, invalid: { color: '#EF4444' } } }
+
+function FormularioPago({ clientSecret, total, onSuccess, onCancel }) {
+  const stripe = useStripe()
+  const elements = useElements()
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  const handlePagar = async () => {
+    if (!stripe || !elements) return
+    setLoading(true); setError(null)
+    const { error: err, paymentIntent } = await stripe.confirmCardPayment(clientSecret, { payment_method: { card: elements.getElement(CardElement) } })
+    if (err) { setError(err.message); setLoading(false) }
+    else if (paymentIntent.status === 'succeeded') onSuccess(paymentIntent.id)
+    else { setError('El pago no se pudo completar'); setLoading(false) }
+  }
+
   return (
-    <div style={{ background: 'linear-gradient(135deg, #1A1A18 0%, #2D2D2A 100%)', borderRadius: 14, padding: '14px 16px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
-      <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--c-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        <span style={{ fontSize: 18 }}>🛵</span>
-      </div>
-      <div style={{ flex: 1 }}>
-        <div style={{ color: '#fff', fontSize: 13, fontWeight: 700 }}>Estos pedidos son para recoger</div>
-        <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: 11, marginTop: 2 }}>¿Quieres entrega a domicilio?</div>
-      </div>
-      <button style={{ background: 'var(--c-accent)', border: 'none', borderRadius: 10, padding: '8px 14px', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit' }}>
-        Ir a PIDO
+    <div>
+      <button onClick={onCancel} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: '#FF6B2C', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 16, padding: 0 }}><ArrowLeft size={16} /> Volver</button>
+      <div style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 14, border: '1px solid rgba(255,255,255,0.12)', padding: '16px 14px', marginBottom: 16 }}><CardElement options={cardStyle} /></div>
+      {error && <div style={{ background: 'rgba(239,68,68,0.15)', color: '#EF4444', fontSize: 12, padding: '10px 14px', borderRadius: 10, marginBottom: 12, textAlign: 'center', fontWeight: 600 }}>{error}</div>}
+      <button onClick={handlePagar} disabled={loading || !stripe} style={{ width: '100%', padding: '16px 0', borderRadius: 14, border: 'none', background: loading ? 'rgba(255,255,255,0.2)' : '#FF6B2C', color: '#fff', fontSize: 16, fontWeight: 800, cursor: loading ? 'default' : 'pointer', fontFamily: 'inherit' }}>
+        {loading ? 'Procesando...' : `Pagar ${total.toFixed(2)} €`}
       </button>
     </div>
   )
 }
 
-function ResenaCard({ r }) {
+// ===================== PAGINA: INICIO =====================
+
+function PaginaInicio({ socio, establecimientos, categorias, catActiva, setCatActiva, busqueda, setBusqueda, onOpenRest }) {
+  const destacados = establecimientos.filter(e => e.destacado)
+  const filtered = busqueda
+    ? establecimientos.filter(e => e.nombre.toLowerCase().includes(busqueda.toLowerCase()))
+    : catActiva ? establecimientos.filter(e => e._cats?.includes(catActiva)) : establecimientos
+
   return (
-    <div style={{ background: 'var(--c-surface)', borderRadius: 12, padding: '14px 16px', border: '1px solid var(--c-border)', minWidth: 260, flexShrink: 0 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--c-text)' }}>{r.usuario_nombre || 'Usuario'}</span>
-        <Stars rating={r.rating} size={11} />
+    <div style={{ animation: 'fadeIn 0.3s ease' }}>
+      {/* Buscador */}
+      <div style={{ position: 'relative', marginBottom: 16 }}>
+        <Search size={16} strokeWidth={2} style={{ position: 'absolute', left: 14, top: 13, color: 'rgba(255,255,255,0.3)' }} />
+        <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar restaurante o plato..." style={{ width: '100%', padding: '12px 14px 12px 40px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)', fontSize: 13, fontFamily: 'inherit', background: 'rgba(255,255,255,0.06)', color: '#F5F5F5', outline: 'none', boxSizing: 'border-box' }} />
+        {busqueda && <button onClick={() => setBusqueda('')} style={{ position: 'absolute', right: 12, top: 12, background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.4)' }}><X size={16} /></button>}
       </div>
-      {r.texto && <p style={{ fontSize: 12, color: 'var(--c-muted)', marginTop: 6, lineHeight: 1.5 }}>{r.texto}</p>}
+
+      {/* Categorías */}
+      {categorias.length > 0 && (
+        <div style={{ display: 'flex', gap: 8, overflowX: 'auto', marginBottom: 20, paddingBottom: 4 }}>
+          <button onClick={() => setCatActiva(null)} style={{ padding: '8px 16px', borderRadius: 50, border: 'none', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', background: !catActiva ? '#FF6B2C' : 'rgba(255,255,255,0.08)', color: !catActiva ? '#fff' : 'rgba(255,255,255,0.5)' }}>Todos</button>
+          {categorias.map(cat => (
+            <button key={cat} onClick={() => setCatActiva(catActiva === cat ? null : cat)} style={{ padding: '8px 16px', borderRadius: 50, border: 'none', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', background: catActiva === cat ? '#FF6B2C' : 'rgba(255,255,255,0.08)', color: catActiva === cat ? '#fff' : 'rgba(255,255,255,0.5)' }}>{cat}</button>
+          ))}
+        </div>
+      )}
+
+      {/* Destacados */}
+      {destacados.length > 0 && !busqueda && (
+        <div style={{ marginBottom: 24 }}>
+          <h3 style={{ fontSize: 17, fontWeight: 800, marginBottom: 12 }}>Destacados</h3>
+          <div style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 8 }}>
+            {destacados.map(r => <div key={r.id} style={{ minWidth: 240, flexShrink: 0 }}><RestCard r={r} onOpen={onOpenRest} socio={socio} /></div>)}
+          </div>
+        </div>
+      )}
+
+      {/* Todos */}
+      <h3 style={{ fontSize: 17, fontWeight: 800, marginBottom: 12 }}>Todos los restaurantes</h3>
+      {filtered.map(r => <RestCard key={r.id} r={r} onOpen={onOpenRest} socio={socio} />)}
+      {filtered.length === 0 && <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>No se encontraron resultados</div>}
     </div>
   )
 }
 
-function EstablecimientoCard({ r, onOpen, modoEntrega, socioEnServicio }) {
-  const [hover, setHover] = useState(false)
-  const tieneDelivery = socioEnServicio && modoEntrega !== 'recogida'
+function RestCard({ r, onOpen, socio }) {
+  const tieneDelivery = socio.en_servicio && socio.modo_entrega !== 'recogida'
   return (
-    <div onClick={() => onOpen(r)} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
-      style={{
-        background: 'var(--c-surface)', borderRadius: 16, overflow: 'hidden', cursor: 'pointer',
-        transition: 'transform 0.25s ease, box-shadow 0.25s ease',
-        transform: hover ? 'translateY(-4px)' : 'translateY(0)',
-        boxShadow: hover ? '0 12px 32px rgba(0,0,0,0.12)' : '0 2px 8px rgba(0,0,0,0.06)',
-        border: '1px solid var(--c-border)',
-      }}>
-      <div style={{
-        height: 110, background: r.banner_url ? `url(${r.banner_url}) center/cover` : 'linear-gradient(135deg, var(--c-accent-light), var(--c-accent-soft))',
-        position: 'relative',
-      }}>
+    <div onClick={() => onOpen(r)} style={{ background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(12px)', borderRadius: 16, overflow: 'hidden', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.06)', marginBottom: 12, transition: 'transform 0.2s' }}>
+      <div style={{ height: 130, background: r.banner_url ? `url(${r.banner_url}) center/cover` : 'linear-gradient(135deg, rgba(255,107,44,0.15), rgba(255,107,44,0.25))', position: 'relative' }}>
         <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 4 }}>
-          {tieneDelivery && (
-            <span style={{ fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 50, background: 'rgba(255,107,44,0.9)', color: '#fff', backdropFilter: 'blur(4px)' }}>Delivery</span>
-          )}
-          <span style={{ fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 50, background: 'rgba(255,255,255,0.92)', color: '#555', backdropFilter: 'blur(4px)' }}>Recogida</span>
+          {tieneDelivery && <span style={{ fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 50, background: 'rgba(255,107,44,0.9)', color: '#fff' }}>Delivery</span>}
+          <span style={{ fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 50, background: 'rgba(255,255,255,0.92)', color: '#555' }}>Recogida</span>
         </div>
       </div>
-      {/* Logo mitad fuera mitad dentro */}
-      <div style={{ position: 'relative', padding: '0 12px' }}>
-        <div style={{
-          width: 44, height: 44, borderRadius: 12, border: '3px solid #fff',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.12)', overflow: 'hidden',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'var(--c-surface)', fontSize: 20,
-          position: 'absolute', top: -22, left: 12,
-        }}>
+      <div style={{ position: 'relative', padding: '0 14px' }}>
+        <div style={{ width: 52, height: 52, borderRadius: 14, border: '3px solid #fff', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#1A1A1A', fontSize: 22, position: 'absolute', top: -26, left: 14 }}>
           {r.logo_url ? <img src={r.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '🍽️'}
         </div>
       </div>
-      <div style={{ padding: '28px 14px 12px' }}>
-        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4, color: 'var(--c-text)' }}>{r.nombre}</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--c-muted)' }}>
-          <Stars rating={r.rating} size={10} />
+      <div style={{ padding: '32px 16px 14px' }}>
+        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{r.nombre}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>
+          <Stars rating={r.rating} size={11} />
           <span>{r.rating?.toFixed(1)}</span>
           <span>({r.total_resenas})</span>
         </div>
@@ -98,14 +168,12 @@ function EstablecimientoCard({ r, onOpen, modoEntrega, socioEnServicio }) {
   )
 }
 
-// --- Detalle del establecimiento ---
-function EstablecimientoDetail({ est, onBack, carrito, setCarrito, modoEntrega, resenas }) {
+// ===================== PAGINA: DETALLE RESTAURANTE =====================
+
+function PaginaRestDetalle({ est, onBack, carrito, setCarrito, socio }) {
   const [productos, setProductos] = useState([])
   const [categorias, setCategorias] = useState([])
   const [loading, setLoading] = useState(true)
-  const soloRecogida = modoEntrega === 'recogida'
-
-  // Modal producto con extras
   const [modal, setModal] = useState(null)
   const [gruposExtras, setGruposExtras] = useState([])
   const [tamanos, setTamanos] = useState([])
@@ -127,226 +195,98 @@ function EstablecimientoDetail({ est, onBack, carrito, setCarrito, modoEntrega, 
   }
 
   async function abrirProducto(p) {
-    setModal(p)
-    setCant(1)
-    setExSel([])
-    setTamSel(null)
+    setModal(p); setCant(1); setExSel([]); setTamSel(null)
     const { data: tams } = await supabase.from('producto_tamanos').select('*').eq('producto_id', p.id).order('orden')
     setTamanos(tams || [])
     if (tams && tams.length > 0) setTamSel(0)
-    const { data: prodExtras } = await supabase.from('producto_extras').select('grupo_id').eq('producto_id', p.id)
-    if (prodExtras && prodExtras.length > 0) {
-      const { data: grupos } = await supabase.from('grupos_extras').select('*, extras_opciones(*)').in('id', prodExtras.map(pe => pe.grupo_id))
-      setGruposExtras(grupos || [])
-    } else {
-      setGruposExtras([])
-    }
+    const { data: pe } = await supabase.from('producto_extras').select('grupo_id').eq('producto_id', p.id)
+    if (pe && pe.length > 0) {
+      const { data: g } = await supabase.from('grupos_extras').select('*, extras_opciones(*)').in('id', pe.map(x => x.grupo_id))
+      setGruposExtras(g || [])
+    } else setGruposExtras([])
   }
 
   function precioTotal() {
     if (!modal) return 0
     const base = tamSel !== null && tamanos[tamSel] ? tamanos[tamSel].precio : modal.precio
-    const extrasTotal = exSel.reduce((s, e) => s + e.precio, 0)
-    return (base + extrasTotal) * cant
+    return (base + exSel.reduce((s, e) => s + e.precio, 0)) * cant
   }
 
   function toggleExtra(op, max) {
-    setExSel(prev => {
-      if (prev.find(e => e.id === op.id)) return prev.filter(e => e.id !== op.id)
-      if (prev.length >= max) return prev
-      return [...prev, op]
-    })
+    setExSel(prev => prev.find(e => e.id === op.id) ? prev.filter(e => e.id !== op.id) : prev.length >= max ? prev : [...prev, op])
   }
 
   function confirmarItem() {
     setCarrito(prev => [...prev, {
       id: Math.random().toString(36).substr(2, 9),
-      producto_id: modal.id,
-      nombre: modal.nombre,
+      producto_id: modal.id, nombre: modal.nombre,
       tamano: tamSel !== null && tamanos[tamSel] ? tamanos[tamSel].nombre : null,
-      extras: exSel.map(e => e.nombre),
-      cantidad: cant,
-      precio: precioTotal() / cant,
-      establecimiento_id: est.id,
-      establecimiento_nombre: est.nombre,
+      extras: exSel.map(e => e.nombre), cantidad: cant,
+      precio: precioTotal() / cant, establecimiento_id: est.id, establecimiento_nombre: est.nombre,
     }])
     setModal(null)
   }
 
   return (
-    <div style={{ animation: 'slideIn 0.3s ease' }}>
-      <button onClick={onBack} style={{ background: 'none', border: 'none', color: 'var(--c-accent)', fontSize: 14, fontWeight: 600, cursor: 'pointer', marginBottom: 16, padding: 0, fontFamily: 'inherit' }}>← Volver</button>
+    <div style={{ animation: 'fadeIn 0.3s ease' }}>
+      <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#FF6B2C', fontSize: 14, fontWeight: 600, cursor: 'pointer', marginBottom: 16, padding: 0, fontFamily: 'inherit' }}>← Volver</button>
 
-      <div style={{ height: 160, background: est.banner_url ? `url(${est.banner_url}) center/cover` : 'linear-gradient(135deg, var(--c-accent-light), var(--c-accent-soft))', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 56, marginBottom: 20 }}>
+      <div style={{ height: 150, borderRadius: 16, marginBottom: 16, background: est.banner_url ? `url(${est.banner_url}) center/cover` : 'linear-gradient(135deg, rgba(255,107,44,0.15), rgba(255,107,44,0.25))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 52 }}>
         {est.logo_url ? <img src={est.logo_url} alt="" style={{ width: 70, height: 70, borderRadius: 18, objectFit: 'cover' }} /> : '🍽️'}
       </div>
 
-      <h2 style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 800, color: 'var(--c-text)' }}>{est.nombre}</h2>
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 6, fontSize: 13, color: 'var(--c-muted)' }}>
-        <Stars rating={est.rating} />
-        <span>({est.total_resenas} reseñas)</span>
+      <h2 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 4px' }}>{est.nombre}</h2>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 12, color: 'rgba(255,255,255,0.45)', marginBottom: 4 }}>
+        <Stars rating={est.rating} /> <span>({est.total_resenas})</span>
       </div>
-      {est.direccion && <div style={{ fontSize: 12, color: 'var(--c-muted)', marginBottom: 16 }}>📍 {est.direccion}</div>}
+      {est.direccion && <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginBottom: 16 }}>📍 {est.direccion}</div>}
 
-      {soloRecogida && (
-        <div style={{ background: '#FEF3C7', borderRadius: 12, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-          <span style={{ fontSize: 18, marginTop: 1 }}>🏪</span>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 13, color: '#92400E', marginBottom: 2 }}>Recogida en tienda</div>
-            <div style={{ fontSize: 12, color: '#A16207', lineHeight: 1.4 }}>{est.direccion}</div>
-          </div>
-        </div>
-      )}
+      <h3 style={{ fontSize: 15, fontWeight: 800, marginBottom: 12 }}>Carta</h3>
 
-      {soloRecogida && <BannerPidoApp />}
-
-      <h3 style={{ fontSize: 15, fontWeight: 800, marginBottom: 12, color: 'var(--c-text)' }}>Carta</h3>
-
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: '30px 0', color: 'var(--c-muted)' }}>Cargando carta...</div>
-      ) : (
+      {loading ? <div style={{ textAlign: 'center', padding: '30px 0', color: 'rgba(255,255,255,0.4)' }}>Cargando carta...</div> : (
         <>
           {categorias.map(cat => {
             const prods = productos.filter(p => p.categoria_id === cat.id)
             if (prods.length === 0) return null
             return (
               <div key={cat.id} style={{ marginBottom: 16 }}>
-                <h4 style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-text)', marginBottom: 8 }}>{cat.nombre}</h4>
-                {prods.map(p => {
-                  const enCarrito = carrito.find(i => i.id === p.id)
-                  return (
-                    <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', background: 'var(--c-surface)', borderRadius: 12, border: '1px solid var(--c-border)', marginBottom: 8 }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--c-text)', marginBottom: 2 }}>{p.nombre}</div>
-                        {p.descripcion && <div style={{ fontSize: 12, color: 'var(--c-muted)', marginBottom: 4 }}>{p.descripcion}</div>}
-                        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--c-accent)' }}>{p.precio.toFixed(2)} €</div>
-                      </div>
-                      {p.imagen_url && <img src={p.imagen_url} alt="" style={{ width: 50, height: 50, borderRadius: 10, objectFit: 'cover', marginRight: 10 }} />}
-                      <button onClick={() => abrirProducto(p)} style={{
-                        width: 38, height: 38, borderRadius: 10, border: 'none',
-                        background: enCarrito ? 'var(--c-accent)' : 'var(--c-surface2)',
-                        color: enCarrito ? '#fff' : 'var(--c-accent)',
-                        fontSize: 20, fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'inherit',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      }}>
-                        {enCarrito ? enCarrito.cantidad : '+'}
-                      </button>
-                    </div>
-                  )
-                })}
+                <h4 style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>{cat.nombre}</h4>
+                {prods.map(p => <ProductCard key={p.id} p={p} carrito={carrito} onOpen={() => abrirProducto(p)} />)}
               </div>
             )
           })}
-          {/* Productos sin categoría */}
-          {productos.filter(p => !p.categoria_id).map(p => {
-            const enCarrito = carrito.find(i => i.id === p.id)
-            return (
-              <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', background: 'var(--c-surface)', borderRadius: 12, border: '1px solid var(--c-border)', marginBottom: 8 }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--c-text)' }}>{p.nombre}</div>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--c-accent)' }}>{p.precio.toFixed(2)} €</div>
-                </div>
-                <button onClick={() => abrirProducto(p)} style={{
-                  width: 38, height: 38, borderRadius: 10, border: 'none',
-                  background: enCarrito ? 'var(--c-accent)' : 'var(--c-surface2)',
-                  color: enCarrito ? '#fff' : 'var(--c-accent)', fontSize: 20, fontWeight: 700,
-                  cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  {enCarrito ? enCarrito.cantidad : '+'}
-                </button>
-              </div>
-            )
-          })}
+          {productos.filter(p => !p.categoria_id).map(p => <ProductCard key={p.id} p={p} carrito={carrito} onOpen={() => abrirProducto(p)} />)}
         </>
       )}
 
-      {/* Reseñas del establecimiento */}
-      {resenas.length > 0 && (
-        <div style={{ marginTop: 24 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--c-text)', marginBottom: 12 }}>Reseñas</h3>
-          <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 6 }}>
-            {resenas.map(r => <ResenaCard key={r.id} r={r} />)}
-          </div>
-        </div>
-      )}
-
-      {/* Modal producto con extras */}
+      {/* Modal producto */}
       {modal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 200, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={() => setModal(null)}>
           <div onClick={e => e.stopPropagation()} style={{ background: '#1A1A1A', borderRadius: '24px 24px 0 0', padding: '24px 20px 32px', width: '100%', maxWidth: 420, maxHeight: '85vh', overflowY: 'auto', animation: 'slideUp 0.3s ease', border: '1px solid rgba(255,255,255,0.08)', borderBottom: 'none' }}>
-            {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-              <div style={{ flex: 1 }}>
-                <h3 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 800, color: '#F5F5F5' }}>{modal.nombre}</h3>
-                {modal.descripcion && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', margin: 0 }}>{modal.descripcion}</p>}
-              </div>
+              <div><h3 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 800 }}>{modal.nombre}</h3>{modal.descripcion && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', margin: 0 }}>{modal.descripcion}</p>}</div>
               {modal.imagen_url && <img src={modal.imagen_url} alt="" style={{ width: 64, height: 64, borderRadius: 14, objectFit: 'cover', marginLeft: 12 }} />}
             </div>
-
-            {/* Tamaños */}
-            {tamanos.length > 0 && (
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#F5F5F5', marginBottom: 8 }}>Tamaño</div>
-                {tamanos.map((t, i) => (
-                  <button key={t.id} onClick={() => setTamSel(i)} style={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '10px 14px',
-                    borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 6,
-                    border: tamSel === i ? '2px solid var(--c-accent)' : '1px solid rgba(255,255,255,0.1)',
-                    background: tamSel === i ? 'rgba(255,107,44,0.12)' : 'rgba(255,255,255,0.04)',
-                  }}>
-                    <span style={{ fontWeight: 600, fontSize: 13, color: '#F5F5F5' }}>{t.nombre}</span>
-                    <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--c-accent)' }}>{t.precio.toFixed(2)} €</span>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Extras */}
-            {gruposExtras.map(g => (
-              <div key={g.id} style={{ marginBottom: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: '#F5F5F5' }}>{g.nombre}</span>
-                  <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', fontWeight: 600 }}>{g.tipo === 'single' ? 'Elige 1' : `Máx. ${g.max_selecciones}`}</span>
-                </div>
-                {(g.extras_opciones || []).map(op => {
-                  const sel = exSel.find(e => e.id === op.id)
-                  return (
-                    <button key={op.id} onClick={() => toggleExtra(op, g.tipo === 'single' ? 1 : g.max_selecciones)} style={{
-                      display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '10px 14px',
-                      borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 4,
-                      border: sel ? '2px solid var(--c-accent)' : '1px solid rgba(255,255,255,0.08)',
-                      background: sel ? 'rgba(255,107,44,0.12)' : 'rgba(255,255,255,0.04)',
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{
-                          width: 18, height: 18, borderRadius: 5, border: sel ? 'none' : '2px solid rgba(255,255,255,0.2)',
-                          background: sel ? 'var(--c-accent)' : 'transparent',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#fff',
-                        }}>{sel && '✓'}</div>
-                        <span style={{ fontSize: 13, color: '#F5F5F5' }}>{op.nombre}</span>
-                      </div>
-                      <span style={{ fontSize: 12, color: 'var(--c-accent)', fontWeight: 600 }}>+{op.precio.toFixed(2)} €</span>
-                    </button>
-                  )
-                })}
-              </div>
-            ))}
-
-            {/* Cantidad */}
+            {tamanos.length > 0 && <div style={{ marginBottom: 16 }}><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Tamaño</div>{tamanos.map((t, i) => (
+              <button key={t.id} onClick={() => setTamSel(i)} style={{ display: 'flex', justifyContent: 'space-between', width: '100%', padding: '10px 14px', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 6, border: tamSel === i ? '2px solid #FF6B2C' : '1px solid rgba(255,255,255,0.1)', background: tamSel === i ? 'rgba(255,107,44,0.12)' : 'rgba(255,255,255,0.04)' }}>
+                <span style={{ fontWeight: 600, fontSize: 13, color: '#F5F5F5' }}>{t.nombre}</span><span style={{ fontWeight: 700, fontSize: 13, color: '#FF6B2C' }}>{t.precio.toFixed(2)} €</span>
+              </button>
+            ))}</div>}
+            {gruposExtras.map(g => <div key={g.id} style={{ marginBottom: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}><span style={{ fontSize: 13, fontWeight: 700 }}>{g.nombre}</span><span style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)' }}>{g.tipo === 'single' ? 'Elige 1' : `Máx. ${g.max_selecciones}`}</span></div>
+              {(g.extras_opciones || []).map(op => { const sel = exSel.find(e => e.id === op.id); return (
+                <button key={op.id} onClick={() => toggleExtra(op, g.tipo === 'single' ? 1 : g.max_selecciones)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '10px 14px', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 4, border: sel ? '2px solid #FF6B2C' : '1px solid rgba(255,255,255,0.08)', background: sel ? 'rgba(255,107,44,0.12)' : 'rgba(255,255,255,0.04)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><div style={{ width: 18, height: 18, borderRadius: 5, border: sel ? 'none' : '2px solid rgba(255,255,255,0.2)', background: sel ? '#FF6B2C' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#fff' }}>{sel && '✓'}</div><span style={{ fontSize: 13 }}>{op.nombre}</span></div>
+                  <span style={{ fontSize: 12, color: '#FF6B2C', fontWeight: 600 }}>+{op.precio.toFixed(2)} €</span>
+                </button>
+              )})}
+            </div>)}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20, marginBottom: 20, marginTop: 8 }}>
               <button onClick={() => setCant(Math.max(1, cant - 1))} style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.06)', fontSize: 18, color: '#F5F5F5', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
-              <span style={{ fontSize: 18, fontWeight: 800, color: '#F5F5F5', minWidth: 24, textAlign: 'center' }}>{cant}</span>
+              <span style={{ fontSize: 18, fontWeight: 800, minWidth: 24, textAlign: 'center' }}>{cant}</span>
               <button onClick={() => setCant(cant + 1)} style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.06)', fontSize: 18, color: '#F5F5F5', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
             </div>
-
-            {/* Botón añadir */}
-            <button onClick={confirmarItem} style={{
-              width: '100%', padding: '16px 0', borderRadius: 14, border: 'none',
-              background: 'var(--c-accent)', color: '#fff', fontSize: 16, fontWeight: 800,
-              cursor: 'pointer', fontFamily: 'inherit',
-            }}>
-              Añadir al carrito — {precioTotal().toFixed(2)} €
-            </button>
+            <button onClick={confirmarItem} style={{ width: '100%', padding: '16px 0', borderRadius: 14, border: 'none', background: '#FF6B2C', color: '#fff', fontSize: 16, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>Añadir — {precioTotal().toFixed(2)} €</button>
           </div>
         </div>
       )}
@@ -354,337 +294,296 @@ function EstablecimientoDetail({ est, onBack, carrito, setCarrito, modoEntrega, 
   )
 }
 
-// --- Formulario Pago Tarjeta ---
-function FormularioPagoTienda({ clientSecret, total, onSuccess, onCancel }) {
-  const stripe = useStripe()
-  const elements = useElements()
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
-
-  const handlePagar = async () => {
-    if (!stripe || !elements) return
-    setLoading(true)
-    setError(null)
-    const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
-      payment_method: { card: elements.getElement(CardElement) },
-    })
-    if (stripeError) {
-      setError(stripeError.message === 'Your card number is incomplete.' ? 'Completa los datos de tu tarjeta' : stripeError.message)
-      setLoading(false)
-    } else if (paymentIntent.status === 'succeeded') {
-      onSuccess(paymentIntent.id)
-    } else {
-      setError('El pago no se pudo completar')
-      setLoading(false)
-    }
-  }
-
+function ProductCard({ p, carrito, onOpen }) {
+  const enCarrito = carrito.find(i => i.producto_id === p.id)
   return (
-    <div style={{ animation: 'fadeIn 0.3s ease' }}>
-      <button onClick={onCancel} style={{ background: 'none', border: 'none', color: 'var(--c-accent)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 16, padding: 0 }}>← Volver al carrito</button>
-      <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--c-text)', marginBottom: 4 }}>Pago con tarjeta</div>
-      <div style={{ fontSize: 12, color: 'var(--c-muted)', marginBottom: 16 }}>Introduce los datos de tu tarjeta</div>
-      <div style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 14, border: '1px solid rgba(255,255,255,0.12)', padding: '16px 14px', marginBottom: 16 }}>
-        <CardElement options={{ style: { base: { fontSize: '16px', fontFamily: "'DM Sans', sans-serif", color: '#F5F5F5', '::placeholder': { color: 'rgba(255,255,255,0.4)' } }, invalid: { color: '#EF4444' } } }} />
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', background: 'rgba(255,255,255,0.06)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)', marginBottom: 8 }}>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 2 }}>{p.nombre}</div>
+        {p.descripcion && <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginBottom: 4 }}>{p.descripcion}</div>}
+        <div style={{ fontWeight: 700, fontSize: 14, color: '#FF6B2C' }}>{p.precio.toFixed(2)} €</div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16, justifyContent: 'center' }}>
-        <span style={{ fontSize: 11, color: 'var(--c-muted)' }}>🔒 Pago seguro procesado por Stripe</span>
-      </div>
-      {error && <div style={{ background: 'rgba(239,68,68,0.15)', color: '#EF4444', fontSize: 12, padding: '10px 14px', borderRadius: 10, marginBottom: 12, textAlign: 'center', fontWeight: 600 }}>{error}</div>}
-      <button onClick={handlePagar} disabled={loading || !stripe} style={{ width: '100%', padding: '16px 0', borderRadius: 14, border: 'none', background: loading ? 'var(--c-muted)' : 'var(--c-accent)', color: '#fff', fontSize: 16, fontWeight: 800, cursor: loading ? 'default' : 'pointer', fontFamily: 'inherit' }}>
-        {loading ? 'Procesando pago...' : `Pagar ${total.toFixed(2)} €`}
+      {p.imagen_url && <img src={p.imagen_url} alt="" style={{ width: 50, height: 50, borderRadius: 10, objectFit: 'cover', marginRight: 10 }} />}
+      <button onClick={onOpen} style={{ width: 38, height: 38, borderRadius: 10, border: 'none', background: enCarrito ? '#FF6B2C' : 'rgba(255,255,255,0.08)', color: enCarrito ? '#fff' : '#FF6B2C', fontSize: 20, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {enCarrito ? enCarrito.cantidad : '+'}
       </button>
     </div>
   )
 }
 
-// --- Carrito ---
-function calcDistanciaKm(lat1, lng1, lat2, lng2) {
-  const R = 6371
-  const dLat = (lat2 - lat1) * Math.PI / 180
-  const dLng = (lng2 - lng1) * Math.PI / 180
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-}
+// ===================== PAGINA: MIS PEDIDOS =====================
 
-function CarritoBar({ carrito, setCarrito, modoEntrega, socioId, socioNombre, socioEnServicio, tarifaBase, radioTarifaKm, precioKmAdicional }) {
-  const [open, setOpen] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [metodoPago, setMetodoPago] = useState('tarjeta')
-  const [pasoTarjeta, setPasoTarjeta] = useState(false)
-  const [clientSecret, setClientSecret] = useState(null)
-  const [codigoPedido, setCodigoPedido] = useState(null)
-  const [tipoEntrega, setTipoEntrega] = useState(socioEnServicio && modoEntrega !== 'recogida' ? 'delivery' : 'recogida')
-  const [envioCalculado, setEnvioCalculado] = useState(tarifaBase)
-  const [distanciaKm, setDistanciaKm] = useState(null)
-  const [envioLoading, setEnvioLoading] = useState(false)
-  const [direccionCliente, setDireccionCliente] = useState('')
-  const total = carrito.reduce((s, i) => s + i.precio * i.cantidad, 0)
-  const items = carrito.reduce((s, i) => s + i.cantidad, 0)
-  const tieneDelivery = socioEnServicio && modoEntrega !== 'recogida'
-  const envioFinal = tipoEntrega === 'recogida' ? 0 : envioCalculado
-  const totalFinal = total + envioFinal
-  const soloRecogida = !tieneDelivery
+function PaginaPedidos({ user, socioId }) {
+  const [pedidos, setPedidos] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    if (open && tipoEntrega === 'delivery' && carrito.length > 0 && !distanciaKm) {
-      calcularEnvioLocal()
-    }
-  }, [open, tipoEntrega])
+  useEffect(() => { if (user) fetchPedidos() }, [user?.id])
 
-  async function calcularEnvioLocal() {
-    setEnvioLoading(true)
-    try {
-      const pos = await new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(
-          p => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
-          reject, { enableHighAccuracy: true, timeout: 10000 }
-        )
-      })
-      const estId = carrito[0].establecimiento_id
-      const { data: est } = await supabase.from('establecimientos').select('latitud, longitud').eq('id', estId).single()
-      if (!est) { setEnvioCalculado(tarifaBase); setEnvioLoading(false); return }
-
-      const dist = calcDistanciaKm(est.latitud, est.longitud, pos.lat, pos.lng)
-      setDistanciaKm(Math.round(dist * 10) / 10)
-
-      let envio
-      if (dist <= radioTarifaKm) {
-        envio = tarifaBase
-      } else {
-        envio = tarifaBase + ((dist - radioTarifaKm) * precioKmAdicional)
-      }
-      setEnvioCalculado(Math.round(envio * 100) / 100)
-
-      try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${pos.lat}&lon=${pos.lng}&format=json`)
-        const data = await res.json()
-        if (data.display_name) setDireccionCliente(data.display_name.split(',').slice(0, 3).join(','))
-      } catch {}
-    } catch {
-      setEnvioCalculado(tarifaBase)
-    } finally {
-      setEnvioLoading(false)
-    }
+  async function fetchPedidos() {
+    const { data } = await supabase.from('pedidos').select('*, establecimientos(nombre)').eq('usuario_id', user.id).eq('socio_id', socioId).order('created_at', { ascending: false })
+    setPedidos(data || [])
+    setLoading(false)
   }
 
-  if (items === 0) return null
-
-  async function iniciarPago() {
-    if (metodoPago === 'tarjeta') {
-      setLoading(true)
-      try {
-        const codigo = `PG-${Date.now()}`
-        setCodigoPedido(codigo)
-        const result = await crearPagoStripe({ amount: totalFinal, pedidoCodigo: codigo })
-        setClientSecret(result.clientSecret)
-        setPasoTarjeta(true)
-      } catch (e) {
-        alert('Error al conectar con el sistema de pagos: ' + e.message)
-      } finally {
-        setLoading(false)
-      }
-    } else {
-      await crearPedido(null)
-    }
-  }
-
-  async function crearPedido(stripePaymentId) {
-    setLoading(true)
-    try {
-      const codigo = codigoPedido || `PG-${Date.now()}`
-
-      const { data: pedido, error } = await supabase.from('pedidos').insert({
-        codigo,
-        establecimiento_id: carrito[0].establecimiento_id,
-        socio_id: socioId,
-        canal: 'pidogo',
-        estado: 'nuevo',
-        metodo_pago: metodoPago,
-        modo_entrega: tipoEntrega === 'recogida' ? 'recogida' : 'delivery',
-        stripe_payment_id: stripePaymentId,
-        subtotal: total,
-        coste_envio: envioFinal,
-        propina: 0,
-        total: totalFinal,
-        direccion_entrega: direccionCliente || null,
-      }).select().single()
-
-      if (error) throw error
-
-      const pedidoItems = carrito.map(item => ({
-        pedido_id: pedido.id,
-        producto_id: item.id,
-        nombre_producto: item.nombre,
-        precio_unitario: item.precio,
-        cantidad: item.cantidad,
-      }))
-      await supabase.from('pedido_items').insert(pedidoItems)
-
-      setCarrito([])
-      setOpen(false)
-      setPasoTarjeta(false)
-      setClientSecret(null)
-      setCodigoPedido(null)
-      alert(`Pedido ${codigo} creado. ${soloRecogida ? 'Recógelo en el restaurante.' : `${socioNombre} te lo llevará.`}`)
-    } catch (err) {
-      alert('Error: ' + err.message)
-    } finally {
-      setLoading(false)
-    }
-  }
+  if (!user) return <div style={{ textAlign: 'center', padding: '60px 0', color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Inicia sesión para ver tus pedidos</div>
 
   return (
-    <>
-      <div onClick={() => setOpen(true)} style={{
-        position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)',
-        background: '#FF6B2C', color: '#fff', borderRadius: 16,
-        padding: '14px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        gap: 20, minWidth: 300, maxWidth: 380, cursor: 'pointer',
-        boxShadow: '0 8px 40px rgba(255,107,44,0.35), 0 4px 16px rgba(0,0,0,0.3)', zIndex: 50, fontFamily: 'inherit',
-      }}>
-        <span style={{ background: 'rgba(255,255,255,0.25)', borderRadius: 8, padding: '2px 10px', fontWeight: 800, fontSize: 14 }}>{items}</span>
-        <span style={{ fontWeight: 800, fontSize: 15 }}>Ver carrito</span>
-        <span style={{ fontWeight: 800, fontSize: 15 }}>{totalFinal.toFixed(2)} €</span>
-      </div>
-
-      {open && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={() => { setOpen(false); setPasoTarjeta(false) }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: '#1A1A1A', borderRadius: '24px 24px 0 0', padding: '24px 20px 32px', width: '100%', maxWidth: 420, maxHeight: '85vh', overflowY: 'auto', animation: 'slideUp 0.3s ease', border: '1px solid rgba(255,255,255,0.08)', borderBottom: 'none' }}>
-
-            {pasoTarjeta && clientSecret ? (
-              <Elements stripe={stripePromise} options={{ clientSecret }}>
-                <FormularioPagoTienda
-                  clientSecret={clientSecret}
-                  total={totalFinal}
-                  onSuccess={(paymentId) => crearPedido(paymentId)}
-                  onCancel={() => setPasoTarjeta(false)}
-                />
-              </Elements>
-            ) : (
-              <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                  <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: 'var(--c-text)' }}>Tu pedido</h3>
-                  <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: 'var(--c-muted)' }}>×</button>
-                </div>
-
-                {/* Selector tipo entrega */}
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-text)', marginBottom: 8 }}>Tipo de entrega</div>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    {tieneDelivery && (
-                      <button onClick={() => setTipoEntrega('delivery')} style={{
-                        flex: 1, padding: '12px 0', borderRadius: 10,
-                        border: tipoEntrega === 'delivery' ? '2px solid var(--c-accent)' : '1px solid var(--c-border)',
-                        background: tipoEntrega === 'delivery' ? 'var(--c-accent-light)' : 'rgba(255,255,255,0.08)',
-                        fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
-                        color: tipoEntrega === 'delivery' ? 'var(--c-accent)' : 'var(--c-text)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                      }}>
-                        <span style={{ fontSize: 16 }}>🛵</span> Delivery
-                      </button>
-                    )}
-                    <button onClick={() => setTipoEntrega('recogida')} style={{
-                      flex: 1, padding: '12px 0', borderRadius: 10,
-                      border: tipoEntrega === 'recogida' ? '2px solid var(--c-accent)' : '1px solid var(--c-border)',
-                      background: tipoEntrega === 'recogida' ? 'var(--c-accent-light)' : 'rgba(255,255,255,0.08)',
-                      fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
-                      color: tipoEntrega === 'recogida' ? 'var(--c-accent)' : 'var(--c-text)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                    }}>
-                      <span style={{ fontSize: 16 }}>🏪</span> Recogida
-                    </button>
-                  </div>
-                  {tipoEntrega === 'recogida' && (
-                    <div style={{ fontSize: 11, color: 'var(--c-accent)', fontWeight: 600, marginTop: 6 }}>
-                      Recogelo en el restaurante · Sin coste de envio
-                    </div>
-                  )}
-                </div>
-
-                {carrito.map(item => (
-                  <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid var(--c-border)' }}>
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--c-text)' }}>{item.nombre}</div>
-                      <div style={{ fontSize: 12, color: 'var(--c-muted)' }}>{item.establecimiento_nombre}</div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <button onClick={() => setCarrito(prev => prev.map(i => i.id === item.id ? { ...i, cantidad: Math.max(0, i.cantidad - 1) } : i).filter(i => i.cantidad > 0))} style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--c-border)', background: 'rgba(255,255,255,0.08)', cursor: 'pointer', fontSize: 16, fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--c-text)' }}>−</button>
-                        <span style={{ fontWeight: 700, fontSize: 14, minWidth: 20, textAlign: 'center', color: 'var(--c-text)' }}>{item.cantidad}</span>
-                        <button onClick={() => setCarrito(prev => prev.map(i => i.id === item.id ? { ...i, cantidad: i.cantidad + 1 } : i))} style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--c-border)', background: 'rgba(255,255,255,0.08)', cursor: 'pointer', fontSize: 16, fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--c-text)' }}>+</button>
-                      </div>
-                      <span style={{ fontWeight: 700, fontSize: 14, minWidth: 60, textAlign: 'right', color: 'var(--c-text)' }}>{(item.precio * item.cantidad).toFixed(2)} €</span>
-                    </div>
-                  </div>
-                ))}
-
-                {/* Método de pago */}
-                <div style={{ marginTop: 16, marginBottom: 12 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-text)', marginBottom: 8 }}>Método de pago</div>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    {[{ id: 'tarjeta', l: '💳 Tarjeta' }, { id: 'efectivo', l: '💵 Efectivo' }].map(m => (
-                      <button key={m.id} onClick={() => setMetodoPago(m.id)} style={{
-                        flex: 1, padding: '12px 0', borderRadius: 10,
-                        border: metodoPago === m.id ? '2px solid var(--c-accent)' : '1px solid var(--c-border)',
-                        background: metodoPago === m.id ? 'var(--c-accent-light)' : 'rgba(255,255,255,0.08)',
-                        fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
-                        color: metodoPago === m.id ? 'var(--c-accent)' : 'var(--c-text)',
-                      }}>{m.l}</button>
-                    ))}
-                  </div>
-                </div>
-
-                <div style={{ marginTop: 8, fontSize: 13, color: 'var(--c-muted)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}><span>Subtotal</span><span>{total.toFixed(2)} €</span></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span>Envío {distanciaKm && tipoEntrega === 'delivery' ? <span style={{ fontSize: 10 }}>({distanciaKm} km)</span> : null}</span>
-                    <span style={{ fontWeight: 600, color: tipoEntrega === 'recogida' ? '#22C55E' : 'var(--c-muted)' }}>{tipoEntrega === 'recogida' ? 'Gratis' : envioLoading ? 'Calculando...' : `${envioFinal.toFixed(2)} €`}</span>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: 17, marginTop: 12, paddingTop: 12, borderTop: '2px solid var(--c-border)', color: 'var(--c-text)' }}>
-                  <span>Total</span><span>{totalFinal.toFixed(2)} €</span>
-                </div>
-
-                <button onClick={iniciarPago} disabled={loading || envioLoading} style={{
-                  width: '100%', marginTop: 20, padding: '16px 0', borderRadius: 14, border: 'none',
-                  background: (loading || envioLoading) ? 'var(--c-muted)' : 'var(--c-accent)', color: '#fff',
-                  fontSize: 16, fontWeight: 800, cursor: (loading || envioLoading) ? 'default' : 'pointer', fontFamily: 'inherit',
-                }}>
-                  {loading ? 'Conectando...' : metodoPago === 'tarjeta' ? `Continuar al pago — ${totalFinal.toFixed(2)} €` : `Pedir ahora — ${totalFinal.toFixed(2)} €`}
-                </button>
-
-                {soloRecogida && (
-                  <div style={{ marginTop: 14, background: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ fontSize: 18 }}>🛵</span>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-text)' }}>¿Quieres que te lo lleven?</div>
-                      <div style={{ fontSize: 11, color: 'var(--c-muted)' }}>Pide desde la app PIDO</div>
-                    </div>
-                    <button style={{ background: 'var(--c-accent)', border: 'none', borderRadius: 8, padding: '6px 12px', color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Abrir PIDO</button>
-                  </div>
-                )}
-              </>
-            )}
+    <div style={{ animation: 'fadeIn 0.3s ease' }}>
+      <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 16px' }}>Mis pedidos</h2>
+      {loading && <div style={{ textAlign: 'center', padding: '30px 0', color: 'rgba(255,255,255,0.4)' }}>Cargando...</div>}
+      {!loading && pedidos.length === 0 && <div style={{ textAlign: 'center', padding: '60px 0', color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Aún no has hecho pedidos aquí</div>}
+      {pedidos.map(p => (
+        <div key={p.id} style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 12, padding: '14px 16px', border: '1px solid rgba(255,255,255,0.06)', marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+              <span style={{ fontWeight: 700, fontSize: 13 }}>{p.codigo}</span>
+              <EstadoBadge estado={p.estado} />
+              <PagoBadge pago={p.metodo_pago} />
+            </div>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>{p.establecimientos?.nombre}</div>
           </div>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>{p.total?.toFixed(2)} €</div>
         </div>
-      )}
-    </>
+      ))}
+    </div>
   )
 }
 
-// --- TIENDA PUBLICA DEL SOCIO ---
+// ===================== PAGINA: CARRITO + CHECKOUT =====================
+
+function PaginaCarrito({ carrito, setCarrito, socio, user, onPedidoCreado, onLogin }) {
+  const [metodoPago, setMetodoPago] = useState('tarjeta')
+  const [tipoEntrega, setTipoEntrega] = useState(socio.en_servicio && socio.modo_entrega !== 'recogida' ? 'delivery' : 'recogida')
+  const [envioCalculado, setEnvioCalculado] = useState(socio.tarifa_base || 3)
+  const [distanciaKm, setDistanciaKm] = useState(null)
+  const [envioLoading, setEnvioLoading] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [pasoTarjeta, setPasoTarjeta] = useState(false)
+  const [clientSecret, setClientSecret] = useState(null)
+  const [codigoPedido, setCodigoPedido] = useState(null)
+
+  const tieneDelivery = socio.en_servicio && socio.modo_entrega !== 'recogida'
+  const total = carrito.reduce((s, i) => s + i.precio * i.cantidad, 0)
+  const envioFinal = tipoEntrega === 'recogida' ? 0 : envioCalculado
+  const totalFinal = total + envioFinal
+
+  useEffect(() => {
+    if (tipoEntrega === 'delivery' && carrito.length > 0 && !distanciaKm) calcularEnvio()
+  }, [tipoEntrega])
+
+  async function calcularEnvio() {
+    setEnvioLoading(true)
+    try {
+      const pos = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(p => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }), reject, { enableHighAccuracy: true, timeout: 10000 }))
+      const estId = carrito[0].establecimiento_id
+      const { data: est } = await supabase.from('establecimientos').select('latitud, longitud').eq('id', estId).single()
+      if (!est) { setEnvioCalculado(socio.tarifa_base || 3); setEnvioLoading(false); return }
+      const dist = calcDistanciaKm(est.latitud, est.longitud, pos.lat, pos.lng)
+      setDistanciaKm(Math.round(dist * 10) / 10)
+      const radioBase = socio.radio_tarifa_base_km || 3
+      setEnvioCalculado(Math.round((dist <= radioBase ? (socio.tarifa_base || 3) : (socio.tarifa_base || 3) + ((dist - radioBase) * (socio.precio_km_adicional || 0.5))) * 100) / 100)
+    } catch { setEnvioCalculado(socio.tarifa_base || 3) }
+    finally { setEnvioLoading(false) }
+  }
+
+  if (carrito.length === 0) return (
+    <div style={{ textAlign: 'center', padding: '80px 0', animation: 'fadeIn 0.3s ease' }}>
+      <div style={{ fontSize: 48, marginBottom: 12 }}>🛒</div>
+      <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>Tu carrito está vacío</div>
+      <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)' }}>Añade productos para hacer tu pedido</div>
+    </div>
+  )
+
+  async function iniciarPago() {
+    if (!user) { onLogin(); return }
+    if (metodoPago === 'tarjeta') {
+      setLoading(true)
+      try {
+        const codigo = `PG-${Date.now()}`; setCodigoPedido(codigo)
+        const result = await crearPagoStripe({ amount: totalFinal, pedidoCodigo: codigo, customerEmail: user?.email, userId: user?.id })
+        setClientSecret(result.clientSecret); setPasoTarjeta(true)
+      } catch (e) { alert('Error: ' + e.message) }
+      finally { setLoading(false) }
+    } else await crearPedido(null)
+  }
+
+  async function crearPedido(stripePaymentId) {
+    if (!user) { onLogin(); return }
+    setLoading(true)
+    try {
+      const codigo = codigoPedido || `PG-${Date.now()}`
+      const { data: pedido, error } = await supabase.from('pedidos').insert({
+        codigo, establecimiento_id: carrito[0].establecimiento_id, socio_id: socio.id,
+        usuario_id: user.id, canal: 'pidogo', estado: 'nuevo', metodo_pago: metodoPago,
+        modo_entrega: tipoEntrega === 'recogida' ? 'recogida' : 'delivery',
+        stripe_payment_id: stripePaymentId, subtotal: total, coste_envio: envioFinal, propina: 0, total: totalFinal,
+      }).select().single()
+      if (error) throw error
+      await supabase.from('pedido_items').insert(carrito.map(item => ({
+        pedido_id: pedido.id, producto_id: item.producto_id, nombre_producto: item.nombre,
+        tamano: item.tamano, extras: item.extras, precio_unitario: item.precio, cantidad: item.cantidad,
+      })))
+      setCarrito([]); setPasoTarjeta(false); setClientSecret(null)
+      onPedidoCreado(pedido)
+    } catch (err) { alert('Error: ' + err.message) }
+    finally { setLoading(false) }
+  }
+
+  return (
+    <div style={{ animation: 'fadeIn 0.3s ease' }}>
+      <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 16px' }}>Tu pedido</h2>
+
+      {pasoTarjeta && clientSecret ? (
+        <Elements stripe={stripePromise} options={{ clientSecret }}>
+          <FormularioPago clientSecret={clientSecret} total={totalFinal} onSuccess={id => crearPedido(id)} onCancel={() => setPasoTarjeta(false)} />
+        </Elements>
+      ) : (
+        <>
+          {/* Items */}
+          {carrito.map((item, idx) => (
+            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 14 }}>{item.cantidad}x {item.nombre}</div>
+                {item.tamano && <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)' }}>{item.tamano}</div>}
+                {item.extras?.length > 0 && <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)' }}>{item.extras.join(', ')}</div>}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontWeight: 700, fontSize: 13 }}>{(item.precio * item.cantidad).toFixed(2)} €</span>
+                <button onClick={() => setCarrito(prev => prev.filter((_, i) => i !== idx))} style={{ width: 22, height: 22, borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.06)', cursor: 'pointer', fontSize: 10, color: '#EF4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+              </div>
+            </div>
+          ))}
+
+          {/* Tipo entrega */}
+          <div style={{ marginTop: 16, marginBottom: 12 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Tipo de entrega</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {tieneDelivery && <button onClick={() => setTipoEntrega('delivery')} style={{ flex: 1, padding: '12px 0', borderRadius: 10, border: tipoEntrega === 'delivery' ? '2px solid #FF6B2C' : '1px solid rgba(255,255,255,0.1)', background: tipoEntrega === 'delivery' ? 'rgba(255,107,44,0.12)' : 'rgba(255,255,255,0.04)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', color: tipoEntrega === 'delivery' ? '#FF6B2C' : '#F5F5F5', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>🛵 Delivery</button>}
+              <button onClick={() => setTipoEntrega('recogida')} style={{ flex: 1, padding: '12px 0', borderRadius: 10, border: tipoEntrega === 'recogida' ? '2px solid #FF6B2C' : '1px solid rgba(255,255,255,0.1)', background: tipoEntrega === 'recogida' ? 'rgba(255,107,44,0.12)' : 'rgba(255,255,255,0.04)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', color: tipoEntrega === 'recogida' ? '#FF6B2C' : '#F5F5F5', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>🏪 Recogida</button>
+            </div>
+          </div>
+
+          {/* Método pago */}
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Método de pago</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {[{ id: 'tarjeta', l: '💳 Tarjeta' }, { id: 'efectivo', l: '💵 Efectivo' }].map(m => (
+                <button key={m.id} onClick={() => setMetodoPago(m.id)} style={{ flex: 1, padding: '12px 0', borderRadius: 10, border: metodoPago === m.id ? '2px solid #FF6B2C' : '1px solid rgba(255,255,255,0.1)', background: metodoPago === m.id ? 'rgba(255,107,44,0.12)' : 'rgba(255,255,255,0.04)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', color: metodoPago === m.id ? '#FF6B2C' : '#F5F5F5' }}>{m.l}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Desglose */}
+          <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}><span>Subtotal</span><span>{total.toFixed(2)} €</span></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+              <span>Envío {distanciaKm && tipoEntrega === 'delivery' ? <span style={{ fontSize: 10 }}>({distanciaKm} km)</span> : null}</span>
+              <span style={{ color: tipoEntrega === 'recogida' ? '#22C55E' : 'inherit' }}>{tipoEntrega === 'recogida' ? 'Gratis' : envioLoading ? 'Calculando...' : `${envioFinal.toFixed(2)} €`}</span>
+            </div>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: 17, marginTop: 10, paddingTop: 10, borderTop: '2px solid rgba(255,255,255,0.08)' }}>
+            <span>Total</span><span>{totalFinal.toFixed(2)} €</span>
+          </div>
+
+          <button onClick={iniciarPago} disabled={loading || envioLoading} style={{ width: '100%', marginTop: 16, padding: '16px 0', borderRadius: 14, border: 'none', background: (loading || envioLoading) ? 'rgba(255,255,255,0.2)' : '#FF6B2C', color: '#fff', fontSize: 16, fontWeight: 800, cursor: (loading || envioLoading) ? 'default' : 'pointer', fontFamily: 'inherit' }}>
+            {!user ? 'Iniciar sesión para pedir' : loading ? 'Procesando...' : metodoPago === 'tarjeta' ? `Pagar — ${totalFinal.toFixed(2)} €` : `Pedir — ${totalFinal.toFixed(2)} €`}
+          </button>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ===================== PAGINA: PERFIL =====================
+
+function PaginaPerfil({ user, perfil, onLogin, onLogout }) {
+  if (!user) return (
+    <div style={{ textAlign: 'center', padding: '60px 20px', animation: 'fadeIn 0.3s ease' }}>
+      <div style={{ fontSize: 48, marginBottom: 12 }}>👤</div>
+      <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Inicia sesión</div>
+      <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', marginBottom: 20 }}>Para hacer pedidos y ver tu historial</div>
+      <button onClick={onLogin} style={{ padding: '14px 40px', borderRadius: 14, border: 'none', background: '#FF6B2C', color: '#fff', fontSize: 15, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>Iniciar sesión</button>
+    </div>
+  )
+
+  return (
+    <div style={{ animation: 'fadeIn 0.3s ease' }}>
+      <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 20px' }}>Mi perfil</h2>
+      <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 14, padding: 18, border: '1px solid rgba(255,255,255,0.06)', marginBottom: 16 }}>
+        {[
+          { l: 'Nombre', v: perfil?.nombre },
+          { l: 'Email', v: perfil?.email || user?.email },
+          { l: 'Teléfono', v: perfil?.telefono },
+          { l: 'Dirección', v: perfil?.direccion },
+        ].map((item, i) => (
+          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: i < 3 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
+            <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)' }}>{item.l}</span>
+            <span style={{ fontSize: 13, fontWeight: 600 }}>{item.v || '—'}</span>
+          </div>
+        ))}
+      </div>
+      <button onClick={onLogout} style={{ width: '100%', padding: '14px 0', borderRadius: 14, border: 'none', background: 'rgba(239,68,68,0.12)', color: '#EF4444', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Cerrar sesión</button>
+    </div>
+  )
+}
+
+// ===================== LOGIN INLINE =====================
+
+function LoginInline({ onSuccess }) {
+  const { login, registro } = useAuth()
+  const [mode, setMode] = useState('login')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [nombre, setNombre] = useState('')
+  const [error, setError] = useState(null)
+  const [loading, setLoading] = useState(false)
+
+  const handleSubmit = async () => {
+    setError(null); setLoading(true)
+    try {
+      if (mode === 'login') await login(email, password)
+      else await registro(email, password, nombre, '')
+      onSuccess()
+    } catch (err) { setError(err.message) }
+    finally { setLoading(false) }
+  }
+
+  const inp = { width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.1)', fontSize: 14, fontFamily: 'inherit', marginBottom: 10, background: 'rgba(255,255,255,0.06)', color: '#F5F5F5', outline: 'none', boxSizing: 'border-box' }
+
+  return (
+    <div style={{ padding: '40px 0', animation: 'fadeIn 0.3s ease', textAlign: 'center' }}>
+      <div style={{ fontSize: 28, fontWeight: 800, marginBottom: 8 }}>{mode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}</div>
+      <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', marginBottom: 24 }}>Para completar tu pedido</p>
+      <div style={{ maxWidth: 340, margin: '0 auto' }}>
+        {mode === 'registro' && <input placeholder="Nombre" value={nombre} onChange={e => setNombre(e.target.value)} style={inp} />}
+        <input placeholder="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} style={inp} />
+        <input placeholder="Contraseña" type="password" value={password} onChange={e => setPassword(e.target.value)} style={inp} />
+        {error && <div style={{ color: '#EF4444', fontSize: 12, marginBottom: 10 }}>{error}</div>}
+        <button onClick={handleSubmit} disabled={loading} style={{ width: '100%', padding: '16px 0', borderRadius: 14, border: 'none', background: loading ? 'rgba(255,255,255,0.2)' : '#FF6B2C', color: '#fff', fontSize: 16, fontWeight: 800, cursor: loading ? 'default' : 'pointer', fontFamily: 'inherit' }}>
+          {loading ? 'Cargando...' : mode === 'login' ? 'Entrar' : 'Registrarse'}
+        </button>
+        <button onClick={() => setMode(mode === 'login' ? 'registro' : 'login')} style={{ background: 'none', border: 'none', color: '#FF6B2C', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', marginTop: 16 }}>
+          {mode === 'login' ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ===================== APP PRINCIPAL TIENDA SOCIO =====================
+
 export default function TiendaSocio({ slug: slugProp }) {
+  const { user, perfil, logout } = useAuth()
   const [socio, setSocio] = useState(null)
   const [establecimientos, setEstablecimientos] = useState([])
   const [categorias, setCategorias] = useState([])
-  const [catActiva, setCatActiva] = useState(null)
-  const [resenasSocio, setResenasSocio] = useState([])
-  const [resenasEst, setResenasEst] = useState([])
-  const [establecimientoOpen, setEstablecimientoOpen] = useState(null)
   const [carrito, setCarrito] = useState([])
-  const [shareOpen, setShareOpen] = useState(false)
-  const [showRiderReviews, setShowRiderReviews] = useState(false)
+  const [seccion, setSeccion] = useState('inicio')
+  const [restOpen, setRestOpen] = useState(null)
+  const [catActiva, setCatActiva] = useState(null)
+  const [busqueda, setBusqueda] = useState('')
+  const [showLogin, setShowLogin] = useState(false)
+  const [pedidoActivo, setPedidoActivo] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -692,251 +591,82 @@ export default function TiendaSocio({ slug: slugProp }) {
 
   async function fetchSocio() {
     const slug = slugProp || window.location.pathname.replace(/^\//, '') || 'demo'
-
-    const { data: socioData, error: socioErr } = await supabase
-      .from('socios')
-      .select('*')
-      .eq('slug', slug)
-      .single()
-
-    if (socioErr || !socioData) {
-      setError('Tienda no encontrada')
-      setLoading(false)
-      return
-    }
-
+    const { data: socioData, error: err } = await supabase.from('socios').select('*').eq('slug', slug).single()
+    if (err || !socioData) { setError('Tienda no encontrada'); setLoading(false); return }
     setSocio(socioData)
 
-    // Cargar establecimientos del socio
-    const { data: relaciones } = await supabase
-      .from('socio_establecimiento')
-      .select('establecimiento_id, destacado')
-      .eq('socio_id', socioData.id)
-      .eq('estado', 'aceptado')
-
-    if (relaciones && relaciones.length > 0) {
-      const estIds = relaciones.map(r => r.establecimiento_id)
-      const { data: ests } = await supabase
-        .from('establecimientos')
-        .select('*')
-        .in('id', estIds)
-        .eq('activo', true)
-
-      // Marcar destacados
-      const estsConDestacado = (ests || []).map(e => ({
-        ...e,
-        destacado: relaciones.find(r => r.establecimiento_id === e.id)?.destacado || false,
-      }))
-      setEstablecimientos(estsConDestacado)
-
-      // Cargar categorias de todos los establecimientos del socio
-      const { data: cats } = await supabase
-        .from('categorias')
-        .select('*')
-        .in('establecimiento_id', estIds)
-        .eq('activa', true)
-        .order('orden')
-      // Obtener nombres unicos
-      const nombresUnicos = [...new Set((cats || []).map(c => c.nombre))]
-      setCategorias(nombresUnicos)
+    const { data: rels } = await supabase.from('socio_establecimiento').select('establecimiento_id, destacado').eq('socio_id', socioData.id).eq('estado', 'aceptado')
+    if (rels && rels.length > 0) {
+      const estIds = rels.map(r => r.establecimiento_id)
+      const { data: ests } = await supabase.from('establecimientos').select('*').in('id', estIds).eq('activo', true)
+      const { data: cats } = await supabase.from('categorias').select('nombre, establecimiento_id').in('establecimiento_id', estIds).eq('activa', true)
+      const catMap = {}
+      for (const c of (cats || [])) { if (!catMap[c.establecimiento_id]) catMap[c.establecimiento_id] = []; catMap[c.establecimiento_id].push(c.nombre) }
+      setEstablecimientos((ests || []).map(e => ({ ...e, destacado: rels.find(r => r.establecimiento_id === e.id)?.destacado || false, _cats: catMap[e.id] || [] })))
+      setCategorias([...new Set((cats || []).map(c => c.nombre))])
     }
-
-    // Cargar reseñas del socio
-    const { data: resSocio } = await supabase
-      .from('resenas')
-      .select('*')
-      .eq('socio_id', socioData.id)
-      .order('created_at', { ascending: false })
-      .limit(10)
-    setResenasSocio(resSocio || [])
-
     setLoading(false)
   }
 
-  async function loadResenasEstablecimiento(estId) {
-    const { data } = await supabase
-      .from('resenas')
-      .select('*')
-      .eq('establecimiento_id', estId)
-      .order('created_at', { ascending: false })
-      .limit(10)
-    setResenasEst(data || [])
-  }
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}><div style={{ fontSize: 28, fontWeight: 800, color: '#FF6B2C' }}>Cargando...</div></div>
+  if (error) return <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: 8 }}><div style={{ fontSize: 48 }}>🔍</div><div style={{ fontSize: 18, fontWeight: 800 }}>{error}</div></div>
+  if (!socio) return null
 
-  function openEstablecimiento(est) {
-    setEstablecimientoOpen(est)
-    loadResenasEstablecimiento(est.id)
-  }
+  const carritoCount = carrito.reduce((s, i) => s + i.cantidad, 0)
 
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
-        <div style={{ fontSize: 32, fontWeight: 800, color: 'var(--c-accent)' }}>Cargando...</div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: 12 }}>
-        <div style={{ fontSize: 48 }}>🔍</div>
-        <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--c-text)' }}>{error}</div>
-        <div style={{ fontSize: 13, color: 'var(--c-muted)' }}>Verifica la URL e inténtalo de nuevo</div>
-      </div>
-    )
-  }
-
-  const redes = socio.redes || {}
-  const destacados = establecimientos.filter(e => e.destacado)
-  const esRecogida = socio.modo_entrega === 'recogida'
+  // Login inline
+  if (showLogin) return (
+    <div style={{ padding: '0 20px' }}>
+      <button onClick={() => setShowLogin(false)} style={{ background: 'none', border: 'none', color: '#FF6B2C', fontSize: 14, fontWeight: 600, cursor: 'pointer', padding: '16px 0', fontFamily: 'inherit' }}>← Volver</button>
+      <LoginInline onSuccess={() => setShowLogin(false)} />
+    </div>
+  )
 
   return (
-    <div style={{ minHeight: '100vh', position: 'relative', paddingBottom: 20 }}>
-
-      {/* Banner */}
-      <div style={{
-        height: 180,
-        background: socio.banner_url ? `url(${socio.banner_url}) center/cover` : 'linear-gradient(135deg, #FF5733 0%, #FF8F73 50%, #FFC4A8 100%)',
-        position: 'relative', display: 'flex', alignItems: 'flex-end', padding: '0 20px 16px',
-      }}>
-        {/* Redes sociales */}
-        <div style={{ position: 'absolute', top: 14, left: 14, display: 'flex', gap: 8 }}>
-          {redes.instagram && (
-            <a href={`https://instagram.com/${redes.instagram}`} target="_blank" rel="noopener noreferrer"
-              style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(255,255,255,0.25)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="5"/></svg>
-            </a>
-          )}
-          {redes.tiktok && (
-            <a href={`https://tiktok.com/@${redes.tiktok}`} target="_blank" rel="noopener noreferrer"
-              style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(255,255,255,0.25)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', color: '#fff', fontSize: 14, fontWeight: 700 }}>
-              T
-            </a>
-          )}
-          {redes.whatsapp && (
-            <a href={`https://wa.me/${(redes.whatsapp || '').replace(/\+/g, '')}`} target="_blank" rel="noopener noreferrer"
-              style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(255,255,255,0.25)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', fontSize: 16 }}>
-              💬
-            </a>
-          )}
-        </div>
-        <button onClick={() => setShareOpen(true)} style={{
-          position: 'absolute', top: 14, right: 14, background: 'rgba(255,255,255,0.25)',
-          border: 'none', borderRadius: 10, padding: '8px 14px', cursor: 'pointer',
-          fontSize: 12, fontWeight: 600, color: '#fff', backdropFilter: 'blur(8px)', fontFamily: 'inherit',
-        }}>Compartir ↗</button>
-      </div>
-
-      {/* Logo + Nombre + Rating */}
-      <div style={{ padding: '0 20px', marginTop: -48, display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', zIndex: 10 }}>
-        <div style={{
-          width: 88, height: 88, borderRadius: 22, background: '#fff',
-          border: '4px solid #fff', boxShadow: '0 6px 24px rgba(0,0,0,0.12)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 32, fontWeight: 800, color: 'var(--c-accent)', overflow: 'hidden',
-        }}>
-          {socio.logo_url
-            ? <img src={socio.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            : socio.nombre_comercial?.[0]?.toUpperCase() || 'P'
-          }
-        </div>
-        <h1 style={{ fontSize: 22, fontWeight: 800, marginTop: 12, letterSpacing: -0.5, textAlign: 'center' }}>{socio.nombre_comercial}</h1>
-        <p style={{ fontSize: 13, color: 'var(--c-muted)', marginTop: 2, textAlign: 'center' }}>pido.com/{socio.slug}</p>
-
-        <button onClick={() => setShowRiderReviews(!showRiderReviews)} style={{
-          display: 'flex', alignItems: 'center', gap: 6, marginTop: 8,
-          background: 'var(--c-surface)', border: '1px solid var(--c-border)',
-          borderRadius: 50, padding: '6px 14px', cursor: 'pointer', fontFamily: 'inherit',
-        }}>
-          <Stars rating={socio.rating} size={13} />
-          <span style={{ fontSize: 12, color: 'var(--c-muted)' }}>({socio.total_resenas} reseñas)</span>
-          <span style={{ fontSize: 10, color: 'var(--c-muted)', transform: showRiderReviews ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }}>▼</span>
-        </button>
-
-        <ModoEntregaBadge modo={socio.modo_entrega} radioKm={socio.radio_km} />
-      </div>
-
-      {/* Contenido */}
-      <div style={{ padding: '0 20px', marginTop: 20 }}>
-        {/* Reseñas del socio (expandibles) */}
-        {showRiderReviews && !establecimientoOpen && resenasSocio.length > 0 && (
-          <div style={{ animation: 'fadeIn 0.3s ease', marginBottom: 20 }}>
-            <h3 style={{ fontSize: 15, fontWeight: 800, marginBottom: 12, color: 'var(--c-text)' }}>Reseñas de {socio.nombre_comercial}</h3>
-            <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 6 }}>
-              {resenasSocio.map(r => <ResenaCard key={r.id} r={r} />)}
+    <div style={{ paddingBottom: 80 }}>
+      {/* Header: Banner + info socio */}
+      {seccion === 'inicio' && !restOpen && (
+        <>
+          <div style={{ height: 160, background: socio.banner_url ? `url(${socio.banner_url}) center/cover` : 'linear-gradient(135deg, #FF6B2C 0%, #FF8F73 100%)', position: 'relative' }}>
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(transparent 40%, rgba(13,13,13,0.9))' }} />
+          </div>
+          <div style={{ padding: '0 20px', marginTop: -50, position: 'relative', zIndex: 10, marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14 }}>
+              <div style={{ width: 72, height: 72, borderRadius: 18, border: '3px solid #0D0D0D', boxShadow: '0 4px 16px rgba(0,0,0,0.3)', overflow: 'hidden', background: '#1A1A1A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, fontWeight: 800, color: '#FF6B2C', flexShrink: 0 }}>
+                {socio.logo_url ? <img src={socio.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : socio.nombre_comercial?.[0]?.toUpperCase()}
+              </div>
+              <div>
+                <h1 style={{ fontSize: 20, fontWeight: 800, margin: 0, lineHeight: 1.2 }}>{socio.nombre_comercial}</h1>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                  <Stars rating={socio.rating} size={11} />
+                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>({socio.total_resenas})</span>
+                  {socio.en_servicio && <span style={{ width: 6, height: 6, borderRadius: 3, background: '#16A34A', marginLeft: 4 }} />}
+                </div>
+              </div>
             </div>
           </div>
+        </>
+      )}
+
+      {/* Contenido */}
+      <div style={{ padding: '0 20px' }}>
+        {seccion === 'inicio' && !restOpen && (
+          <PaginaInicio socio={socio} establecimientos={establecimientos} categorias={categorias} catActiva={catActiva} setCatActiva={setCatActiva} busqueda={busqueda} setBusqueda={setBusqueda} onOpenRest={r => setRestOpen(r)} />
         )}
-
-        {establecimientoOpen ? (
-          <EstablecimientoDetail
-            est={establecimientoOpen}
-            onBack={() => setEstablecimientoOpen(null)}
-            carrito={carrito} setCarrito={setCarrito}
-            modoEntrega={socio.modo_entrega}
-            resenas={resenasEst}
-          />
-        ) : (
-          <>
-            {esRecogida && <BannerPidoApp />}
-
-            {destacados.length > 0 && (
-              <div style={{ marginBottom: 28, animation: 'fadeIn 0.4s ease' }}>
-                <h2 style={{ fontSize: 17, fontWeight: 800, marginBottom: 14, letterSpacing: -0.3 }}>Restaurantes destacados</h2>
-                <div style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 8 }}>
-                  {destacados.map(r => (
-                    <div key={r.id} style={{ minWidth: 220, flexShrink: 0 }}>
-                      <EstablecimientoCard r={r} onOpen={openEstablecimiento} modoEntrega={socio.modo_entrega} socioEnServicio={socio.en_servicio} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Categorias como filtros */}
-            {categorias.length > 0 && (
-              <div style={{ display: 'flex', gap: 8, overflowX: 'auto', marginBottom: 20, paddingBottom: 4 }}>
-                <button onClick={() => setCatActiva(null)} style={{
-                  padding: '8px 16px', borderRadius: 50, border: 'none', fontSize: 12, fontWeight: 700,
-                  cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', flexShrink: 0,
-                  background: !catActiva ? 'var(--c-accent)' : 'var(--c-surface)',
-                  color: !catActiva ? '#fff' : 'var(--c-muted)',
-                  boxShadow: !catActiva ? 'none' : '0 1px 3px rgba(0,0,0,0.06)',
-                }}>Todos</button>
-                {categorias.map(cat => (
-                  <button key={cat} onClick={() => setCatActiva(catActiva === cat ? null : cat)} style={{
-                    padding: '8px 16px', borderRadius: 50, border: 'none', fontSize: 12, fontWeight: 700,
-                    cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', flexShrink: 0,
-                    background: catActiva === cat ? 'var(--c-accent)' : 'var(--c-surface)',
-                    color: catActiva === cat ? '#fff' : 'var(--c-muted)',
-                    boxShadow: catActiva === cat ? 'none' : '0 1px 3px rgba(0,0,0,0.06)',
-                  }}>{cat}</button>
-                ))}
-              </div>
-            )}
-
-            <div style={{ animation: 'fadeIn 0.4s ease 0.1s both' }}>
-              <h2 style={{ fontSize: 17, fontWeight: 800, marginBottom: 14, letterSpacing: -0.3 }}>
-                {establecimientos.length > 0 ? 'Todos los restaurantes' : 'Sin restaurantes aun'}
-              </h2>
-              {establecimientos.length === 0 && (
-                <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--c-muted)' }}>
-                  <div style={{ fontSize: 32, marginBottom: 8 }}>🍽️</div>
-                  <div style={{ fontSize: 14 }}>Esta tienda aun no tiene restaurantes</div>
-                </div>
-              )}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {establecimientos.map(r => (
-                  <EstablecimientoCard key={r.id} r={r} onOpen={openEstablecimiento} modoEntrega={socio.modo_entrega} socioEnServicio={socio.en_servicio} />
-                ))}
-              </div>
-            </div>
-          </>
+        {seccion === 'inicio' && restOpen && (
+          <PaginaRestDetalle est={restOpen} onBack={() => setRestOpen(null)} carrito={carrito} setCarrito={setCarrito} socio={socio} />
         )}
+        {seccion === 'pedidos' && <PaginaPedidos user={user} socioId={socio.id} />}
+        {seccion === 'carrito' && (
+          <PaginaCarrito carrito={carrito} setCarrito={setCarrito} socio={socio} user={user}
+            onPedidoCreado={p => { setPedidoActivo(p); setSeccion('pedidos') }}
+            onLogin={() => setShowLogin(true)} />
+        )}
+        {seccion === 'perfil' && <PaginaPerfil user={user} perfil={perfil} onLogin={() => setShowLogin(true)} onLogout={logout} />}
       </div>
 
-      <CarritoBar carrito={carrito} setCarrito={setCarrito} modoEntrega={socio.modo_entrega} socioId={socio.id} socioNombre={socio.nombre_comercial} socioEnServicio={socio.en_servicio} tarifaBase={socio.tarifa_base || 3} radioTarifaKm={socio.radio_tarifa_base_km || 3} precioKmAdicional={socio.precio_km_adicional || 0.50} />
+      {/* Bottom Nav */}
+      <TiendaBottomNav active={seccion} onChange={s => { setSeccion(s); setRestOpen(null) }} carritoCount={carritoCount} />
     </div>
   )
 }
-

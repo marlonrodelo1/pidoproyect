@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Bell } from 'lucide-react'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { CartProvider } from './context/CartContext'
@@ -165,7 +165,7 @@ function TiendaDetector() {
   const [slugTienda, setSlugTienda] = useState(null)
   const [checking, setChecking] = useState(true)
 
-  useState(() => {
+  useEffect(() => {
     const path = window.location.pathname.replace(/^\//, '')
     if (path && path !== '') {
       import('./lib/supabase').then(({ supabase }) => {
@@ -177,7 +177,7 @@ function TiendaDetector() {
     } else {
       setChecking(false)
     }
-  })
+  }, [])
 
   if (checking) {
     return (
@@ -190,10 +190,12 @@ function TiendaDetector() {
 
   if (slugTienda) {
     return (
-      <div style={{ ...shellStyle, minHeight: '100vh' }}>
-        <style>{globalCss}</style>
-        <TiendaSocio slug={slugTienda} />
-      </div>
+      <AuthProvider>
+        <div style={{ ...shellStyle, minHeight: '100vh' }}>
+          <style>{globalCss}</style>
+          <TiendaSocio slug={slugTienda} />
+        </div>
+      </AuthProvider>
     )
   }
 
