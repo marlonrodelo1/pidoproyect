@@ -5,8 +5,42 @@ import { useRest } from '../context/RestContext'
 export default function Ajustes() {
   const { restaurante, updateRestaurante, logout } = useRest()
   const [activo, setActivo] = useState(restaurante?.activo ?? true)
+  const [nombre, setNombre] = useState(restaurante?.nombre || '')
+  const [tipo, setTipo] = useState(restaurante?.tipo || 'restaurante')
+  const [descripcion, setDescripcion] = useState(restaurante?.descripcion || '')
+  const [direccion, setDireccion] = useState(restaurante?.direccion || '')
+  const [email, setEmail] = useState(restaurante?.email || '')
+  const [telefono, setTelefono] = useState(restaurante?.telefono || '')
+  const [radioCobertura, setRadioCobertura] = useState(restaurante?.radio_cobertura_km || 10)
+  const [guardando, setGuardando] = useState(false)
+  const [guardado, setGuardado] = useState(false)
   const logoRef = useRef()
   const bannerRef = useRef()
+
+  const hayCambios =
+    nombre !== (restaurante?.nombre || '') ||
+    tipo !== (restaurante?.tipo || 'restaurante') ||
+    descripcion !== (restaurante?.descripcion || '') ||
+    direccion !== (restaurante?.direccion || '') ||
+    email !== (restaurante?.email || '') ||
+    telefono !== (restaurante?.telefono || '') ||
+    radioCobertura !== (restaurante?.radio_cobertura_km || 10)
+
+  async function guardarTodo() {
+    setGuardando(true)
+    await updateRestaurante({
+      nombre: nombre.trim(),
+      tipo,
+      descripcion: descripcion.trim() || null,
+      direccion: direccion.trim() || null,
+      email: email.trim() || null,
+      telefono: telefono.trim() || null,
+      radio_cobertura_km: radioCobertura,
+    })
+    setGuardando(false)
+    setGuardado(true)
+    setTimeout(() => setGuardado(false), 2500)
+  }
 
   async function toggleActivo() {
     const nuevo = !activo
@@ -23,11 +57,14 @@ export default function Ajustes() {
     await updateRestaurante({ [field]: publicUrl })
   }
 
+  const inp = { width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)', fontSize: 13, fontFamily: 'inherit', background: 'rgba(255,255,255,0.06)', color: '#F5F5F5', outline: 'none', boxSizing: 'border-box' }
+  const lbl = { fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.45)', marginBottom: 4, display: 'block' }
+
   return (
-    <div>
+    <div style={{ paddingBottom: hayCambios ? 90 : 0 }}>
       <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 20px' }}>Ajustes</h2>
 
-      {/* Estado abierto/cerrado */}
+      {/* Estado abierto/cerrado — inmediato */}
       <div style={{ background: activo ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)', borderRadius: 14, padding: '16px 18px', marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <div style={{ fontWeight: 700, fontSize: 14, color: activo ? '#4ADE80' : '#EF4444' }}>{activo ? 'Abierto' : 'Cerrado'}</div>
@@ -58,25 +95,96 @@ export default function Ajustes() {
         <div style={{ textAlign: 'center', fontSize: 11, color: 'var(--c-muted)' }}>800 × 300 px recomendado · PNG o JPG</div>
       </div>
 
-      {/* Info */}
+      {/* Información editable */}
       <div style={{ background: 'var(--c-surface)', borderRadius: 14, padding: 18, border: '1px solid var(--c-border)', marginBottom: 16 }}>
         <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>Información</h3>
-        {[
-          { l: 'Nombre', v: restaurante?.nombre },
-          { l: 'Tipo', v: restaurante?.tipo },
-          { l: 'Dirección', v: restaurante?.direccion },
-          { l: 'Email', v: restaurante?.email },
-          { l: 'Teléfono', v: restaurante?.telefono },
-          { l: 'Radio cobertura', v: `${restaurante?.radio_cobertura_km} km` },
-        ].map((item, i) => (
-          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: i < 5 ? '1px solid var(--c-border)' : 'none' }}>
-            <span style={{ fontSize: 13, color: 'var(--c-muted)' }}>{item.l}</span>
-            <span style={{ fontSize: 13, fontWeight: 600, maxWidth: '60%', textAlign: 'right' }}>{item.v || '—'}</span>
-          </div>
-        ))}
+
+        <div style={{ marginBottom: 12 }}>
+          <label style={lbl}>Nombre</label>
+          <input value={nombre} onChange={e => setNombre(e.target.value)} style={inp} />
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <label style={lbl}>Tipo de negocio</label>
+          <select value={tipo} onChange={e => setTipo(e.target.value)} style={inp}>
+            <option value="restaurante">Restaurante</option>
+            <option value="cafeteria">Cafetería</option>
+            <option value="pizzeria">Pizzería</option>
+            <option value="hamburgueseria">Hamburguesería</option>
+            <option value="sushi">Sushi</option>
+            <option value="minimarket">Minimarket</option>
+            <option value="fruteria">Frutería</option>
+            <option value="farmacia">Farmacia</option>
+            <option value="panaderia">Panadería</option>
+            <option value="otro">Otro</option>
+          </select>
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <label style={lbl}>Descripción</label>
+          <textarea value={descripcion} onChange={e => setDescripcion(e.target.value)} placeholder="Breve descripción del negocio..." rows={2} style={{ ...inp, resize: 'vertical' }} />
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <label style={lbl}>Dirección</label>
+          <input value={direccion} onChange={e => setDireccion(e.target.value)} style={inp} />
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <label style={lbl}>Email</label>
+          <input type="email" value={email} onChange={e => setEmail(e.target.value)} style={inp} />
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <label style={lbl}>Teléfono</label>
+          <input type="tel" value={telefono} onChange={e => setTelefono(e.target.value)} style={inp} />
+        </div>
       </div>
 
-      <button onClick={logout} style={{ width: '100%', padding: '14px 0', borderRadius: 14, border: 'none', background: 'rgba(239,68,68,0.12)', color: '#EF4444', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Cerrar sesión</button>
+      {/* Radio de cobertura */}
+      <div style={{ background: 'var(--c-surface)', borderRadius: 14, padding: 18, border: '1px solid var(--c-border)', marginBottom: 16 }}>
+        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>Radio de cobertura</h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <input type="range" min="1" max="30" value={radioCobertura} onChange={e => setRadioCobertura(Number(e.target.value))} style={{ flex: 1, accentColor: '#B91C1C' }} />
+          <span style={{ minWidth: 50, textAlign: 'center', fontWeight: 800, fontSize: 16, color: 'var(--c-primary)' }}>{radioCobertura} km</span>
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--c-muted)', marginTop: 8 }}>Solo los clientes dentro de este radio verán tu restaurante.</div>
+      </div>
+
+      {/* Cerrar sesión */}
+      <button onClick={logout} style={{ width: '100%', padding: '14px 0', borderRadius: 14, border: 'none', background: 'rgba(239,68,68,0.12)', color: '#EF4444', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 20 }}>Cerrar sesión</button>
+
+      {/* Botón guardar cambios flotante */}
+      {hayCambios && (
+        <div style={{
+          position: 'fixed', bottom: 70, left: '50%', transform: 'translateX(-50%)',
+          width: '100%', maxWidth: 420, padding: '0 20px', zIndex: 40,
+          animation: 'fadeIn 0.3s ease',
+        }}>
+          <button onClick={guardarTodo} disabled={guardando} style={{
+            width: '100%', padding: '16px 0', borderRadius: 14, border: 'none',
+            background: guardando ? 'var(--c-muted)' : 'var(--c-primary)', color: '#fff',
+            fontSize: 15, fontWeight: 800, cursor: guardando ? 'default' : 'pointer',
+            fontFamily: 'inherit',
+            boxShadow: '0 8px 32px rgba(185,28,28,0.3), 0 4px 12px rgba(0,0,0,0.2)',
+          }}>
+            {guardando ? 'Guardando...' : 'Guardar cambios'}
+          </button>
+        </div>
+      )}
+
+      {/* Toast confirmación */}
+      {guardado && (
+        <div style={{
+          position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)',
+          background: '#16A34A', color: '#fff', padding: '12px 24px', borderRadius: 12,
+          fontSize: 13, fontWeight: 700, zIndex: 200,
+          boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+          animation: 'fadeIn 0.3s ease',
+        }}>
+          Cambios guardados correctamente
+        </div>
+      )}
     </div>
   )
 }
