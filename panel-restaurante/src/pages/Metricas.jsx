@@ -16,6 +16,7 @@ export default function Metricas() {
   const { restaurante } = useRest()
   const [stats, setStats] = useState({})
   const [loading, setLoading] = useState(true)
+  const [resenas, setResenas] = useState([])
 
   useEffect(() => { if (restaurante) fetchStats() }, [restaurante?.id])
 
@@ -53,6 +54,10 @@ export default function Metricas() {
       ventasSemana: entregadosSemana.reduce((s, p) => s + p.total, 0),
     })
     setLoading(false)
+
+    // Cargar reseñas
+    const { data: resenasData } = await supabase.from('resenas').select('*').eq('establecimiento_id', restaurante.id).order('created_at', { ascending: false }).limit(15)
+    setResenas(resenasData || [])
   }
 
   if (loading) return <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--c-muted)' }}>Cargando métricas...</div>
@@ -85,6 +90,25 @@ export default function Metricas() {
         <StatCard label="Pedidos semana" value={stats.pedidosSemana} accent />
         <StatCard label="Ventas semana" value={`${stats.ventasSemana?.toFixed(0)} €`} />
       </div>
+
+      {/* Reseñas */}
+      <h3 style={{ fontSize: 16, fontWeight: 800, margin: '24px 0 14px' }}>Reseñas de clientes ({resenas.length})</h3>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+        <span style={{ fontSize: 24, fontWeight: 800, color: 'var(--c-text)' }}>{restaurante?.rating?.toFixed(1) || '—'}</span>
+        <div style={{ display: 'flex', gap: 1 }}>{[1,2,3,4,5].map(i => <span key={i} style={{ color: i <= Math.round(restaurante?.rating || 0) ? '#FBBF24' : 'rgba(255,255,255,0.15)', fontSize: 16 }}>★</span>)}</div>
+        <span style={{ fontSize: 12, color: 'var(--c-muted)' }}>({restaurante?.total_resenas || 0} reseñas)</span>
+      </div>
+      {resenas.map(r => (
+        <div key={r.id} style={{ background: 'var(--c-surface)', borderRadius: 12, padding: '12px 16px', border: '1px solid var(--c-border)', marginBottom: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+            <div style={{ display: 'flex', gap: 1 }}>{[1,2,3,4,5].map(i => <span key={i} style={{ color: i <= r.rating ? '#FBBF24' : 'rgba(255,255,255,0.15)', fontSize: 12 }}>★</span>)}</div>
+            <span style={{ fontSize: 10, color: 'var(--c-muted)' }}>{new Date(r.created_at).toLocaleDateString('es-ES')}</span>
+          </div>
+          {r.texto && <div style={{ fontSize: 12, color: 'var(--c-muted)', lineHeight: 1.5 }}>{r.texto}</div>}
+          {!r.texto && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.2)', fontStyle: 'italic' }}>Sin comentario</div>}
+        </div>
+      ))}
+      {resenas.length === 0 && <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--c-muted)', fontSize: 13 }}>Aún no tienes reseñas</div>}
     </div>
   )
 }

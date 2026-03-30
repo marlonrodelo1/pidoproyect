@@ -18,6 +18,9 @@ export default function Tracking({ pedido: pedidoInicial, onClose }) {
   const [riderPos, setRiderPos] = useState(0)
   const [socio, setSocio] = useState(null)
   const [valoracion, setValoracion] = useState(0)
+  const [textoResena, setTextoResena] = useState('')
+  const [resenaEnviada, setResenaEnviada] = useState(false)
+  const [yaValorado, setYaValorado] = useState(false)
 
   // Fetch estado actual del pedido al montar (por si cambio mientras no miraba)
   useEffect(() => {
@@ -42,6 +45,14 @@ export default function Tracking({ pedido: pedidoInicial, onClose }) {
         .then(({ data }) => { if (data) setSocio(data) })
     }
   }, [pedido.socio_id])
+
+  // Comprobar si ya valoró este pedido
+  useEffect(() => {
+    if (pedido.id && pedido.usuario_id) {
+      supabase.from('resenas').select('id').eq('pedido_id', pedido.id).eq('usuario_id', pedido.usuario_id).single()
+        .then(({ data }) => { if (data) setYaValorado(true) })
+    }
+  }, [pedido.id])
 
   // Realtime + polling como fallback
   useEffect(() => {
@@ -91,15 +102,20 @@ export default function Tracking({ pedido: pedidoInicial, onClose }) {
     }
   }, [etapa])
 
-  async function enviarValoracion(stars) {
-    setValoracion(stars)
-    await supabase.from('resenas').insert({
+  async function enviarValoracion() {
+    if (!valoracion || yaValorado || resenaEnviada) return
+    const { error } = await supabase.from('resenas').insert({
       usuario_id: pedido.usuario_id,
       establecimiento_id: pedido.establecimiento_id,
       socio_id: pedido.socio_id,
       pedido_id: pedido.id,
-      rating: stars,
+      rating: valoracion,
+      texto: textoResena.trim() || null,
     })
+    if (!error) {
+      setResenaEnviada(true)
+      setYaValorado(true)
+    }
   }
 
   return (
@@ -174,20 +190,46 @@ export default function Tracking({ pedido: pedidoInicial, onClose }) {
 
       {/* Valoracion al entregar */}
       {etapa === 4 && (
-        <div style={{ textAlign: 'center', background: 'var(--c-surface)', borderRadius: 14, padding: 20, border: '1px solid var(--c-border)' }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-text)', marginBottom: 10 }}>¿Como fue tu experiencia?</div>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginBottom: 12 }}>
-            {[1, 2, 3, 4, 5].map(i => (
-              <button key={i} onClick={() => enviarValoracion(i)} style={{
-                width: 38, height: 38, borderRadius: 10,
-                border: '1px solid var(--c-border)',
-                background: i <= valoracion ? 'var(--c-primary)' : 'var(--c-surface)',
-                cursor: 'pointer', fontSize: 16,
-                color: i <= valoracion ? '#fff' : 'var(--c-text)',
-              }}>★</button>
-            ))}
-          </div>
-          {valoracion > 0 && <div style={{ fontSize: 12, color: 'var(--c-primary)', fontWeight: 600 }}>Gracias por tu valoracion</div>}
+        <div style={{ background: 'var(--c-surface)', borderRadius: 14, padding: 20, border: '1px solid var(--c-border)' }}>
+          {yaValorado || resenaEnviada ? (
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 32, marginBottom: 8 }}>🎉</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-primary)' }}>Gracias por tu valoración</div>
+              <div style={{ fontSize: 12, color: 'var(--c-muted)', marginTop: 4 }}>Tu opinión nos ayuda a mejorar</div>
+            </div>
+          ) : (
+            <>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-text)', marginBottom: 10, textAlign: 'center' }}>¿Cómo fue tu experiencia?</div>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginBottom: 14 }}>
+                {[1, 2, 3, 4, 5].map(i => (
+                  <button key={i} onClick={() => setValoracion(i)} style={{
+                    width: 40, height: 40, borderRadius: 10,
+                    border: i <= valoracion ? '2px solid var(--c-primary)' : '1px solid var(--c-border)',
+                    background: i <= valoracion ? 'var(--c-primary)' : 'var(--c-surface)',
+                    cursor: 'pointer', fontSize: 18,
+                    color: i <= valoracion ? '#fff' : 'var(--c-text)',
+                    transition: 'all 0.15s',
+                  }}>★</button>
+                ))}
+              </div>
+              {valoracion > 0 && (
+                <>
+                  <textarea value={textoResena} onChange={e => setTextoResena(e.target.value)} placeholder="Cuéntanos más sobre tu experiencia (opcional)..." rows={3} style={{
+                    width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid var(--c-border)',
+                    fontSize: 13, fontFamily: 'inherit', background: 'rgba(255,255,255,0.06)',
+                    color: 'var(--c-text)', outline: 'none', boxSizing: 'border-box', resize: 'vertical', marginBottom: 12,
+                  }} />
+                  <button onClick={enviarValoracion} style={{
+                    width: '100%', padding: '14px 0', borderRadius: 12, border: 'none',
+                    background: 'var(--c-primary)', color: '#fff', fontSize: 14, fontWeight: 800,
+                    cursor: 'pointer', fontFamily: 'inherit',
+                  }}>
+                    Enviar valoración
+                  </button>
+                </>
+              )}
+            </>
+          )}
         </div>
       )}
 

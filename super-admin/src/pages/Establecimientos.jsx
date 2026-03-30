@@ -27,6 +27,7 @@ export default function Establecimientos() {
   const [prodForm, setProdForm] = useState({ nombre: '', descripcion: '', precio: '', categoria_id: '', imagen_url: '' })
   const [prodExtras, setProdExtras] = useState([])
   const [savingProd, setSavingProd] = useState(false)
+  const [resenas, setResenas] = useState([])
   const logoRef = useRef()
   const bannerRef = useRef()
   const prodImgRef = useRef()
@@ -122,6 +123,17 @@ export default function Establecimientos() {
   }
 
   // --- Productos ---
+  async function loadResenas(estId) {
+    const { data } = await supabase.from('resenas').select('*, usuarios(nombre, email)').eq('establecimiento_id', estId).order('created_at', { ascending: false }).limit(20)
+    setResenas(data || [])
+  }
+
+  async function eliminarResena(id, estId) {
+    if (!confirm('¿Eliminar esta reseña?')) return
+    await supabase.from('resenas').delete().eq('id', id)
+    loadResenas(estId)
+  }
+
   async function loadProductos(estId) {
     const [prodRes, grpRes] = await Promise.all([
       supabase.from('productos').select('*').eq('establecimiento_id', estId).order('orden'),
@@ -343,6 +355,28 @@ export default function Establecimientos() {
           {gruposExtras.length === 0 && <div style={{ padding: 16, textAlign: 'center', color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>Sin extras</div>}
         </div>
 
+        {/* Reseñas */}
+        <div style={{ marginTop: 20 }}>
+          <h3 style={{ fontSize: 15, fontWeight: 700, color: '#F5F5F5', marginBottom: 10 }}>Reseñas ({resenas.length})</h3>
+          {resenas.map(r => (
+            <div key={r.id} style={{ ...ds.card, padding: '12px 16px', marginBottom: 8, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <span style={{ fontWeight: 700, fontSize: 13, color: '#F5F5F5' }}>{r.usuarios?.nombre || 'Usuario'}</span>
+                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>{r.usuarios?.email}</span>
+                  <div style={{ display: 'flex', gap: 1 }}>
+                    {[1,2,3,4,5].map(i => <span key={i} style={{ color: i <= r.rating ? '#FBBF24' : 'rgba(255,255,255,0.15)', fontSize: 12 }}>★</span>)}
+                  </div>
+                </div>
+                {r.texto && <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', lineHeight: 1.5 }}>{r.texto}</div>}
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', marginTop: 4 }}>{new Date(r.created_at).toLocaleDateString('es-ES')}</div>
+              </div>
+              <button onClick={() => eliminarResena(r.id, detalle.id)} style={{ ...ds.actionBtn, color: '#EF4444', fontSize: 10, flexShrink: 0 }}>Eliminar</button>
+            </div>
+          ))}
+          {resenas.length === 0 && <div style={{ padding: 16, textAlign: 'center', color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>Sin reseñas</div>}
+        </div>
+
         {/* Modal editar/crear producto */}
         {editProd && (
           <div style={ds.modal} onClick={() => setEditProd(null)}>
@@ -438,7 +472,7 @@ export default function Establecimientos() {
                 {e.logo_url ? <img src={e.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '🍽️'}
               </div>
             </span>
-            <span style={{ flex: 1, fontWeight: 700, fontSize: 13, cursor: 'pointer', color: '#F5F5F5' }} onClick={() => { setDetalle(e); loadCategorias(e.id); loadEstCats(e.id); loadProductos(e.id) }}>{e.nombre}</span>
+            <span style={{ flex: 1, fontWeight: 700, fontSize: 13, cursor: 'pointer', color: '#F5F5F5' }} onClick={() => { setDetalle(e); loadCategorias(e.id); loadEstCats(e.id); loadProductos(e.id); loadResenas(e.id) }}>{e.nombre}</span>
             <span style={{ width: 100 }}>
               <span style={{ ...ds.badge, background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)' }}>
                 {e.categoria_padre === 'comida' ? '🍕' : e.categoria_padre === 'farmacia' ? '💊' : '🛒'} {e.categoria_padre}
@@ -449,7 +483,7 @@ export default function Establecimientos() {
               <span style={{ ...ds.badge, background: e.activo ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)', color: e.activo ? '#22C55E' : '#EF4444' }}>{e.activo ? 'Activo' : 'Inactivo'}</span>
             </span>
             <span style={{ width: 120, display: 'flex', gap: 6 }}>
-              <button onClick={() => { setDetalle(e); loadCategorias(e.id); loadEstCats(e.id); loadProductos(e.id) }} style={ds.actionBtn}>Editar</button>
+              <button onClick={() => { setDetalle(e); loadCategorias(e.id); loadEstCats(e.id); loadProductos(e.id); loadResenas(e.id) }} style={ds.actionBtn}>Editar</button>
               <button onClick={() => toggleActivo(e.id, e.activo)} style={{ ...ds.actionBtn, color: e.activo ? '#EF4444' : '#22C55E' }}>
                 {e.activo ? 'Off' : 'On'}
               </button>
