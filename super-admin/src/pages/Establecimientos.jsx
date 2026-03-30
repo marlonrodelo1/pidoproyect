@@ -20,8 +20,16 @@ export default function Establecimientos() {
   const [catForm, setCatForm] = useState({ nombre: '', orden: 0 })
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(null)
+  // Productos y extras
+  const [productos, setProductos] = useState([])
+  const [gruposExtras, setGruposExtras] = useState([])
+  const [editProd, setEditProd] = useState(null)
+  const [prodForm, setProdForm] = useState({ nombre: '', descripcion: '', precio: '', categoria_id: '', imagen_url: '' })
+  const [prodExtras, setProdExtras] = useState([])
+  const [savingProd, setSavingProd] = useState(false)
   const logoRef = useRef()
   const bannerRef = useRef()
+  const prodImgRef = useRef()
 
   useEffect(() => { load(); loadCatsGenerales() }, [])
 
@@ -111,6 +119,64 @@ export default function Establecimientos() {
       await supabase.from('establecimiento_categorias').insert({ establecimiento_id: detalle.id, categoria_id: catId })
       setEstCats(prev => [...prev, catId])
     }
+  }
+
+  // --- Productos ---
+  async function loadProductos(estId) {
+    const [prodRes, grpRes] = await Promise.all([
+      supabase.from('productos').select('*').eq('establecimiento_id', estId).order('orden'),
+      supabase.from('grupos_extras').select('*, extras_opciones(*)').eq('establecimiento_id', estId),
+    ])
+    setProductos(prodRes.data || [])
+    setGruposExtras(grpRes.data || [])
+  }
+
+  async function abrirEditarProd(p) {
+    setProdForm({ nombre: p.nombre, descripcion: p.descripcion || '', precio: p.precio, categoria_id: p.categoria_id || '', imagen_url: p.imagen_url || '' })
+    const { data } = await supabase.from('producto_extras').select('grupo_id').eq('producto_id', p.id)
+    setProdExtras((data || []).map(d => d.grupo_id))
+    setEditProd(p)
+  }
+
+  async function guardarProd() {
+    if (!prodForm.nombre.trim() || !prodForm.precio) return
+    setSavingProd(true)
+    const data = { nombre: prodForm.nombre.trim(), descripcion: prodForm.descripcion.trim() || null, precio: Number(prodForm.precio), categoria_id: prodForm.categoria_id || null, imagen_url: prodForm.imagen_url || null, establecimiento_id: detalle.id, disponible: true, orden: productos.length }
+    let prodId
+    if (editProd) {
+      await supabase.from('productos').update(data).eq('id', editProd.id)
+      prodId = editProd.id
+    } else {
+      const { data: nuevo } = await supabase.from('productos').insert(data).select().single()
+      prodId = nuevo?.id
+    }
+    if (prodId) {
+      await supabase.from('producto_extras').delete().eq('producto_id', prodId)
+      if (prodExtras.length > 0) await supabase.from('producto_extras').insert(prodExtras.map(gid => ({ producto_id: prodId, grupo_id: gid })))
+    }
+    setSavingProd(false)
+    setEditProd(null)
+    setProdForm({ nombre: '', descripcion: '', precio: '', categoria_id: '', imagen_url: '' })
+    setProdExtras([])
+    loadProductos(detalle.id)
+  }
+
+  async function eliminarProd(id) {
+    if (!confirm('¿Eliminar este producto?')) return
+    await supabase.from('productos').delete().eq('id', id)
+    loadProductos(detalle.id)
+  }
+
+  async function toggleDisponible(id, current) {
+    await supabase.from('productos').update({ disponible: !current }).eq('id', id)
+    loadProductos(detalle.id)
+  }
+
+  async function handleProdImage(file) {
+    if (!file) return
+    const bucket = 'productos'
+    const url = await uploadImage(file, bucket, detalle.id)
+    setProdForm(prev => ({ ...prev, imagen_url: url }))
   }
 
   const filtrados = items.filter(e => {
@@ -233,6 +299,108 @@ export default function Establecimientos() {
             <button onClick={agregarCategoria} style={ds.primaryBtn}>Añadir</button>
           </div>
         </div>
+
+        {/* Productos */}
+        <div style={{ marginTop: 20 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <h3 style={{ fontSize: 15, fontWeight: 700, color: '#F5F5F5' }}>Productos ({productos.length})</h3>
+            <button onClick={() => { setEditProd('new'); setProdForm({ nombre: '', descripcion: '', precio: '', categoria_id: '', imagen_url: '' }); setProdExtras([]) }} style={{ ...ds.primaryBtn, fontSize: 11, padding: '6px 12px' }}>+ Producto</button>
+          </div>
+
+          {productos.map(p => (
+            <div key={p.id} style={{ ...ds.card, padding: '10px 16px', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 12, opacity: p.disponible ? 1 : 0.4 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 8, background: 'rgba(255,255,255,0.06)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>
+                {p.imagen_url ? <img src={p.imagen_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '📷'}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, fontSize: 13, color: '#F5F5F5' }}>{p.nombre}</div>
+                {p.descripcion && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{p.descripcion}</div>}
+              </div>
+              <span style={{ fontWeight: 700, fontSize: 13, color: '#FF6B2C', minWidth: 60, textAlign: 'right' }}>{p.precio.toFixed(2)} €</span>
+              <div style={{ display: 'flex', gap: 4 }}>
+                <button onClick={() => toggleDisponible(p.id, p.disponible)} style={{ ...ds.actionBtn, color: p.disponible ? '#22C55E' : '#EF4444', fontSize: 10 }}>{p.disponible ? 'On' : 'Off'}</button>
+                <button onClick={() => abrirEditarProd(p)} style={{ ...ds.actionBtn, fontSize: 10 }}>Editar</button>
+                <button onClick={() => eliminarProd(p.id)} style={{ ...ds.actionBtn, color: '#EF4444', fontSize: 10 }}>×</button>
+              </div>
+            </div>
+          ))}
+          {productos.length === 0 && <div style={{ padding: 24, textAlign: 'center', color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>Sin productos</div>}
+        </div>
+
+        {/* Extras */}
+        <div style={{ marginTop: 20 }}>
+          <h3 style={{ fontSize: 15, fontWeight: 700, color: '#F5F5F5', marginBottom: 10 }}>Grupos de extras ({gruposExtras.length})</h3>
+          {gruposExtras.map(g => (
+            <div key={g.id} style={{ ...ds.card, padding: '10px 16px', marginBottom: 6 }}>
+              <div style={{ fontWeight: 700, fontSize: 13, color: '#F5F5F5' }}>{g.nombre} <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>· {g.tipo === 'single' ? 'Elige 1' : `Máx. ${g.max_selecciones}`}</span></div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                {(g.extras_opciones || []).map(o => (
+                  <span key={o.id} style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.6)' }}>{o.nombre} +{o.precio.toFixed(2)}€</span>
+                ))}
+              </div>
+            </div>
+          ))}
+          {gruposExtras.length === 0 && <div style={{ padding: 16, textAlign: 'center', color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>Sin extras</div>}
+        </div>
+
+        {/* Modal editar/crear producto */}
+        {editProd && (
+          <div style={ds.modal} onClick={() => setEditProd(null)}>
+            <div style={ds.modalContent} onClick={e => e.stopPropagation()}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <h2 style={{ fontSize: 18, fontWeight: 800, color: '#F5F5F5' }}>{editProd === 'new' ? 'Nuevo producto' : 'Editar producto'}</h2>
+                <button onClick={() => setEditProd(null)} style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={16} color="#F5F5F5" /></button>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div style={{ gridColumn: '1/-1' }}><label style={ds.label}>Nombre *</label><input value={prodForm.nombre} onChange={e => setProdForm({ ...prodForm, nombre: e.target.value })} style={ds.formInput} /></div>
+                <div><label style={ds.label}>Precio (€) *</label><input type="number" step="0.01" value={prodForm.precio} onChange={e => setProdForm({ ...prodForm, precio: e.target.value })} style={ds.formInput} /></div>
+                <div><label style={ds.label}>Categoría</label>
+                  <select value={prodForm.categoria_id} onChange={e => setProdForm({ ...prodForm, categoria_id: e.target.value })} style={ds.select}>
+                    <option value="">Sin categoría</option>
+                    {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                  </select>
+                </div>
+                <div style={{ gridColumn: '1/-1' }}><label style={ds.label}>Descripción</label><textarea value={prodForm.descripcion} onChange={e => setProdForm({ ...prodForm, descripcion: e.target.value })} rows={2} style={{ ...ds.formInput, resize: 'vertical' }} /></div>
+                <div style={{ gridColumn: '1/-1' }}><label style={ds.label}>Imagen</label>
+                  <label style={{ ...ds.formInput, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                    <Upload size={14} /> {prodForm.imagen_url ? 'Imagen subida ✓' : 'Subir imagen'}
+                    <input type="file" accept="image/*" hidden onChange={e => handleProdImage(e.target.files[0])} />
+                  </label>
+                  {prodForm.imagen_url && <img src={prodForm.imagen_url} alt="" style={{ width: 60, height: 60, borderRadius: 8, objectFit: 'cover', marginTop: 8 }} />}
+                </div>
+              </div>
+
+              {/* Extras asignados */}
+              {gruposExtras.length > 0 && (
+                <div style={{ marginTop: 16 }}>
+                  <label style={ds.label}>Grupos de extras</label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                    {gruposExtras.map(g => {
+                      const sel = prodExtras.includes(g.id)
+                      return (
+                        <button key={g.id} onClick={() => setProdExtras(prev => sel ? prev.filter(id => id !== g.id) : [...prev, g.id])} style={{
+                          padding: '6px 12px', borderRadius: 8, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 600,
+                          border: sel ? '2px solid #FF6B2C' : '1px solid rgba(255,255,255,0.1)',
+                          background: sel ? 'rgba(255,107,44,0.15)' : 'rgba(255,255,255,0.04)',
+                          color: sel ? '#FF6B2C' : 'rgba(255,255,255,0.5)',
+                        }}>
+                          {sel && '✓ '}{g.nombre}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
+                <button onClick={() => setEditProd(null)} style={ds.secondaryBtn}>Cancelar</button>
+                <button onClick={guardarProd} disabled={savingProd || !prodForm.nombre?.trim() || !prodForm.precio} style={{ ...ds.primaryBtn, opacity: savingProd || !prodForm.nombre?.trim() ? 0.5 : 1 }}>
+                  {savingProd ? 'Guardando...' : editProd === 'new' ? 'Crear' : 'Guardar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
@@ -270,7 +438,7 @@ export default function Establecimientos() {
                 {e.logo_url ? <img src={e.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '🍽️'}
               </div>
             </span>
-            <span style={{ flex: 1, fontWeight: 700, fontSize: 13, cursor: 'pointer', color: '#F5F5F5' }} onClick={() => { setDetalle(e); loadCategorias(e.id); loadEstCats(e.id) }}>{e.nombre}</span>
+            <span style={{ flex: 1, fontWeight: 700, fontSize: 13, cursor: 'pointer', color: '#F5F5F5' }} onClick={() => { setDetalle(e); loadCategorias(e.id); loadEstCats(e.id); loadProductos(e.id) }}>{e.nombre}</span>
             <span style={{ width: 100 }}>
               <span style={{ ...ds.badge, background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)' }}>
                 {e.categoria_padre === 'comida' ? '🍕' : e.categoria_padre === 'farmacia' ? '💊' : '🛒'} {e.categoria_padre}
@@ -281,7 +449,7 @@ export default function Establecimientos() {
               <span style={{ ...ds.badge, background: e.activo ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)', color: e.activo ? '#22C55E' : '#EF4444' }}>{e.activo ? 'Activo' : 'Inactivo'}</span>
             </span>
             <span style={{ width: 120, display: 'flex', gap: 6 }}>
-              <button onClick={() => { setDetalle(e); loadCategorias(e.id); loadEstCats(e.id) }} style={ds.actionBtn}>Editar</button>
+              <button onClick={() => { setDetalle(e); loadCategorias(e.id); loadEstCats(e.id); loadProductos(e.id) }} style={ds.actionBtn}>Editar</button>
               <button onClick={() => toggleActivo(e.id, e.activo)} style={{ ...ds.actionBtn, color: e.activo ? '#EF4444' : '#22C55E' }}>
                 {e.activo ? 'Off' : 'On'}
               </button>
