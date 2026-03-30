@@ -38,6 +38,7 @@ export default function RestDetalle({ establecimiento, onBack }) {
   const [exSel, setExSel] = useState([])
   const [cant, setCant] = useState(1)
   const [loading, setLoading] = useState(true)
+  const [catFiltro, setCatFiltro] = useState(null)
 
   const est = establecimiento
 
@@ -145,7 +146,17 @@ export default function RestDetalle({ establecimiento, onBack }) {
         <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--c-muted)' }}>Cargando carta...</div>
       ) : (
         <>
-          {categorias.map(cat => {
+          {/* Filtro por categorías */}
+          {categorias.length > 1 && (
+            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', marginBottom: 16, paddingBottom: 4 }}>
+              <button onClick={() => setCatFiltro(null)} style={{ padding: '7px 14px', borderRadius: 50, border: 'none', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', background: !catFiltro ? 'var(--c-primary)' : 'rgba(255,255,255,0.08)', color: !catFiltro ? '#fff' : 'rgba(255,255,255,0.5)' }}>Todos</button>
+              {categorias.map(cat => (
+                <button key={cat.id} onClick={() => setCatFiltro(catFiltro === cat.id ? null : cat.id)} style={{ padding: '7px 14px', borderRadius: 50, border: 'none', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', background: catFiltro === cat.id ? 'var(--c-primary)' : 'rgba(255,255,255,0.08)', color: catFiltro === cat.id ? '#fff' : 'rgba(255,255,255,0.5)' }}>{cat.nombre}</button>
+              ))}
+            </div>
+          )}
+
+          {categorias.filter(cat => !catFiltro || cat.id === catFiltro).map(cat => {
             const prods = productos.filter(p => p.categoria_id === cat.id)
             if (prods.length === 0) return null
             return (
@@ -155,7 +166,7 @@ export default function RestDetalle({ establecimiento, onBack }) {
               </div>
             )
           })}
-          {productos.filter(p => !p.categoria_id).map(p => <ProductoCard key={p.id} p={p} onOpen={() => abrirProducto(p)} carrito={carrito} />)}
+          {!catFiltro && productos.filter(p => !p.categoria_id).map(p => <ProductoCard key={p.id} p={p} onOpen={() => abrirProducto(p)} carrito={carrito} />)}
         </>
       )}
 

@@ -197,6 +197,7 @@ function PaginaRestDetalle({ est, onBack, carrito, setCarrito, socio }) {
   const [productos, setProductos] = useState([])
   const [categorias, setCategorias] = useState([])
   const [loading, setLoading] = useState(true)
+  const [catFiltro, setCatFiltro] = useState(null)
   const [modal, setModal] = useState(null)
   const [gruposExtras, setGruposExtras] = useState([])
   const [tamanos, setTamanos] = useState([])
@@ -268,7 +269,16 @@ function PaginaRestDetalle({ est, onBack, carrito, setCarrito, socio }) {
 
       {loading ? <div style={{ textAlign: 'center', padding: '30px 0', color: 'rgba(255,255,255,0.4)' }}>Cargando carta...</div> : (
         <>
-          {categorias.map(cat => {
+          {categorias.length > 1 && (
+            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', marginBottom: 16, paddingBottom: 4 }}>
+              <button onClick={() => setCatFiltro(null)} style={{ padding: '7px 14px', borderRadius: 50, border: 'none', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', background: !catFiltro ? '#FF6B2C' : 'rgba(255,255,255,0.08)', color: !catFiltro ? '#fff' : 'rgba(255,255,255,0.5)' }}>Todos</button>
+              {categorias.map(cat => (
+                <button key={cat.id} onClick={() => setCatFiltro(catFiltro === cat.id ? null : cat.id)} style={{ padding: '7px 14px', borderRadius: 50, border: 'none', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', background: catFiltro === cat.id ? '#FF6B2C' : 'rgba(255,255,255,0.08)', color: catFiltro === cat.id ? '#fff' : 'rgba(255,255,255,0.5)' }}>{cat.nombre}</button>
+              ))}
+            </div>
+          )}
+
+          {categorias.filter(cat => !catFiltro || cat.id === catFiltro).map(cat => {
             const prods = productos.filter(p => p.categoria_id === cat.id)
             if (prods.length === 0) return null
             return (
@@ -278,7 +288,7 @@ function PaginaRestDetalle({ est, onBack, carrito, setCarrito, socio }) {
               </div>
             )
           })}
-          {productos.filter(p => !p.categoria_id).map(p => <ProductCard key={p.id} p={p} carrito={carrito} onOpen={() => abrirProducto(p)} />)}
+          {!catFiltro && productos.filter(p => !p.categoria_id).map(p => <ProductCard key={p.id} p={p} carrito={carrito} onOpen={() => abrirProducto(p)} />)}
         </>
       )}
 
