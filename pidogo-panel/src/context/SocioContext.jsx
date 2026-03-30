@@ -58,12 +58,41 @@ export function SocioProvider({ children }) {
     return data
   }
 
+  async function registro(formData) {
+    const { data: roleCheck } = await supabase.rpc('check_email_role', { check_email: formData.email })
+    if (roleCheck?.exists) throw new Error(`Este email ya está registrado como ${roleCheck.role}. Usa otro email.`)
+
+    const { data, error } = await supabase.auth.signUp({ email: formData.email, password: formData.password, options: { data: { nombre: formData.nombre } } })
+    if (error) throw error
+
+    // Generar slug
+    const slug = formData.nombre_comercial.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+
+    const { error: socioError } = await supabase.from('socios').insert({
+      user_id: data.user?.id,
+      nombre: formData.nombre,
+      nombre_comercial: formData.nombre_comercial,
+      slug,
+      email: formData.email,
+      telefono: formData.telefono || null,
+      modo_entrega: 'ambos',
+      radio_km: 10,
+      tarifa_base: 3,
+      radio_tarifa_base_km: 3,
+      precio_km_adicional: 0.50,
+      activo: false, // Requiere aprobación del admin
+      en_servicio: false,
+    })
+    if (socioError) throw new Error('Error al crear el perfil de socio')
+    return data
+  }
+
   async function logout() {
     await supabase.auth.signOut()
   }
 
   return (
-    <SocioContext.Provider value={{ user, socio, loading, login, logout, updateSocio, fetchSocio: () => fetchSocio(user?.id) }}>
+    <SocioContext.Provider value={{ user, socio, loading, login, registro, logout, updateSocio, fetchSocio: () => fetchSocio(user?.id) }}>
       {children}
     </SocioContext.Provider>
   )

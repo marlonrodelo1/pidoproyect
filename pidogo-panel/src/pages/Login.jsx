@@ -7,47 +7,124 @@ const GoogleIcon = () => (
 )
 
 export default function Login() {
-  const { login } = useSocio()
+  const { login, registro } = useSocio()
+  const [modo, setModo] = useState('login')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [success, setSuccess] = useState(false)
+  const [aceptaTerminos, setAceptaTerminos] = useState(false)
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState(null)
-  const [loading, setLoading] = useState(false)
 
-  const handleSubmit = async () => {
+  const [form, setForm] = useState({
+    nombre: '', nombre_comercial: '', email: '', password: '', telefono: '',
+  })
+
+  const handleLogin = async () => {
     setError(null); setLoading(true)
     try { await login(email, password) }
     catch (err) { setError(err.message) }
     finally { setLoading(false) }
   }
 
-  const input = { width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid var(--c-border)', fontSize: 14, fontFamily: 'inherit', marginBottom: 10, background: 'var(--c-surface)', color: 'var(--c-text)', outline: 'none', boxSizing: 'border-box' }
+  const handleRegistro = async () => {
+    setError(null)
+    if (!form.nombre.trim()) { setError('Tu nombre es obligatorio'); return }
+    if (!form.nombre_comercial.trim()) { setError('El nombre comercial es obligatorio'); return }
+    if (!form.email.trim()) { setError('El email es obligatorio'); return }
+    if (!form.password || form.password.length < 6) { setError('Contraseña mínimo 6 caracteres'); return }
+    if (!aceptaTerminos) { setError('Debes aceptar los términos y condiciones'); return }
+    setLoading(true)
+    try {
+      await registro(form)
+      setSuccess(true)
+    }
+    catch (err) { setError(err.message) }
+    finally { setLoading(false) }
+  }
+
+  const inp = { width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid var(--c-border)', fontSize: 14, fontFamily: 'inherit', marginBottom: 10, background: 'var(--c-surface)', color: 'var(--c-text)', outline: 'none', boxSizing: 'border-box' }
+  const lbl = { fontSize: 11, fontWeight: 600, color: 'var(--c-muted)', marginBottom: 4, display: 'block' }
+
+  if (success) {
+    return (
+      <div style={{ padding: '40px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', minHeight: '100vh', justifyContent: 'center', textAlign: 'center' }}>
+        <div style={{ fontSize: 48, marginBottom: 12 }}>🎉</div>
+        <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--c-text)', marginBottom: 8 }}>¡Solicitud enviada!</div>
+        <p style={{ fontSize: 13, color: 'var(--c-muted)', marginBottom: 24, maxWidth: 300, lineHeight: 1.5 }}>
+          Tu cuenta de socio está pendiente de aprobación. Te notificaremos cuando esté activa.
+        </p>
+        <button onClick={() => { setSuccess(false); setModo('login') }} style={{ padding: '14px 32px', borderRadius: 14, border: 'none', background: 'var(--c-accent)', color: '#fff', fontSize: 15, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>Ir al login</button>
+      </div>
+    )
+  }
 
   return (
-    <div style={{ padding: '40px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', minHeight: '100vh', justifyContent: 'center' }}>
+    <div style={{ padding: '30px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', minHeight: '100vh', justifyContent: 'center' }}>
       <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--c-accent)', marginBottom: 4, letterSpacing: 1 }}>PIDOGO</div>
-      <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--c-text)', marginBottom: 8 }}>Panel del Socio</div>
-      <p style={{ fontSize: 13, color: 'var(--c-muted)', marginBottom: 32 }}>Gestiona tus pedidos y negocios</p>
-      <div style={{ width: '100%', maxWidth: 340 }}>
-        <input placeholder="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} style={input} onKeyDown={e => e.key === 'Enter' && handleSubmit()} />
-        <input placeholder="Contraseña" type="password" value={password} onChange={e => setPassword(e.target.value)} style={input} onKeyDown={e => e.key === 'Enter' && handleSubmit()} />
-        {error && <div style={{ color: '#EF4444', fontSize: 12, marginBottom: 10, textAlign: 'center', background: 'rgba(239,68,68,0.1)', padding: '8px 12px', borderRadius: 8 }}>{error}</div>}
-        <button onClick={handleSubmit} disabled={loading} style={{
-          width: '100%', padding: '16px 0', borderRadius: 14, border: 'none',
-          background: loading ? 'var(--c-muted)' : 'var(--c-accent)', color: '#fff',
-          fontSize: 16, fontWeight: 800, cursor: loading ? 'default' : 'pointer', fontFamily: 'inherit',
-        }}>{loading ? 'Entrando...' : 'Entrar'}</button>
+      <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--c-text)', marginBottom: 4 }}>Panel del Socio</div>
+      <p style={{ fontSize: 13, color: 'var(--c-muted)', marginBottom: 24 }}>{modo === 'login' ? 'Gestiona tus pedidos y negocios' : 'Únete como socio repartidor'}</p>
 
+      <div style={{ width: '100%', maxWidth: 360 }}>
+        {/* Tabs */}
+        <div style={{ display: 'flex', background: 'var(--c-surface2)', borderRadius: 12, padding: 3, marginBottom: 20 }}>
+          {['login', 'registro'].map(m => (
+            <button key={m} onClick={() => { setModo(m); setError(null) }} style={{
+              flex: 1, padding: '10px 0', borderRadius: 10, border: 'none',
+              background: modo === m ? 'var(--c-accent)' : 'transparent',
+              color: modo === m ? '#fff' : 'var(--c-muted)',
+              fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+            }}>{m === 'login' ? 'Iniciar sesión' : 'Registrarse'}</button>
+          ))}
+        </div>
+
+        {modo === 'login' ? (
+          <>
+            <input placeholder="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} style={inp} onKeyDown={e => e.key === 'Enter' && handleLogin()} />
+            <input placeholder="Contraseña" type="password" value={password} onChange={e => setPassword(e.target.value)} style={inp} onKeyDown={e => e.key === 'Enter' && handleLogin()} />
+            {error && <div style={{ color: '#EF4444', fontSize: 12, marginBottom: 10, textAlign: 'center', background: 'rgba(239,68,68,0.1)', padding: '8px 12px', borderRadius: 8 }}>{error}</div>}
+            <button onClick={handleLogin} disabled={loading} style={{ width: '100%', padding: '16px 0', borderRadius: 14, border: 'none', background: loading ? 'var(--c-muted)' : 'var(--c-accent)', color: '#fff', fontSize: 16, fontWeight: 800, cursor: loading ? 'default' : 'pointer', fontFamily: 'inherit' }}>
+              {loading ? 'Entrando...' : 'Entrar'}
+            </button>
+          </>
+        ) : (
+          <>
+            <div style={{ marginBottom: 10 }}><label style={lbl}>Tu nombre completo *</label><input value={form.nombre} onChange={e => setForm({ ...form, nombre: e.target.value })} placeholder="Ej: Carlos Martínez" style={inp} /></div>
+            <div style={{ marginBottom: 10 }}><label style={lbl}>Nombre comercial * (será tu URL)</label><input value={form.nombre_comercial} onChange={e => setForm({ ...form, nombre_comercial: e.target.value })} placeholder="Ej: Carlos Delivery" style={inp} /></div>
+            <div style={{ marginBottom: 10 }}><label style={lbl}>Email *</label><input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="tu@email.com" style={inp} /></div>
+            <div style={{ marginBottom: 10 }}><label style={lbl}>Contraseña *</label><input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="Mínimo 6 caracteres" style={inp} /></div>
+            <div style={{ marginBottom: 10 }}><label style={lbl}>Teléfono</label><input type="tel" value={form.telefono} onChange={e => setForm({ ...form, telefono: e.target.value })} placeholder="+34 600 000 000" style={inp} /></div>
+
+            {form.nombre_comercial && (
+              <div style={{ fontSize: 11, color: 'var(--c-accent)', fontWeight: 600, marginBottom: 12 }}>
+                Tu tienda: pidoo.es/{form.nombre_comercial.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}
+              </div>
+            )}
+
+            {/* Términos */}
+            <button onClick={() => setAceptaTerminos(!aceptaTerminos)} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', padding: 0, marginBottom: 14 }}>
+              <div style={{ width: 20, height: 20, borderRadius: 6, flexShrink: 0, marginTop: 1, border: aceptaTerminos ? 'none' : '2px solid rgba(255,255,255,0.2)', background: aceptaTerminos ? 'var(--c-accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#fff' }}>{aceptaTerminos && '✓'}</div>
+              <span style={{ fontSize: 11, color: 'var(--c-muted)', lineHeight: 1.4 }}>
+                Acepto los <a href="https://pidoo.es/terminos" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--c-accent)', fontWeight: 600, textDecoration: 'none' }} onClick={e => e.stopPropagation()}>términos y condiciones</a> y la <a href="https://pidoo.es/privacidad" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--c-accent)', fontWeight: 600, textDecoration: 'none' }} onClick={e => e.stopPropagation()}>política de privacidad</a>
+              </span>
+            </button>
+
+            {error && <div style={{ color: '#EF4444', fontSize: 12, marginBottom: 10, textAlign: 'center', background: 'rgba(239,68,68,0.1)', padding: '8px 12px', borderRadius: 8 }}>{error}</div>}
+            <button onClick={handleRegistro} disabled={loading} style={{ width: '100%', padding: '16px 0', borderRadius: 14, border: 'none', background: loading ? 'var(--c-muted)' : 'var(--c-accent)', color: '#fff', fontSize: 16, fontWeight: 800, cursor: loading ? 'default' : 'pointer', fontFamily: 'inherit' }}>
+              {loading ? 'Enviando...' : 'Solicitar ser socio'}
+            </button>
+            <div style={{ fontSize: 10, color: 'var(--c-muted)', textAlign: 'center', marginTop: 8 }}>Tu cuenta será revisada y aprobada por el equipo PIDOO</div>
+          </>
+        )}
+
+        {/* Google */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '18px 0' }}>
           <div style={{ flex: 1, height: 1, background: 'var(--c-border)' }} />
           <span style={{ fontSize: 11, color: 'var(--c-muted)', fontWeight: 600 }}>o</span>
           <div style={{ flex: 1, height: 1, background: 'var(--c-border)' }} />
         </div>
-        <button onClick={() => supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } })} style={{
-          width: '100%', padding: '14px 0', borderRadius: 14, border: '1px solid var(--c-border)',
-          background: 'var(--c-surface)', color: 'var(--c-text)',
-          fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-        }}>
+        <button onClick={() => supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } })} style={{ width: '100%', padding: '14px 0', borderRadius: 14, border: '1px solid var(--c-border)', background: 'var(--c-surface)', color: 'var(--c-text)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
           <GoogleIcon /> Continuar con Google
         </button>
       </div>
