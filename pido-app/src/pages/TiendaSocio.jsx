@@ -496,7 +496,7 @@ function PaginaCarrito({ carrito, setCarrito, socio, user, onPedidoCreado, onLog
 
 // ===================== PAGINA: PERFIL =====================
 
-function PaginaPerfil({ user, perfil, onLogin, onLogout }) {
+function PaginaPerfil({ user, perfil, onLogin, onLogout, updatePerfil }) {
   if (!user) return (
     <div style={{ textAlign: 'center', padding: '60px 20px', animation: 'fadeIn 0.3s ease' }}>
       <div style={{ fontSize: 48, marginBottom: 12 }}>👤</div>
@@ -506,23 +506,90 @@ function PaginaPerfil({ user, perfil, onLogin, onLogout }) {
     </div>
   )
 
+  const [nombre, setNombre] = useState(perfil?.nombre || '')
+  const [apellido, setApellido] = useState(perfil?.apellido || '')
+  const [telefono, setTelefono] = useState(perfil?.telefono || '')
+  const [direccion, setDireccion] = useState(perfil?.direccion || '')
+  const [guardando, setGuardando] = useState(false)
+  const [guardado, setGuardado] = useState(false)
+  const [gpsLoading, setGpsLoading] = useState(false)
+
+  const hayCambios =
+    nombre !== (perfil?.nombre || '') ||
+    apellido !== (perfil?.apellido || '') ||
+    telefono !== (perfil?.telefono || '') ||
+    direccion !== (perfil?.direccion || '')
+
+  async function guardarPerfil() {
+    setGuardando(true)
+    await updatePerfil({ nombre: nombre.trim(), apellido: apellido.trim(), telefono: telefono.trim(), direccion: direccion.trim() })
+    setGuardando(false)
+    setGuardado(true)
+    setTimeout(() => setGuardado(false), 2500)
+  }
+
+  async function obtenerDireccionGPS() {
+    setGpsLoading(true)
+    try {
+      const pos = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(p => resolve(p.coords), reject, { enableHighAccuracy: true, timeout: 10000 }))
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${pos.latitude}&lon=${pos.longitude}&format=json`)
+      const data = await res.json()
+      if (data.display_name) setDireccion(data.display_name.split(',').slice(0, 4).join(',').trim())
+    } catch { }
+    finally { setGpsLoading(false) }
+  }
+
+  const inp = { width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)', fontSize: 13, fontFamily: 'inherit', background: 'rgba(255,255,255,0.08)', color: '#F5F5F5', outline: 'none', boxSizing: 'border-box' }
+  const lbl = { fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.45)', marginBottom: 4, display: 'block' }
+
   return (
-    <div style={{ animation: 'fadeIn 0.3s ease' }}>
+    <div style={{ animation: 'fadeIn 0.3s ease', paddingBottom: hayCambios ? 90 : 0 }}>
       <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 20px' }}>Mi perfil</h2>
+
       <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 14, padding: 18, border: '1px solid rgba(255,255,255,0.06)', marginBottom: 16 }}>
-        {[
-          { l: 'Nombre', v: perfil?.nombre },
-          { l: 'Email', v: perfil?.email || user?.email },
-          { l: 'Teléfono', v: perfil?.telefono },
-          { l: 'Dirección', v: perfil?.direccion },
-        ].map((item, i) => (
-          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: i < 3 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
-            <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)' }}>{item.l}</span>
-            <span style={{ fontSize: 13, fontWeight: 600 }}>{item.v || '—'}</span>
-          </div>
-        ))}
+        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)' }}>Email</span>
+          <span style={{ fontSize: 13, fontWeight: 600 }}>{perfil?.email || user?.email}</span>
+        </div>
       </div>
+
+      <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 14, padding: 18, border: '1px solid rgba(255,255,255,0.06)', marginBottom: 16 }}>
+        <div style={{ marginBottom: 12 }}>
+          <label style={lbl}>Nombre</label>
+          <input value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Tu nombre" style={inp} />
+        </div>
+        <div style={{ marginBottom: 12 }}>
+          <label style={lbl}>Apellido</label>
+          <input value={apellido} onChange={e => setApellido(e.target.value)} placeholder="Tu apellido" style={inp} />
+        </div>
+        <div style={{ marginBottom: 12 }}>
+          <label style={lbl}>Teléfono</label>
+          <input type="tel" value={telefono} onChange={e => setTelefono(e.target.value)} placeholder="+34 600 000 000" style={inp} />
+        </div>
+        <div>
+          <label style={lbl}>Dirección de entrega</label>
+          <input value={direccion} onChange={e => setDireccion(e.target.value)} placeholder="Tu dirección" style={inp} />
+          <button onClick={obtenerDireccionGPS} disabled={gpsLoading} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: '#FF6B2C', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', marginTop: 6, padding: 0 }}>
+            📍 {gpsLoading ? 'Obteniendo ubicación...' : 'Usar mi ubicación actual'}
+          </button>
+        </div>
+      </div>
+
       <button onClick={onLogout} style={{ width: '100%', padding: '14px 0', borderRadius: 14, border: 'none', background: 'rgba(239,68,68,0.12)', color: '#EF4444', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Cerrar sesión</button>
+
+      {hayCambios && (
+        <div style={{ position: 'fixed', bottom: 70, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 420, padding: '0 20px', zIndex: 40, animation: 'fadeIn 0.3s ease' }}>
+          <button onClick={guardarPerfil} disabled={guardando} style={{ width: '100%', padding: '16px 0', borderRadius: 14, border: 'none', background: guardando ? 'rgba(255,255,255,0.2)' : '#FF6B2C', color: '#fff', fontSize: 15, fontWeight: 800, cursor: guardando ? 'default' : 'pointer', fontFamily: 'inherit', boxShadow: '0 8px 32px rgba(255,107,44,0.3), 0 4px 12px rgba(0,0,0,0.2)' }}>
+            {guardando ? 'Guardando...' : 'Guardar cambios'}
+          </button>
+        </div>
+      )}
+
+      {guardado && (
+        <div style={{ position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', background: '#16A34A', color: '#fff', padding: '12px 24px', borderRadius: 12, fontSize: 13, fontWeight: 700, zIndex: 200, boxShadow: '0 8px 24px rgba(0,0,0,0.3)', animation: 'fadeIn 0.3s ease' }}>
+          Cambios guardados
+        </div>
+      )}
     </div>
   )
 }
@@ -655,7 +722,7 @@ function LoginInline({ onSuccess }) {
 // ===================== APP PRINCIPAL TIENDA SOCIO =====================
 
 export default function TiendaSocio({ slug: slugProp }) {
-  const { user, perfil, logout } = useAuth()
+  const { user, perfil, logout, updatePerfil } = useAuth()
   const [socio, setSocio] = useState(null)
   const [establecimientos, setEstablecimientos] = useState([])
   const [categorias, setCategorias] = useState([])
@@ -744,7 +811,7 @@ export default function TiendaSocio({ slug: slugProp }) {
             onPedidoCreado={p => { setPedidoActivo(p); setSeccion('pedidos') }}
             onLogin={() => setShowLogin(true)} />
         )}
-        {seccion === 'perfil' && <PaginaPerfil user={user} perfil={perfil} onLogin={() => setShowLogin(true)} onLogout={logout} />}
+        {seccion === 'perfil' && <PaginaPerfil user={user} perfil={perfil} onLogin={() => setShowLogin(true)} onLogout={logout} updatePerfil={updatePerfil} />}
       </div>
 
       {/* Bottom Nav */}
