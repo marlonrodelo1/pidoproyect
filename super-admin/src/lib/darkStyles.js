@@ -50,8 +50,12 @@ export const ds = {
   select: {
     width: '100%', padding: '10px 14px', borderRadius: 10,
     border: '1px solid rgba(255,255,255,0.12)', fontSize: 13,
-    fontFamily: "'DM Sans', sans-serif", background: 'rgba(255,255,255,0.06)',
+    fontFamily: "'DM Sans', sans-serif", background: '#1A1A1A',
     color: '#F5F5F5', outline: 'none', boxSizing: 'border-box',
+    appearance: 'none', WebkitAppearance: 'none',
+    backgroundImage: `url("data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>')}")`,
+    backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center',
+    paddingRight: 36, cursor: 'pointer',
   },
   primaryBtn: {
     padding: '10px 20px', borderRadius: 10, border: 'none',
