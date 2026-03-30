@@ -59,11 +59,11 @@ function EstablecimientoCard({ r, onOpen, modoEntrega, socioEnServicio }) {
   return (
     <div onClick={() => onOpen(r)} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
       style={{
-        background: 'var(--c-surface)', borderRadius: 16, overflow: 'hidden', cursor: 'pointer',
+        background: '#1A1A1A', borderRadius: 16, overflow: 'hidden', cursor: 'pointer',
         transition: 'transform 0.25s ease, box-shadow 0.25s ease',
         transform: hover ? 'translateY(-4px)' : 'translateY(0)',
-        boxShadow: hover ? '0 12px 32px rgba(0,0,0,0.12)' : '0 2px 8px rgba(0,0,0,0.06)',
-        border: '1px solid var(--c-border)',
+        boxShadow: hover ? '0 12px 32px rgba(0,0,0,0.3)' : '0 2px 12px rgba(0,0,0,0.15)',
+        border: '1px solid rgba(255,255,255,0.06)',
       }}>
       <div style={{
         height: 110, background: r.banner_url ? `url(${r.banner_url}) center/cover` : 'linear-gradient(135deg, var(--c-accent-light), var(--c-accent-soft))',
@@ -258,7 +258,7 @@ function FormularioPagoTienda({ clientSecret, total, onSuccess, onCancel }) {
       <button onClick={onCancel} style={{ background: 'none', border: 'none', color: 'var(--c-accent)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 16, padding: 0 }}>← Volver al carrito</button>
       <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--c-text)', marginBottom: 4 }}>Pago con tarjeta</div>
       <div style={{ fontSize: 12, color: 'var(--c-muted)', marginBottom: 16 }}>Introduce los datos de tu tarjeta</div>
-      <div style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 14, border: '1px solid rgba(255,255,255,0.12)', padding: '16px 14px', marginBottom: 16 }}>
+      <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 14, border: '1px solid rgba(255,255,255,0.12)', padding: '16px 14px', marginBottom: 16 }}>
         <CardElement options={{ style: { base: { fontSize: '16px', fontFamily: "'DM Sans', sans-serif", color: '#F5F5F5', '::placeholder': { color: 'rgba(255,255,255,0.4)' } }, invalid: { color: '#EF4444' } } }} />
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16, justifyContent: 'center' }}>
@@ -419,19 +419,19 @@ function CarritoBar({ carrito, setCarrito, modoEntrega, socioId, socioNombre, so
     <>
       <div onClick={() => setOpen(true)} style={{
         position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)',
-        background: 'var(--c-accent)', color: '#fff', borderRadius: 16,
+        background: '#FF5733', color: '#fff', borderRadius: 16,
         padding: '14px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         gap: 20, minWidth: 300, maxWidth: 380, cursor: 'pointer',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.25)', zIndex: 50, fontFamily: 'inherit',
+        boxShadow: '0 8px 40px rgba(255,87,51,0.35), 0 4px 16px rgba(0,0,0,0.3)', zIndex: 50, fontFamily: 'inherit',
       }}>
-        <span style={{ background: 'rgba(255,255,255,0.25)', borderRadius: 8, padding: '2px 10px', fontWeight: 700, fontSize: 14 }}>{items}</span>
-        <span style={{ fontWeight: 700, fontSize: 15 }}>Ver carrito</span>
-        <span style={{ fontWeight: 700, fontSize: 15 }}>{totalFinal.toFixed(2)} €</span>
+        <span style={{ background: 'rgba(255,255,255,0.25)', borderRadius: 8, padding: '2px 10px', fontWeight: 800, fontSize: 14 }}>{items}</span>
+        <span style={{ fontWeight: 800, fontSize: 15 }}>Ver carrito</span>
+        <span style={{ fontWeight: 800, fontSize: 15 }}>{totalFinal.toFixed(2)} €</span>
       </div>
 
       {open && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={() => { setOpen(false); setPasoTarjeta(false) }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--c-bg)', borderRadius: '24px 24px 0 0', padding: '24px 20px 32px', width: '100%', maxWidth: 420, maxHeight: '85vh', overflowY: 'auto', animation: 'slideUp 0.3s ease' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={() => { setOpen(false); setPasoTarjeta(false) }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#1A1A1A', borderRadius: '24px 24px 0 0', padding: '24px 20px 32px', width: '100%', maxWidth: 420, maxHeight: '85vh', overflowY: 'auto', animation: 'slideUp 0.3s ease', border: '1px solid rgba(255,255,255,0.08)', borderBottom: 'none' }}>
 
             {pasoTarjeta && clientSecret ? (
               <Elements stripe={stripePromise} options={{ clientSecret }}>
@@ -446,7 +446,7 @@ function CarritoBar({ carrito, setCarrito, modoEntrega, socioId, socioNombre, so
               <>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                   <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: 'var(--c-text)' }}>Tu pedido</h3>
-                  <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: 'var(--c-muted)' }}>×</button>
+                  <button onClick={() => setOpen(false)} style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(255,255,255,0.08)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: '#F5F5F5' }}>×</button>
                 </div>
 
                 {/* Selector tipo entrega */}
@@ -457,7 +457,7 @@ function CarritoBar({ carrito, setCarrito, modoEntrega, socioId, socioNombre, so
                       <button onClick={() => setTipoEntrega('delivery')} style={{
                         flex: 1, padding: '12px 0', borderRadius: 10,
                         border: tipoEntrega === 'delivery' ? '2px solid var(--c-accent)' : '1px solid var(--c-border)',
-                        background: tipoEntrega === 'delivery' ? 'var(--c-accent-light)' : 'rgba(255,255,255,0.08)',
+                        background: tipoEntrega === 'delivery' ? 'var(--c-accent-light)' : 'rgba(255,255,255,0.06)',
                         fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
                         color: tipoEntrega === 'delivery' ? 'var(--c-accent)' : 'var(--c-text)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
@@ -468,7 +468,7 @@ function CarritoBar({ carrito, setCarrito, modoEntrega, socioId, socioNombre, so
                     <button onClick={() => setTipoEntrega('recogida')} style={{
                       flex: 1, padding: '12px 0', borderRadius: 10,
                       border: tipoEntrega === 'recogida' ? '2px solid var(--c-accent)' : '1px solid var(--c-border)',
-                      background: tipoEntrega === 'recogida' ? 'var(--c-accent-light)' : 'rgba(255,255,255,0.08)',
+                      background: tipoEntrega === 'recogida' ? 'var(--c-accent-light)' : 'rgba(255,255,255,0.06)',
                       fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
                       color: tipoEntrega === 'recogida' ? 'var(--c-accent)' : 'var(--c-text)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
@@ -491,9 +491,9 @@ function CarritoBar({ carrito, setCarrito, modoEntrega, socioId, socioNombre, so
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <button onClick={() => setCarrito(prev => prev.map(i => i.id === item.id ? { ...i, cantidad: Math.max(0, i.cantidad - 1) } : i).filter(i => i.cantidad > 0))} style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--c-border)', background: 'rgba(255,255,255,0.08)', cursor: 'pointer', fontSize: 16, fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--c-text)' }}>−</button>
+                        <button onClick={() => setCarrito(prev => prev.map(i => i.id === item.id ? { ...i, cantidad: Math.max(0, i.cantidad - 1) } : i).filter(i => i.cantidad > 0))} style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--c-border)', background: 'rgba(255,255,255,0.06)', cursor: 'pointer', fontSize: 16, fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--c-text)' }}>−</button>
                         <span style={{ fontWeight: 700, fontSize: 14, minWidth: 20, textAlign: 'center', color: 'var(--c-text)' }}>{item.cantidad}</span>
-                        <button onClick={() => setCarrito(prev => prev.map(i => i.id === item.id ? { ...i, cantidad: i.cantidad + 1 } : i))} style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--c-border)', background: 'rgba(255,255,255,0.08)', cursor: 'pointer', fontSize: 16, fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--c-text)' }}>+</button>
+                        <button onClick={() => setCarrito(prev => prev.map(i => i.id === item.id ? { ...i, cantidad: i.cantidad + 1 } : i))} style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--c-border)', background: 'rgba(255,255,255,0.06)', cursor: 'pointer', fontSize: 16, fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--c-text)' }}>+</button>
                       </div>
                       <span style={{ fontWeight: 700, fontSize: 14, minWidth: 60, textAlign: 'right', color: 'var(--c-text)' }}>{(item.precio * item.cantidad).toFixed(2)} €</span>
                     </div>
@@ -508,7 +508,7 @@ function CarritoBar({ carrito, setCarrito, modoEntrega, socioId, socioNombre, so
                       <button key={m.id} onClick={() => setMetodoPago(m.id)} style={{
                         flex: 1, padding: '12px 0', borderRadius: 10,
                         border: metodoPago === m.id ? '2px solid var(--c-accent)' : '1px solid var(--c-border)',
-                        background: metodoPago === m.id ? 'var(--c-accent-light)' : 'rgba(255,255,255,0.08)',
+                        background: metodoPago === m.id ? 'var(--c-accent-light)' : 'rgba(255,255,255,0.06)',
                         fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
                         color: metodoPago === m.id ? 'var(--c-accent)' : 'var(--c-text)',
                       }}>{m.l}</button>
@@ -830,9 +830,9 @@ const shellStyle = {
   '--c-accent-light': 'rgba(255,87,51,0.15)',
   '--c-accent-soft': 'rgba(255,87,51,0.25)',
   '--c-bg': '#0D0D0D',
-  '--c-surface': 'rgba(255,255,255,0.08)',
-  '--c-surface2': 'rgba(255,255,255,0.05)',
-  '--c-border': 'rgba(255,255,255,0.1)',
+  '--c-surface': '#1A1A1A',
+  '--c-surface2': '#141414',
+  '--c-border': 'rgba(255,255,255,0.06)',
   '--c-text': '#F5F5F5',
   '--c-muted': 'rgba(255,255,255,0.45)',
   fontFamily: "'DM Sans', sans-serif",
