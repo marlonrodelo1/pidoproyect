@@ -21,16 +21,25 @@ export default function Carta() {
 
   useEffect(() => { if (restaurante) fetchCarta() }, [restaurante?.id])
 
+  const [prodExtrasMap, setProdExtrasMap] = useState({}) // {producto_id: count}
+
   async function fetchCarta() {
     setLoading(true)
-    const [catRes, prodRes, grpRes] = await Promise.all([
+    const [catRes, prodRes, grpRes, peRes] = await Promise.all([
       supabase.from('categorias_generales').select('*').eq('activa', true).order('orden'),
       supabase.from('productos').select('*').eq('establecimiento_id', restaurante.id).order('orden'),
       supabase.from('grupos_extras').select('*, extras_opciones(*)').eq('establecimiento_id', restaurante.id),
+      supabase.from('producto_extras').select('producto_id, grupo_id'),
     ])
     setCategoriasGenerales(catRes.data || [])
     setProductos(prodRes.data || [])
     setGruposExtras(grpRes.data || [])
+    // Contar extras por producto
+    const map = {}
+    for (const pe of (peRes.data || [])) {
+      map[pe.producto_id] = (map[pe.producto_id] || 0) + 1
+    }
+    setProdExtrasMap(map)
     setLoading(false)
   }
 
@@ -336,6 +345,7 @@ export default function Carta() {
               </div>
               {p.categoria_id && <div style={{ fontSize: 10, color: 'var(--c-muted)', marginBottom: 2 }}>{catLabel(p.categoria_id)}</div>}
               {p.descripcion && <div style={{ fontSize: 11, color: 'var(--c-muted)', marginBottom: 4 }}>{p.descripcion}</div>}
+              {prodExtrasMap[p.id] > 0 && <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--c-primary)', marginBottom: 4 }}>Grupos de extras: {prodExtrasMap[p.id]}</div>}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--c-primary)' }}>{p.precio.toFixed(2)} €</span>
                 <div style={{ display: 'flex', gap: 6 }}>
