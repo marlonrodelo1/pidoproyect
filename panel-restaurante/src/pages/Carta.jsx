@@ -140,15 +140,145 @@ export default function Carta() {
     return cat ? `${cat.emoji} ${cat.nombre}` : 'Sin categoría'
   }
 
-  // --- Extras ---
+  // --- CRUD Extras ---
+  const [editGrupo, setEditGrupo] = useState(null) // null = lista, 'new' = crear, objeto = editar
+  const [grupoForm, setGrupoForm] = useState({ nombre: '', tipo: 'multiple', max_selecciones: 3 })
+  const [opcionesForm, setOpcionesForm] = useState([]) // [{nombre, precio}]
+  const [savingGrupo, setSavingGrupo] = useState(false)
+
+  function abrirCrearGrupo() {
+    setGrupoForm({ nombre: '', tipo: 'multiple', max_selecciones: 3 })
+    setOpcionesForm([{ nombre: '', precio: '' }])
+    setEditGrupo('new')
+  }
+
+  function abrirEditarGrupo(g) {
+    setGrupoForm({ nombre: g.nombre, tipo: g.tipo, max_selecciones: g.max_selecciones })
+    setOpcionesForm((g.extras_opciones || []).map(o => ({ id: o.id, nombre: o.nombre, precio: o.precio })))
+    setEditGrupo(g)
+  }
+
+  async function guardarGrupo() {
+    if (!grupoForm.nombre.trim()) return
+    const opcionesValidas = opcionesForm.filter(o => o.nombre.trim() && o.precio !== '' && Number(o.precio) >= 0)
+    if (opcionesValidas.length === 0) return
+    setSavingGrupo(true)
+
+    let grupoId
+    if (editGrupo === 'new') {
+      const { data } = await supabase.from('grupos_extras').insert({
+        establecimiento_id: restaurante.id,
+        nombre: grupoForm.nombre.trim(),
+        tipo: grupoForm.tipo,
+        max_selecciones: grupoForm.tipo === 'single' ? 1 : Number(grupoForm.max_selecciones),
+      }).select().single()
+      grupoId = data?.id
+    } else {
+      await supabase.from('grupos_extras').update({
+        nombre: grupoForm.nombre.trim(),
+        tipo: grupoForm.tipo,
+        max_selecciones: grupoForm.tipo === 'single' ? 1 : Number(grupoForm.max_selecciones),
+      }).eq('id', editGrupo.id)
+      grupoId = editGrupo.id
+      // Eliminar opciones antiguas
+      await supabase.from('extras_opciones').delete().eq('grupo_id', grupoId)
+    }
+
+    if (grupoId) {
+      await supabase.from('extras_opciones').insert(
+        opcionesValidas.map((o, i) => ({ grupo_id: grupoId, nombre: o.nombre.trim(), precio: Number(o.precio), orden: i }))
+      )
+    }
+
+    setSavingGrupo(false)
+    setEditGrupo(null)
+    fetchCarta()
+  }
+
+  async function eliminarGrupo(id) {
+    if (!confirm('¿Eliminar este grupo de extras y todas sus opciones?')) return
+    await supabase.from('extras_opciones').delete().eq('grupo_id', id)
+    await supabase.from('producto_extras').delete().eq('grupo_id', id)
+    await supabase.from('grupos_extras').delete().eq('id', id)
+    fetchCarta()
+  }
+
   if (gestionExtras) {
+    // Formulario crear/editar grupo
+    if (editGrupo) {
+      return (
+        <div style={{ animation: 'fadeIn 0.3s ease' }}>
+          <button onClick={() => setEditGrupo(null)} style={s.backBtn}>← Volver a extras</button>
+          <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 20px' }}>{editGrupo === 'new' ? 'Nuevo grupo de extras' : 'Editar grupo'}</h2>
+
+          <div style={{ marginBottom: 12 }}>
+            <label style={s.label}>Nombre del grupo *</label>
+            <input value={grupoForm.nombre} onChange={e => setGrupoForm({ ...grupoForm, nombre: e.target.value })} placeholder="Ej: Extras de queso" style={s.formInput} />
+          </div>
+
+          <div style={{ marginBottom: 12 }}>
+            <label style={s.label}>Tipo de selección</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {[{ id: 'single', l: 'Elige 1' }, { id: 'multiple', l: 'Múltiple' }].map(t => (
+                <button key={t.id} onClick={() => setGrupoForm({ ...grupoForm, tipo: t.id })} style={{
+                  flex: 1, padding: '10px 0', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
+                  border: grupoForm.tipo === t.id ? '2px solid var(--c-primary)' : '1px solid var(--c-border)',
+                  background: grupoForm.tipo === t.id ? 'rgba(185,28,28,0.12)' : 'var(--c-surface)',
+                  color: grupoForm.tipo === t.id ? 'var(--c-primary)' : 'var(--c-text)',
+                }}>{t.l}</button>
+              ))}
+            </div>
+          </div>
+
+          {grupoForm.tipo === 'multiple' && (
+            <div style={{ marginBottom: 16 }}>
+              <label style={s.label}>Máximo de selecciones</label>
+              <input type="number" min="1" max="10" value={grupoForm.max_selecciones} onChange={e => setGrupoForm({ ...grupoForm, max_selecciones: e.target.value })} style={{ ...s.formInput, width: 80 }} />
+            </div>
+          )}
+
+          <div style={{ marginBottom: 8 }}>
+            <label style={s.label}>Opciones *</label>
+          </div>
+          {opcionesForm.map((op, i) => (
+            <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center' }}>
+              <input value={op.nombre} onChange={e => { const n = [...opcionesForm]; n[i].nombre = e.target.value; setOpcionesForm(n) }} placeholder="Nombre" style={{ ...s.formInput, flex: 2 }} />
+              <input type="number" step="0.10" value={op.precio} onChange={e => { const n = [...opcionesForm]; n[i].precio = e.target.value; setOpcionesForm(n) }} placeholder="€" style={{ ...s.formInput, flex: 1 }} />
+              <button onClick={() => setOpcionesForm(prev => prev.filter((_, idx) => idx !== i))} style={{ width: 32, height: 38, borderRadius: 8, border: 'none', background: 'rgba(239,68,68,0.12)', color: '#EF4444', fontSize: 16, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>×</button>
+            </div>
+          ))}
+          <button onClick={() => setOpcionesForm(prev => [...prev, { nombre: '', precio: '' }])} style={{ width: '100%', padding: '10px 0', borderRadius: 10, border: '1px dashed var(--c-border)', background: 'transparent', color: 'var(--c-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 20 }}>
+            + Añadir opción
+          </button>
+
+          <button onClick={guardarGrupo} disabled={savingGrupo || !grupoForm.nombre.trim() || opcionesForm.filter(o => o.nombre.trim() && o.precio !== '').length === 0} style={{
+            width: '100%', padding: '14px 0', borderRadius: 12, border: 'none',
+            background: savingGrupo ? 'var(--c-muted)' : 'var(--c-primary)', color: '#fff',
+            fontSize: 15, fontWeight: 800, cursor: savingGrupo ? 'default' : 'pointer', fontFamily: 'inherit',
+          }}>
+            {savingGrupo ? 'Guardando...' : editGrupo === 'new' ? 'Crear grupo' : 'Guardar cambios'}
+          </button>
+        </div>
+      )
+    }
+
+    // Lista de grupos
     return (
       <div style={{ animation: 'fadeIn 0.3s ease' }}>
         <button onClick={() => setGestionExtras(false)} style={s.backBtn}>← Volver a carta</button>
-        <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 16px' }}>Grupos de extras</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>Grupos de extras</h2>
+          <button onClick={abrirCrearGrupo} style={s.btnPrimary}>+ Grupo</button>
+        </div>
         {gruposExtras.map(g => (
-          <div key={g.id} style={s.card}>
-            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>{g.nombre}</div>
+          <div key={g.id} style={{ ...s.card, marginBottom: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>{g.nombre}</div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button onClick={() => abrirEditarGrupo(g)} style={s.miniBtn}>Editar</button>
+                <button onClick={() => eliminarGrupo(g.id)} style={{ ...s.miniBtn, color: '#EF4444' }}>Eliminar</button>
+              </div>
+            </div>
             <div style={{ fontSize: 11, color: 'var(--c-muted)', marginBottom: 10 }}>{g.tipo === 'multiple' ? `Múltiple · máx. ${g.max_selecciones}` : 'Selección única'}</div>
             {(g.extras_opciones || []).map(op => (
               <div key={op.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderTop: '1px solid var(--c-border)', fontSize: 13 }}>
@@ -158,7 +288,7 @@ export default function Carta() {
             ))}
           </div>
         ))}
-        {gruposExtras.length === 0 && <div style={{ textAlign: 'center', padding: 32, color: 'var(--c-muted)', fontSize: 13 }}>Sin extras configurados</div>}
+        {gruposExtras.length === 0 && <div style={{ textAlign: 'center', padding: 32, color: 'var(--c-muted)', fontSize: 13 }}>Sin extras configurados. Pulsa "+ Grupo" para crear uno.</div>}
       </div>
     )
   }
