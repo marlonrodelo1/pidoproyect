@@ -369,7 +369,7 @@ export default function EnVivo() {
         </div>
       ))}
 
-      {nuevos.length === 0 && enProgreso.length === 0 && (
+      {pendientes.length === 0 && enProgreso.length === 0 && (
         <div style={{ textAlign: 'center', color: 'var(--c-muted)', fontSize: 13, padding: '40px 0' }}>Esperando nuevos pedidos...</div>
       )}
     </div>
