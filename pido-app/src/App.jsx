@@ -112,7 +112,7 @@ function AppContent() {
           : seccion === 'favoritos'
           ? <Favoritos onOpenRest={abrirRest} />
           : seccion === 'mapa'
-          ? <Mapa />
+          ? <Mapa onOpenRest={abrirRest} />
           : seccion === 'pedidos'
           ? <MisPedidos onTrack={handleTrack} />
           : seccion === 'notificaciones'

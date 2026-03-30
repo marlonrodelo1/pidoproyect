@@ -1,0 +1,136 @@
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+// Tarifas por defecto del canal PIDO (configurables desde Super Admin)
+const PIDO_CONFIG = {
+  tarifa_base: 2.50,
+  radio_base_km: 2,
+  precio_km_adicional: 0.50,
+  tarifa_maxima: 15.00,
+}
+
+// Calcula distancia en km entre dos puntos usando fórmula de Haversine
+function calcularDistanciaKm(
+  lat1: number, lng1: number,
+  lat2: number, lng2: number
+): number {
+  const R = 6371 // Radio de la Tierra en km
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLng = (lng2 - lng1) * Math.PI / 180
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return R * c
+}
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+
+  try {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    )
+
+    const {
+      canal,
+      establecimiento_id,
+      socio_id,
+      lat_cliente,
+      lng_cliente,
+    } = await req.json()
+
+    if (!establecimiento_id) throw new Error('establecimiento_id es requerido')
+    if (lat_cliente == null || lng_cliente == null) throw new Error('Coordenadas del cliente son requeridas')
+    if (!canal) throw new Error('canal es requerido (pido o pidogo)')
+
+    // Obtener coordenadas del establecimiento
+    const { data: est, error: estError } = await supabase
+      .from('establecimientos')
+      .select('latitud, longitud')
+      .eq('id', establecimiento_id)
+      .single()
+
+    if (estError || !est) throw new Error('Establecimiento no encontrado')
+
+    const distancia = calcularDistanciaKm(
+      est.latitud, est.longitud,
+      lat_cliente, lng_cliente
+    )
+
+    let envio: number
+    let detalle: Record<string, unknown>
+
+    if (canal === 'pidogo') {
+      // Canal PIDOGO: tarifas del socio
+      if (!socio_id) throw new Error('socio_id es requerido para canal pidogo')
+
+      const { data: socio, error: socioError } = await supabase
+        .from('socios')
+        .select('tarifa_base, radio_tarifa_base_km, precio_km_adicional')
+        .eq('id', socio_id)
+        .single()
+
+      if (socioError || !socio) throw new Error('Socio no encontrado')
+
+      if (distancia <= socio.radio_tarifa_base_km) {
+        envio = socio.tarifa_base
+      } else {
+        const kmExtra = distancia - socio.radio_tarifa_base_km
+        envio = socio.tarifa_base + (kmExtra * socio.precio_km_adicional)
+      }
+
+      envio = Math.round(envio * 100) / 100
+
+      detalle = {
+        tarifa_base: socio.tarifa_base,
+        radio_base_km: socio.radio_tarifa_base_km,
+        precio_km_adicional: socio.precio_km_adicional,
+      }
+    } else {
+      // Canal PIDO: tarifas de la plataforma
+      if (distancia <= PIDO_CONFIG.radio_base_km) {
+        envio = PIDO_CONFIG.tarifa_base
+      } else {
+        const kmExtra = distancia - PIDO_CONFIG.radio_base_km
+        envio = PIDO_CONFIG.tarifa_base + (kmExtra * PIDO_CONFIG.precio_km_adicional)
+      }
+
+      if (envio > PIDO_CONFIG.tarifa_maxima) {
+        envio = PIDO_CONFIG.tarifa_maxima
+      }
+
+      envio = Math.round(envio * 100) / 100
+
+      detalle = {
+        tarifa_base: PIDO_CONFIG.tarifa_base,
+        radio_base_km: PIDO_CONFIG.radio_base_km,
+        precio_km_adicional: PIDO_CONFIG.precio_km_adicional,
+        tarifa_maxima: PIDO_CONFIG.tarifa_maxima,
+      }
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        envio,
+        distancia_km: Math.round(distancia * 100) / 100,
+        canal,
+        detalle,
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+  }
+})

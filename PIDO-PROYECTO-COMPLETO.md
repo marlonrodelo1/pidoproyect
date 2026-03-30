@@ -33,6 +33,29 @@ PIDO es un ecosistema de delivery con 4 aplicaciones conectadas:
 - **Efectivo** — el cliente paga al repartidor en la entrega
 - Siempre debe estar visible y claro qué método de pago tiene cada pedido.
 
+### Sistema de tarifas de envío:
+
+**Canal PIDOGO (tienda del socio):**
+- El socio configura su propia tarifa desde su panel de administración:
+  - **Tarifa base mínima:** 3,00 € (no puede ser inferior)
+  - **Radio que cubre la tarifa base:** configurable (ej. 3 km)
+  - **Precio por km adicional:** configurable (ej. 0,50 €/km)
+- El cliente ve el coste de envío calculado antes de pedir
+- El socio cobra el 100% del envío
+
+**Canal PIDO (app principal):**
+- La plataforma PIDO calcula una tarifa estándar basada en la distancia restaurante → cliente:
+  - **Tarifa base:** 2,50 € (cubre hasta 2 km)
+  - **Por km adicional:** 0,50 €/km
+  - **Máximo:** configurable desde Super Admin
+- El rider asignado cobra el 100% de esa tarifa
+- La tarifa la fija la plataforma, no el rider
+
+**Visibilidad de tarifas:**
+- El restaurante ve la tarifa del socio antes de aceptarlo como repartidor
+- En la solicitud del socio al restaurante se muestra: "Tarifa base: 3,00 € · +0,50 €/km adicional"
+- El cliente siempre ve el coste de envío total antes de confirmar el pedido
+
 ---
 
 ## 3. TECH STACK
@@ -184,6 +207,10 @@ CREATE TABLE socios (
   banner_url TEXT,
   modo_entrega TEXT DEFAULT 'ambos', -- "reparto", "recogida", "ambos"
   radio_km FLOAT DEFAULT 10,
+  -- Tarifas de envío del socio
+  tarifa_base FLOAT DEFAULT 3.00, -- mínimo 3€
+  radio_tarifa_base_km FLOAT DEFAULT 3, -- km que cubre la tarifa base
+  precio_km_adicional FLOAT DEFAULT 0.50, -- € por cada km adicional
   latitud_actual FLOAT,
   longitud_actual FLOAT,
   activo BOOLEAN DEFAULT true,
@@ -490,6 +517,27 @@ Cuando un pedido entra por el canal "pido" (app principal):
 3. Ordenar por distancia (PostGIS) al establecimiento
 4. Asignar al más cercano
 
+### calcular_envio
+Calcula el coste de envío según el canal:
+```
+Si canal es "pidogo":
+  distancia = distancia(establecimiento, cliente)
+  Si distancia <= socio.radio_tarifa_base_km:
+    envio = socio.tarifa_base
+  Sino:
+    km_extra = distancia - socio.radio_tarifa_base_km
+    envio = socio.tarifa_base + (km_extra * socio.precio_km_adicional)
+
+Si canal es "pido":
+  distancia = distancia(establecimiento, cliente)
+  Si distancia <= config.radio_base_km (default 2):
+    envio = config.tarifa_base (default 2.50)
+  Sino:
+    km_extra = distancia - config.radio_base_km
+    envio = config.tarifa_base + (km_extra * config.precio_km_adicional)
+  Si envio > config.tarifa_maxima: envio = config.tarifa_maxima
+```
+
 ### generar_informe_semanal
 Cron job que cada lunes genera la factura semanal para cada par socio-establecimiento con el resumen de pedidos, comisiones, envíos y propinas.
 
@@ -572,6 +620,7 @@ Panel de control general del ecosistema PIDO. Solo para el equipo de la empresa.
 **Configuración:**
 - Porcentajes de comisiones (modificables)
 - Radio de cobertura por defecto
+- Tarifas de envío del canal PIDO: tarifa base (default 2,50€), radio base (default 2km), precio/km adicional (default 0,50€), tarifa máxima
 - Gestión de categorías padre (comida, farmacia, marketplace)
 - Gestión de notificaciones masivas
 - Gestión de promociones
@@ -599,7 +648,7 @@ Panel de administración del socio. Incluye:
 - **Pedidos:** historial completo con filtros (todos, entregados, cancelados, fallidos), desglose por pedido
 - **Negocios:** listado de establecimientos con logo/emoji, estados (aceptado, pendiente, rechazado), botones solicitar/destacar/desvincular, botón Chat por restaurante
 - **Informes:** informe semanal con resumen (entregados, cancelados, fallidos), total ganado, desglose por restaurante, botón "Descargar PDF", historial de informes
-- **Perfil:** toggle en servicio/fuera de servicio, info (nombre, nombre comercial, email, teléfono, URL tienda), modo entrega (reparto/recogida/ambos), slider radio de cobertura (1-20 km), subida de logo (400×400, max 2MB), subida de banner (1200×400, max 5MB), redes sociales editables
+- **Perfil:** toggle en servicio/fuera de servicio, info (nombre, nombre comercial, email, teléfono, URL tienda), modo entrega (reparto/recogida/ambos), slider radio de cobertura (1-20 km), **configuración de tarifa de envío** (tarifa base mín. 3€, radio que cubre, precio/km adicional), subida de logo (400×400, max 2MB), subida de banner (1200×400, max 5MB), redes sociales editables
 - **Soporte:** chat directo con equipo PIDO
 
 ### panel-restaurante.jsx
@@ -608,7 +657,7 @@ Panel del restaurante. Incluye:
 - **Pedidos en vivo:** alarma visual + sonora cuando llega pedido, countdown de 3 minutos para aceptar, detalle del pedido (items, notas, total, método de pago, canal de entrada), selección de tiempo de preparación (15/20/30/45 min), pedidos en preparación con barra de progreso, botón "Listo para recoger" → "Recogido"
 - **Historial:** todos los pedidos completados organizados por fecha, filtros por estado, badges de pago y canal
 - **Carta:** productos con imagen, toggle disponible/no disponible, editor expandible con subida de imagen (800×600, max 3MB), gestión de tamaños y precios, asignación de grupos de extras, botón "Gestionar grupos de extras" con pantalla completa de gestión
-- **Socios:** solicitudes pendientes destacadas, socios activos con vista detalle (3 tabs: Info, Facturas con estado pagado/pendiente, Chat directo con el socio), socios rechazados con opción reactivar
+- **Socios:** solicitudes pendientes destacadas (mostrando la tarifa de envío del socio: base + €/km), socios activos con vista detalle (3 tabs: Info, Facturas con estado pagado/pendiente, Chat directo con el socio), socios rechazados con opción reactivar
 - **Métricas:** ventas del día con desglose tarjeta/efectivo, pedidos, ticket medio, tiempo medio preparación, cancelados, resumen semanal
 - **Ajustes:** toggle abierto/cerrado, información del restaurante, gestión de categorías
 

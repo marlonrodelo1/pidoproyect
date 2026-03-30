@@ -74,8 +74,8 @@ function FormularioPago({ clientSecret, total, onSuccess, onCancel }) {
 const brandIcon = { visa: '💳', mastercard: '💳', amex: '💳' }
 
 export default function Carrito({ onPedidoCreado }) {
-  const { user } = useAuth()
-  const { carrito, removeItem, clearCart, propina, setPropina, metodoPago, setMetodoPago, modoEntrega, setModoEntrega, totalItems, subtotal, envio, total } = useCart()
+  const { user, perfil } = useAuth()
+  const { carrito, removeItem, clearCart, propina, setPropina, metodoPago, setMetodoPago, modoEntrega, setModoEntrega, totalItems, subtotal, envio, total, calcularEnvio, envioLoading, distanciaKm } = useCart()
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [pasoTarjeta, setPasoTarjeta] = useState(false)
@@ -84,6 +84,15 @@ export default function Carrito({ onPedidoCreado }) {
   const [tarjetasGuardadas, setTarjetasGuardadas] = useState([])
   const [tarjetaSel, setTarjetaSel] = useState(null)
   const [loadingCards, setLoadingCards] = useState(false)
+
+  // Calcular envío al abrir el carrito o cambiar modo de entrega
+  useEffect(() => {
+    if (open && carrito.length > 0 && modoEntrega === 'delivery') {
+      const lat = perfil?.latitud
+      const lng = perfil?.longitud
+      if (lat && lng) calcularEnvio(lat, lng, 'pido')
+    }
+  }, [open, modoEntrega, carrito.length])
 
   // Cargar tarjetas guardadas al abrir
   useEffect(() => {
@@ -303,7 +312,12 @@ export default function Carrito({ onPedidoCreado }) {
                 {/* Desglose */}
                 <div style={{ fontSize: 13, color: 'var(--c-muted)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}><span>Subtotal</span><span>{subtotal.toFixed(2)} €</span></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}><span>Envio</span><span style={{ color: modoEntrega === 'recogida' ? '#22C55E' : 'inherit', fontWeight: modoEntrega === 'recogida' ? 700 : 400 }}>{modoEntrega === 'recogida' ? 'Gratis' : `${envio.toFixed(2)} €`}</span></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <span>Envío {distanciaKm && modoEntrega === 'delivery' ? <span style={{ fontSize: 10, color: 'var(--c-muted)' }}>({distanciaKm} km)</span> : null}</span>
+                    <span style={{ color: modoEntrega === 'recogida' ? '#22C55E' : 'inherit', fontWeight: modoEntrega === 'recogida' ? 700 : 400 }}>
+                      {modoEntrega === 'recogida' ? 'Gratis' : envioLoading ? 'Calculando...' : `${envio.toFixed(2)} €`}
+                    </span>
+                  </div>
                   {propina > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, color: '#FBBF24' }}><span>Propina</span><span>{propina} €</span></div>}
                 </div>
 
@@ -311,10 +325,10 @@ export default function Carrito({ onPedidoCreado }) {
                   <span>Total</span><span>{total.toFixed(2)} €</span>
                 </div>
 
-                <button onClick={iniciarPago} disabled={loading} style={{
+                <button onClick={iniciarPago} disabled={loading || envioLoading} style={{
                   width: '100%', marginTop: 16, padding: '16px 0', borderRadius: 14, border: 'none',
-                  background: loading ? 'var(--c-muted)' : 'var(--c-primary)', color: '#fff',
-                  fontSize: 16, fontWeight: 800, cursor: loading ? 'default' : 'pointer', fontFamily: 'inherit',
+                  background: (loading || envioLoading) ? 'var(--c-muted)' : 'var(--c-primary)', color: '#fff',
+                  fontSize: 16, fontWeight: 800, cursor: (loading || envioLoading) ? 'default' : 'pointer', fontFamily: 'inherit',
                 }}>
                   {loading ? 'Procesando...' : metodoPago === 'tarjeta' && tarjetaSel ? `Pagar con •••• ${tarjetasGuardadas.find(c => c.id === tarjetaSel)?.last4} — ${total.toFixed(2)} €` : metodoPago === 'tarjeta' ? `Continuar al pago — ${total.toFixed(2)} €` : `Pedir ahora — ${total.toFixed(2)} €`}
                 </button>
