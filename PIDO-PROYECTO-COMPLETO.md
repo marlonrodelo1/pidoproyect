@@ -680,72 +680,96 @@ App del cliente PIDO. Incluye:
 
 ## 9. ORDEN DE CONSTRUCCIÓN RECOMENDADO
 
-### Fase 1: Base de datos y Auth
-1. Crear todas las tablas en Supabase
-2. Configurar Row Level Security (RLS)
-3. Habilitar Realtime en pedidos, mensajes, socios
-4. Configurar Auth (email + password)
-5. Configurar Storage (buckets: logos, banners, productos)
+### Fase 1: Base de datos y Auth ✅ COMPLETADA
+1. ✅ Todas las tablas creadas (usuarios, establecimientos, categorias, productos, producto_tamanos, grupos_extras, extras_opciones, producto_extras, socios, socio_establecimiento, pedidos, pedido_items, comisiones, resenas, mensajes, notificaciones, facturas_semanales, balances_restaurante, balances_socio, movimientos_cuenta, categorias_generales, establecimiento_categorias, push_subscriptions)
+2. ✅ RLS policies configuradas
+3. ✅ Realtime habilitado en pedidos, mensajes, socios
+4. ✅ Auth configurado (email + password)
+5. ✅ Storage configurado (buckets: logos, banners, productos)
+6. ✅ PostGIS habilitado
+7. ✅ Campos tarifa_base, radio_tarifa_base_km, precio_km_adicional en socios (migración 003)
 
-### Fase 2: Backend
-1. Edge Function: calcular_comisiones
-2. Edge Function: asignar_repartidor
-3. Edge Function: generar_informe_semanal (cron)
-4. Edge Function: generar_codigo_pedido
+### Fase 2: Backend ✅ COMPLETADA
+1. ✅ Edge Function: calcular_comisiones (calcula 10%/5% según tipo)
+2. ✅ Edge Function: asignar_repartidor (PostGIS distancia, busca más cercano)
+3. ✅ Edge Function: generar_informe_semanal (cron)
+4. ✅ Edge Function: generar_codigo_pedido
+5. ✅ Edge Function: calcular_envio (Haversine, canal PIDO vs PIDOGO, tarifas dinámicas)
+6. ✅ Edge Function: crear_pago_stripe (Stripe payment intents)
+7. ✅ Edge Function: enviar_push (notificaciones push)
+8. ✅ Edge Function: rider_timeout (timeout 2min, auto-reasignación)
 
-### Fase 3: App del cliente (PIDO)
-1. Login/Registro
-2. Home con geolocalización
-3. Detalle restaurante + carta con extras/tamaños
-4. Carrito + checkout (Stripe para tarjeta)
-5. Tracking en tiempo real
-6. Favoritos, notificaciones, historial, perfil
-7. Mapa
+### Fase 3: App del cliente (PIDO) ✅ COMPLETADA
+1. ✅ Login/Registro (email+password, validación, reset)
+2. ✅ Onboarding (selector vertical: Comida, Farmacia, Marketplace)
+3. ✅ Home con geolocalización (PostGIS, filtros, categorías, favoritos)
+4. ✅ Detalle restaurante + carta con extras/tamaños
+5. ✅ Carrito + checkout (Stripe tarjeta + efectivo, tarjetas guardadas)
+6. ✅ Envío dinámico via Edge Function calcular_envio (distancia real en km)
+7. ✅ Tracking en tiempo real (Realtime subscriptions, 5 etapas, rating)
+8. ✅ Favoritos, notificaciones, historial (MisPedidos), perfil
+9. ✅ Mapa con Google Maps real (tema oscuro, markers, InfoWindows, riders realtime)
+10. ✅ Tienda pública del socio integrada en pidoo.es/{slug} (TiendaSocio.jsx)
+11. ✅ Landing "Ser socio" (captación riders)
+12. ✅ Push notifications (web + nativo Capacitor)
 
-### Fase 4: Tienda pública del socio (PIDOGO)
-1. Página pública con slug
-2. Listado de restaurantes del socio
-3. Carrito + pedido
-4. Modo recogida/delivery
+### Fase 4: Tienda pública del socio (PIDOGO) ✅ COMPLETADA
+- La tienda pública se sirve desde pido-app/src/pages/TiendaSocio.jsx en pidoo.es/{slug}
+1. ✅ Página pública con slug dinámico
+2. ✅ Banner + logo + rating + redes sociales + compartir (QR, WhatsApp, copiar link)
+3. ✅ Listado de restaurantes del socio (destacados + todos)
+4. ✅ Categorías como filtros
+5. ✅ Detalle restaurante con carta completa
+6. ✅ Carrito + pedido (Stripe + efectivo)
+7. ✅ Modo recogida/delivery con tarifa dinámica (Haversine + config del socio)
+8. ✅ Geolocalización del cliente para calcular envío real
+9. ✅ Banner "Ir a PIDO" cuando solo recogida
+10. ✅ Reseñas del socio expandibles
 
-### Fase 5: Panel del socio
-1. Pedidos en vivo
-2. Dashboard
-3. Gestión de negocios + chat
-4. Informes
-5. Perfil + configuración
-6. Soporte
+### Fase 5: Panel del socio ✅ COMPLETADA
+1. ✅ Pedidos en vivo (Realtime, alarma, countdown 2min, aceptar/rechazar)
+2. ✅ Dashboard (comisiones, envíos, propinas, filtro hoy/semana/mes)
+3. ✅ Gestión de negocios (solicitar, desvincular, destacar)
+4. ✅ Informes semanales
+5. ✅ Perfil (en servicio, modo entrega, radio, tarifa envío configurable, logo, banner, redes)
+6. ✅ Soporte (chat con equipo PIDO)
+7. ✅ Flujo completo: ir a recoger → Google Maps → recogido → en camino → entregado
+8. ✅ Contacto cliente (llamar + WhatsApp)
+9. ✅ Pedido fallido
 
-### Fase 6: Panel del restaurante
-1. Pedidos en tiempo real con alarma
-2. Carta con extras/tamaños/imágenes
-3. Gestión de socios + chat + facturas
-4. Historial + métricas
-5. Configuración
+### Fase 6: Panel del restaurante ✅ COMPLETADA
+1. ✅ Pedidos en tiempo real con alarma + countdown 3min
+2. ✅ Carta con extras/tamaños/imágenes + toggle disponibilidad
+3. ✅ Gestión de socios (solicitudes pendientes con tarifa visible, chat, facturas)
+4. ✅ Historial completo con filtros
+5. ✅ Métricas (ventas, ticket medio, tiempo preparación, desglose tarjeta/efectivo)
+6. ✅ Ajustes (abierto/cerrado, info restaurante, categorías)
 
-### Fase 7: Super Admin Panel
-1. Dashboard general con métricas globales
-2. Gestión de establecimientos
-3. Gestión de socios/riders
-4. Gestión de usuarios
-5. Gestión de pedidos en tiempo real
-6. Soporte (bandeja de mensajes)
-7. Finanzas (comisiones, pagos, exportar)
-8. Configuración general
+### Fase 7: Super Admin Panel ✅ COMPLETADA
+1. ✅ Dashboard general con métricas globales
+2. ✅ Gestión de establecimientos
+3. ✅ Gestión de socios/riders
+4. ✅ Gestión de usuarios
+5. ✅ Gestión de pedidos en tiempo real
+6. ✅ Soporte (bandeja de mensajes)
+7. ✅ Finanzas (comisiones, pagos, exportar)
+8. ✅ Configuración general (tarifas envío PIDO, comisiones, categorías)
+9. ✅ Mapa admin
+10. ✅ Notificaciones masivas
 
-### Fase 8: Mobile
-1. Configurar Capacitor
-2. Push notifications (Firebase)
-3. Sonido alarma pedidos
-4. Geolocalización nativa
-5. Build iOS/Android
+### Fase 8: Mobile (parcial)
+1. ✅ Configurar Capacitor (iOS + Android)
+2. ✅ Push notifications (Firebase + Capacitor)
+3. ✅ Sonido alarma pedidos (Web Audio API)
+4. ✅ Geolocalización nativa (Capacitor Geolocation)
+5. ⏳ Build iOS/Android (pendiente)
 
 ---
 
 ## 10. NOTAS IMPORTANTES
 
 - **La carta es una sola** — cada restaurante tiene una carta, no cambia según el canal. Lo que cambia es la asignación del repartidor.
-- **URL de la tienda del socio** se genera automáticamente con el nombre comercial: `pido.com/{slug}`
+- **URL de la tienda del socio** se genera automáticamente con el nombre comercial: `pidoo.es/{slug}` — se sirve desde pido-app/src/pages/TiendaSocio.jsx (no es una app separada)
 - **Sin login en la tienda pública** del socio por ahora — el cliente puede pedir sin registrarse desde la tienda del socio.
 - **Login obligatorio** en la app PIDO principal.
 - **La plataforma empieza con restaurantes y hostelería** pero la estructura está preparada para minimarkets, fruterías, farmacias (campo `tipo` en establecimientos).
@@ -755,6 +779,9 @@ App del cliente PIDO. Incluye:
 - **Captación de riders** — en la app del cliente hay un botón/banner que invita al usuario a registrarse como socio, con landing page explicativa del modelo de negocio, ganancias y requisitos.
 - **Super Admin** — panel de control general (web, no app móvil) para el equipo de PIDO con control absoluto: usuarios, establecimientos, socios, pedidos, soporte, finanzas, configuración. Es la 5ª pantalla del ecosistema.
 - **Estructura monorepo** con 6 packages: shared, pido-app, pidogo-panel, restaurante, pidogo-web, super-admin.
+- **Deploy** — Git push a main → Dokploy detecta y despliega automáticamente. Clean cache activado en pido-app y pidogo-tienda.
+- **Dominios Dokploy**: pidoo.es (pido-app), rider.pidoo.es (pidogo-panel). La tienda del socio va dentro de pido-app (pidoo.es/{slug}).
+- **Google Maps API Key** configurada en pido-app/.env (VITE_GOOGLE_MAPS_API_KEY).
 
 ---
 

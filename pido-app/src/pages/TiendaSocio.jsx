@@ -71,7 +71,7 @@ function EstablecimientoCard({ r, onOpen, modoEntrega, socioEnServicio }) {
           {tieneDelivery && (
             <span style={{ fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 50, background: 'rgba(255,107,44,0.9)', color: '#fff', backdropFilter: 'blur(4px)' }}>Delivery</span>
           )}
-          <span style={{ fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 50, background: 'rgba(255,255,255,0.9)', color: 'var(--c-muted)', backdropFilter: 'blur(4px)' }}>Recogida</span>
+          <span style={{ fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 50, background: 'rgba(255,255,255,0.92)', color: '#555', backdropFilter: 'blur(4px)' }}>Recogida</span>
         </div>
       </div>
       {/* Logo mitad fuera mitad dentro */}
