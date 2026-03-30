@@ -273,7 +273,16 @@ function FormularioPagoTienda({ clientSecret, total, onSuccess, onCancel }) {
 }
 
 // --- Carrito ---
-function CarritoBar({ carrito, setCarrito, modoEntrega, socioId, socioNombre, socioEnServicio }) {
+// Haversine para calcular distancia en km
+function calcDistanciaKm(lat1, lng1, lat2, lng2) {
+  const R = 6371
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLng = (lng2 - lng1) * Math.PI / 180
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+function CarritoBar({ carrito, setCarrito, modoEntrega, socioId, socioNombre, socioEnServicio, tarifaBase, radioTarifaKm, precioKmAdicional }) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [metodoPago, setMetodoPago] = useState('tarjeta')
@@ -281,12 +290,64 @@ function CarritoBar({ carrito, setCarrito, modoEntrega, socioId, socioNombre, so
   const [clientSecret, setClientSecret] = useState(null)
   const [codigoPedido, setCodigoPedido] = useState(null)
   const [tipoEntrega, setTipoEntrega] = useState(socioEnServicio && modoEntrega !== 'recogida' ? 'delivery' : 'recogida')
+  const [envioCalculado, setEnvioCalculado] = useState(tarifaBase)
+  const [distanciaKm, setDistanciaKm] = useState(null)
+  const [envioLoading, setEnvioLoading] = useState(false)
+  const [direccionCliente, setDireccionCliente] = useState('')
   const total = carrito.reduce((s, i) => s + i.precio * i.cantidad, 0)
   const items = carrito.reduce((s, i) => s + i.cantidad, 0)
   const tieneDelivery = socioEnServicio && modoEntrega !== 'recogida'
-  const envioFinal = tipoEntrega === 'recogida' ? 0 : 3.50
+  const envioFinal = tipoEntrega === 'recogida' ? 0 : envioCalculado
   const totalFinal = total + envioFinal
   const soloRecogida = !tieneDelivery
+
+  // Calcular envío cuando se abre el carrito en modo delivery
+  useEffect(() => {
+    if (open && tipoEntrega === 'delivery' && carrito.length > 0 && !distanciaKm) {
+      calcularEnvioLocal()
+    }
+  }, [open, tipoEntrega])
+
+  async function calcularEnvioLocal() {
+    setEnvioLoading(true)
+    try {
+      // Pedir ubicación del cliente
+      const pos = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          p => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
+          reject, { enableHighAccuracy: true, timeout: 10000 }
+        )
+      })
+
+      // Obtener coordenadas del establecimiento
+      const estId = carrito[0].establecimiento_id
+      const { data: est } = await supabase.from('establecimientos').select('latitud, longitud').eq('id', estId).single()
+      if (!est) { setEnvioCalculado(tarifaBase); setEnvioLoading(false); return }
+
+      const dist = calcDistanciaKm(est.latitud, est.longitud, pos.lat, pos.lng)
+      setDistanciaKm(Math.round(dist * 10) / 10)
+
+      let envio
+      if (dist <= radioTarifaKm) {
+        envio = tarifaBase
+      } else {
+        envio = tarifaBase + ((dist - radioTarifaKm) * precioKmAdicional)
+      }
+      setEnvioCalculado(Math.round(envio * 100) / 100)
+
+      // Reverse geocoding para mostrar dirección
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${pos.lat}&lon=${pos.lng}&format=json`)
+        const data = await res.json()
+        if (data.display_name) setDireccionCliente(data.display_name.split(',').slice(0, 3).join(','))
+      } catch {}
+    } catch {
+      // Sin geolocalización: tarifa base por defecto
+      setEnvioCalculado(tarifaBase)
+    } finally {
+      setEnvioLoading(false)
+    }
+  }
 
   if (items === 0) return null
 
@@ -321,11 +382,13 @@ function CarritoBar({ carrito, setCarrito, modoEntrega, socioId, socioNombre, so
         canal: 'pidogo',
         estado: 'nuevo',
         metodo_pago: metodoPago,
+        modo_entrega: tipoEntrega === 'recogida' ? 'recogida' : 'delivery',
         stripe_payment_id: stripePaymentId,
         subtotal: total,
         coste_envio: envioFinal,
         propina: 0,
         total: totalFinal,
+        direccion_entrega: direccionCliente || null,
       }).select().single()
 
       if (error) throw error
@@ -456,17 +519,18 @@ function CarritoBar({ carrito, setCarrito, modoEntrega, socioId, socioNombre, so
                 <div style={{ marginTop: 8, fontSize: 13, color: 'var(--c-muted)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}><span>Subtotal</span><span>{total.toFixed(2)} €</span></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span>Envio</span><span style={{ fontWeight: 600, color: tipoEntrega === 'recogida' ? '#22C55E' : 'var(--c-muted)' }}>{tipoEntrega === 'recogida' ? 'Gratis' : `${envioFinal.toFixed(2)} €`}</span>
+                    <span>Envío {distanciaKm && tipoEntrega === 'delivery' ? <span style={{ fontSize: 10 }}>({distanciaKm} km)</span> : null}</span>
+                    <span style={{ fontWeight: 600, color: tipoEntrega === 'recogida' ? '#22C55E' : 'var(--c-muted)' }}>{tipoEntrega === 'recogida' ? 'Gratis' : envioLoading ? 'Calculando...' : `${envioFinal.toFixed(2)} €`}</span>
                   </div>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: 17, marginTop: 12, paddingTop: 12, borderTop: '2px solid var(--c-border)', color: 'var(--c-text)' }}>
                   <span>Total</span><span>{totalFinal.toFixed(2)} €</span>
                 </div>
 
-                <button onClick={iniciarPago} disabled={loading} style={{
+                <button onClick={iniciarPago} disabled={loading || envioLoading} style={{
                   width: '100%', marginTop: 20, padding: '16px 0', borderRadius: 14, border: 'none',
-                  background: loading ? 'var(--c-muted)' : 'var(--c-accent)', color: '#fff',
-                  fontSize: 16, fontWeight: 700, cursor: loading ? 'default' : 'pointer', fontFamily: 'inherit',
+                  background: (loading || envioLoading) ? 'var(--c-muted)' : 'var(--c-accent)', color: '#fff',
+                  fontSize: 16, fontWeight: 700, cursor: (loading || envioLoading) ? 'default' : 'pointer', fontFamily: 'inherit',
                 }}>
                   {loading ? 'Conectando...' : metodoPago === 'tarjeta' ? `Continuar al pago — ${totalFinal.toFixed(2)} €` : `Pedir ahora — ${totalFinal.toFixed(2)} €`}
                 </button>
@@ -755,7 +819,7 @@ export default function App() {
         )}
       </div>
 
-      <CarritoBar carrito={carrito} setCarrito={setCarrito} modoEntrega={socio.modo_entrega} socioId={socio.id} socioNombre={socio.nombre_comercial} socioEnServicio={socio.en_servicio} />
+      <CarritoBar carrito={carrito} setCarrito={setCarrito} modoEntrega={socio.modo_entrega} socioId={socio.id} socioNombre={socio.nombre_comercial} socioEnServicio={socio.en_servicio} tarifaBase={socio.tarifa_base || 3} radioTarifaKm={socio.radio_tarifa_base_km || 3} precioKmAdicional={socio.precio_km_adicional || 0.50} />
       {shareOpen && <ShareModal slug={socio.slug} onClose={() => setShareOpen(false)} />}
     </div>
   )
