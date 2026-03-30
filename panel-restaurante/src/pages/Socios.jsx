@@ -18,7 +18,7 @@ export default function Socios() {
     setLoading(true)
     const { data } = await supabase
       .from('socio_establecimiento')
-      .select('*, socios(id, nombre, nombre_comercial, email, telefono, rating, total_resenas, logo_url)')
+      .select('*, socios(id, nombre, nombre_comercial, email, telefono, rating, total_resenas, logo_url, tarifa_base, radio_tarifa_base_km, precio_km_adicional)')
       .eq('establecimiento_id', restaurante.id)
     setRelaciones(data || [])
     setLoading(false)
@@ -86,26 +86,42 @@ export default function Socios() {
         </div>
 
         {tab === 'info' && (
-          <div style={{ background: 'var(--c-surface)', borderRadius: 14, padding: 18, border: '1px solid var(--c-border)' }}>
-            {[{ l: 'Nombre', v: s.nombre }, { l: 'Email', v: s.email }, { l: 'Teléfono', v: s.telefono }, { l: 'Rating', v: `★ ${s.rating}` }].map((item, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: i < 3 ? '1px solid var(--c-border)' : 'none' }}>
-                <span style={{ fontSize: 13, color: 'var(--c-muted)' }}>{item.l}</span>
-                <span style={{ fontSize: 13, fontWeight: 600 }}>{item.v || '—'}</span>
-              </div>
-            ))}
-          </div>
+          <>
+            <div style={{ background: 'var(--c-surface)', borderRadius: 14, padding: 18, border: '1px solid var(--c-border)', marginBottom: 12 }}>
+              {[{ l: 'Nombre', v: s.nombre }, { l: 'Email', v: s.email }, { l: 'Teléfono', v: s.telefono }, { l: 'Rating', v: `★ ${s.rating}` }, { l: 'Tarifa base', v: `${s.tarifa_base || 3} €` }, { l: 'Radio tarifa', v: `${s.radio_tarifa_base_km || 3} km` }, { l: 'Precio/km extra', v: `${s.precio_km_adicional || 0.5} €/km` }].map((item, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: i < 6 ? '1px solid var(--c-border)' : 'none' }}>
+                  <span style={{ fontSize: 13, color: 'var(--c-muted)' }}>{item.l}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>{item.v || '—'}</span>
+                </div>
+              ))}
+            </div>
+            <button onClick={async () => {
+              if (!confirm('¿Desvincular a este socio? Dejará de repartir para tu restaurante.')) return
+              await supabase.from('socio_establecimiento').delete().eq('id', detalle.id)
+              setDetalle(null)
+              fetchSocios()
+            }} style={{ width: '100%', padding: '12px 0', borderRadius: 12, border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.1)', color: '#EF4444', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+              Desvincular socio
+            </button>
+          </>
         )}
 
         {tab === 'facturas' && (
           <div>
             {facturas.length === 0 && <div style={{ textAlign: 'center', padding: '30px 0', color: 'var(--c-muted)', fontSize: 13 }}>Sin facturas</div>}
             {facturas.map((f, i) => (
-              <div key={i} style={{ background: 'var(--c-surface)', borderRadius: 12, padding: '14px 16px', border: '1px solid var(--c-border)', marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 13 }}>{f.semana_inicio} — {f.semana_fin}</div>
-                  <div style={{ fontSize: 12, color: 'var(--c-muted)', marginTop: 2 }}>{f.pedidos_entregados} pedidos · {f.total_ventas.toFixed(2)} € ventas</div>
+              <div key={i} style={{ background: 'var(--c-surface)', borderRadius: 12, padding: '14px 16px', border: '1px solid var(--c-border)', marginBottom: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{f.semana_inicio} — {f.semana_fin}</div>
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 6, background: f.estado === 'pagado' ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)', color: f.estado === 'pagado' ? '#4ADE80' : '#FBBF24' }}>{f.estado === 'pagado' ? 'Pagado' : 'Pendiente'}</span>
                 </div>
-                <span style={{ background: f.estado === 'pagado' ? '#DCFCE7' : '#FEF3C7', color: f.estado === 'pagado' ? '#166534' : '#92400E', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 6, textTransform: 'capitalize' }}>{f.estado}</span>
+                {f.numero_factura && <div style={{ fontSize: 10, color: 'var(--c-primary)', fontWeight: 700, marginBottom: 6 }}>{f.numero_factura}</div>}
+                <div style={{ fontSize: 12, color: 'var(--c-muted)', lineHeight: 1.6 }}>
+                  {f.pedidos_entregados} entregados · Ventas: {f.total_ventas?.toFixed(2)} € · Comisión: {f.total_comisiones?.toFixed(2)} € · Envíos: {f.total_envios?.toFixed(2)} €
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                  <span style={{ fontSize: 15, fontWeight: 800, color: '#16A34A' }}>{f.total_ganado?.toFixed(2)} €</span>
+                </div>
               </div>
             ))}
           </div>
