@@ -4,8 +4,31 @@ import { useCart } from '../context/CartContext'
 import Stars from '../components/Stars'
 import EntregaBadge from '../components/EntregaBadge'
 
+function ProductoCard({ p, onOpen, carrito }) {
+  const enCarrito = carrito.find(i => i.producto_id === p.id)
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', background: 'rgba(255,255,255,0.06)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)', marginBottom: 8 }}>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--c-text)', marginBottom: 2 }}>{p.nombre}</div>
+        {p.descripcion && <div style={{ fontSize: 12, color: 'var(--c-muted)', marginBottom: 4 }}>{p.descripcion}</div>}
+        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--c-primary)' }}>{p.precio.toFixed(2)} €</div>
+      </div>
+      {p.imagen_url && <img src={p.imagen_url} alt="" style={{ width: 50, height: 50, borderRadius: 10, objectFit: 'cover', marginRight: 10 }} />}
+      <button onClick={onOpen} style={{
+        width: 38, height: 38, borderRadius: 10, border: 'none',
+        background: enCarrito ? 'var(--c-primary)' : 'rgba(255,255,255,0.08)',
+        color: enCarrito ? '#fff' : 'var(--c-primary)',
+        fontSize: 20, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        {enCarrito ? enCarrito.cantidad : '+'}
+      </button>
+    </div>
+  )
+}
+
 export default function RestDetalle({ establecimiento, onBack }) {
-  const { addItem } = useCart()
+  const { addItem, carrito } = useCart()
   const [categorias, setCategorias] = useState([])
   const [productos, setProductos] = useState([])
   const [modal, setModal] = useState(null)
@@ -128,30 +151,11 @@ export default function RestDetalle({ establecimiento, onBack }) {
             return (
               <div key={cat.id} style={{ marginBottom: 20 }}>
                 <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--c-text)', marginBottom: 10 }}>{cat.nombre}</h3>
-                {prods.map(p => (
-                  <div key={p.id} onClick={() => abrirProducto(p)} style={{ display: 'flex', gap: 12, padding: '14px 0', borderBottom: '1px solid var(--c-border)', cursor: 'pointer' }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--c-text)', marginBottom: 2 }}>{p.nombre}</div>
-                      {p.descripcion && <div style={{ fontSize: 11, color: 'var(--c-muted)', marginBottom: 4 }}>{p.descripcion}</div>}
-                      <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--c-primary)' }}>{p.precio.toFixed(2)} €</div>
-                    </div>
-                    {p.imagen_url && (
-                      <img src={p.imagen_url} alt="" style={{ width: 64, height: 64, borderRadius: 12, objectFit: 'cover', flexShrink: 0 }} />
-                    )}
-                  </div>
-                ))}
+                {prods.map(p => <ProductoCard key={p.id} p={p} onOpen={() => abrirProducto(p)} carrito={carrito} />)}
               </div>
             )
           })}
-          {/* Productos sin categoría */}
-          {productos.filter(p => !p.categoria_id).map(p => (
-            <div key={p.id} onClick={() => abrirProducto(p)} style={{ display: 'flex', gap: 12, padding: '14px 0', borderBottom: '1px solid var(--c-border)', cursor: 'pointer' }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--c-text)', marginBottom: 2 }}>{p.nombre}</div>
-                <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--c-primary)' }}>{p.precio.toFixed(2)} €</div>
-              </div>
-            </div>
-          ))}
+          {productos.filter(p => !p.categoria_id).map(p => <ProductoCard key={p.id} p={p} onOpen={() => abrirProducto(p)} carrito={carrito} />)}
         </>
       )}
 
