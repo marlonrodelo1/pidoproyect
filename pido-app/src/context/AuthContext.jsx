@@ -46,16 +46,22 @@ export function AuthProvider({ children }) {
   }
 
   async function registro(email, password, nombre, telefono) {
-    const { data, error } = await supabase.auth.signUp({ email, password })
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { nombre } },
+    })
     if (error) throw new Error(traducirError(error.message))
 
-    const { error: perfilError } = await supabase.from('usuarios').insert({
-      id: data.user.id,
-      nombre,
-      email,
-      telefono,
-    })
-    if (perfilError) throw new Error('Error al crear el perfil. Intenta de nuevo.')
+    // El trigger on_auth_user_created crea el perfil automáticamente
+    // Actualizamos con nombre completo y teléfono si el perfil ya existe
+    if (data.user) {
+      await supabase.from('usuarios').update({
+        nombre,
+        telefono: telefono || null,
+      }).eq('id', data.user.id)
+    }
+
     return data
   }
 
