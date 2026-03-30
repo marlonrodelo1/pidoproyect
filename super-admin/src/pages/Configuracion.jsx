@@ -16,7 +16,13 @@ export default function Configuracion() {
   const [catsGenerales, setCatsGenerales] = useState([])
   const [nuevaCatGen, setNuevaCatGen] = useState({ nombre: '', emoji: '🍽️' })
 
-  useEffect(() => { loadCatsGenerales() }, [])
+  // Páginas legales
+  const [paginasLegales, setPaginasLegales] = useState([])
+  const [editLegal, setEditLegal] = useState(null) // null = lista, objeto = editando
+  const [legalForm, setLegalForm] = useState({ titulo: '', contenido: '' })
+  const [savingLegal, setSavingLegal] = useState(false)
+
+  useEffect(() => { loadCatsGenerales(); loadPaginasLegales() }, [])
 
   async function loadCatsGenerales() {
     const { data } = await supabase.from('categorias_generales').select('*').order('orden')
@@ -37,6 +43,24 @@ export default function Configuracion() {
   async function removeCatGeneral(id) {
     await supabase.from('categorias_generales').delete().eq('id', id)
     loadCatsGenerales()
+  }
+
+  async function loadPaginasLegales() {
+    const { data } = await supabase.from('paginas_legales').select('*').order('created_at')
+    setPaginasLegales(data || [])
+  }
+
+  async function guardarPaginaLegal() {
+    if (!legalForm.titulo.trim() || !legalForm.contenido.trim()) return
+    setSavingLegal(true)
+    await supabase.from('paginas_legales').update({
+      titulo: legalForm.titulo.trim(),
+      contenido: legalForm.contenido.trim(),
+      updated_at: new Date().toISOString(),
+    }).eq('id', editLegal.id)
+    setSavingLegal(false)
+    setEditLegal(null)
+    loadPaginasLegales()
   }
 
   function guardar() {
@@ -140,6 +164,46 @@ export default function Configuracion() {
             <button style={styles.sendBtn}>Enviar notificacion</button>
           </div>
         </div>
+      </div>
+
+      {/* Páginas legales */}
+      <div style={styles.section}>
+        <h2 style={styles.sectionTitle}>Páginas legales</h2>
+        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginBottom: 16 }}>Edita los textos legales que se muestran en pidoo.es/terminos y pidoo.es/privacidad</p>
+
+        {editLegal ? (
+          <div>
+            <button onClick={() => setEditLegal(null)} style={{ background: 'none', border: 'none', color: '#FF6B2C', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", marginBottom: 16, padding: 0 }}>← Volver a la lista</button>
+            <div style={{ marginBottom: 12 }}>
+              <label style={ds.label}>Título</label>
+              <input value={legalForm.titulo} onChange={e => setLegalForm({ ...legalForm, titulo: e.target.value })} style={ds.formInput} />
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={ds.label}>Contenido (HTML)</label>
+              <textarea value={legalForm.contenido} onChange={e => setLegalForm({ ...legalForm, contenido: e.target.value })} rows={18} style={{ ...ds.formInput, resize: 'vertical', fontFamily: 'monospace', fontSize: 12, lineHeight: 1.6 }} />
+            </div>
+            <div style={{ marginBottom: 12, background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: 16, border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', marginBottom: 8 }}>Vista previa</div>
+              <div style={{ fontSize: 13, lineHeight: 1.7, color: '#F5F5F5' }} dangerouslySetInnerHTML={{ __html: legalForm.contenido }} />
+            </div>
+            <button onClick={guardarPaginaLegal} disabled={savingLegal} style={{ ...ds.primaryBtn, width: '100%' }}>
+              {savingLegal ? 'Guardando...' : 'Guardar página'}
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {paginasLegales.map(p => (
+              <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', background: 'rgba(255,255,255,0.04)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: '#F5F5F5' }}>{p.titulo}</div>
+                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>pidoo.es/{p.slug} · Editado: {new Date(p.updated_at).toLocaleDateString('es-ES')}</div>
+                </div>
+                <button onClick={() => { setEditLegal(p); setLegalForm({ titulo: p.titulo, contenido: p.contenido }) }} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: '#FF6B2C', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>Editar</button>
+              </div>
+            ))}
+            {paginasLegales.length === 0 && <div style={{ textAlign: 'center', padding: 24, color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>No hay páginas legales configuradas</div>}
+          </div>
+        )}
       </div>
 
       <button onClick={guardar} style={ds.primaryBtn}>Guardar configuracion</button>

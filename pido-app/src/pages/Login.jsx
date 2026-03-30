@@ -208,7 +208,7 @@ export default function Login() {
                 {aceptaTerminos && '✓'}
               </div>
               <span style={{ fontSize: 12, color: 'var(--c-muted)', lineHeight: 1.4 }}>
-                Acepto los <span style={{ color: 'var(--c-primary)', fontWeight: 600 }}>términos y condiciones</span> y la <span style={{ color: 'var(--c-primary)', fontWeight: 600 }}>política de privacidad</span>
+                Acepto los <a href="/terminos" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--c-primary)', fontWeight: 600, textDecoration: 'none' }} onClick={e => e.stopPropagation()}>términos y condiciones</a> y la <a href="/privacidad" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--c-primary)', fontWeight: 600, textDecoration: 'none' }} onClick={e => e.stopPropagation()}>política de privacidad</a>
               </span>
             </button>
             {errores.terminos && <div style={{ color: '#EF4444', fontSize: 11, marginTop: 4, marginLeft: 30 }}>{errores.terminos}</div>}

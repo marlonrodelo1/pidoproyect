@@ -634,7 +634,7 @@ function LoginInline({ onSuccess }) {
                   display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#fff', transition: 'all 0.2s',
                 }}>{aceptaTerminos && '✓'}</div>
                 <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', lineHeight: 1.4 }}>
-                  Acepto los <span style={{ color: '#FF6B2C', fontWeight: 600 }}>términos y condiciones</span> y la <span style={{ color: '#FF6B2C', fontWeight: 600 }}>política de privacidad</span>
+                  Acepto los <a href="/terminos" target="_blank" rel="noopener noreferrer" style={{ color: '#FF6B2C', fontWeight: 600, textDecoration: 'none' }} onClick={e => e.stopPropagation()}>términos y condiciones</a> y la <a href="/privacidad" target="_blank" rel="noopener noreferrer" style={{ color: '#FF6B2C', fontWeight: 600, textDecoration: 'none' }} onClick={e => e.stopPropagation()}>política de privacidad</a>
                 </span>
               </button>
               {errores.terminos && <div style={{ color: '#EF4444', fontSize: 11, marginTop: 4, marginLeft: 30 }}>{errores.terminos}</div>}

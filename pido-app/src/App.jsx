@@ -16,6 +16,7 @@ import Perfil from './pages/Perfil'
 import SerSocio from './pages/SerSocio'
 import BottomNav from './components/BottomNav'
 import TiendaSocio from './pages/TiendaSocio'
+import PaginaLegal from './pages/PaginaLegal'
 
 function AppContent() {
   const { user, loading } = useAuth()
@@ -165,8 +166,16 @@ function TiendaDetector() {
   const [slugTienda, setSlugTienda] = useState(null)
   const [checking, setChecking] = useState(true)
 
+  const [paginaLegal, setPaginaLegal] = useState(null)
+
   useEffect(() => {
     const path = window.location.pathname.replace(/^\//, '')
+    // Rutas de páginas legales
+    if (path === 'terminos' || path === 'privacidad') {
+      setPaginaLegal(path)
+      setChecking(false)
+      return
+    }
     if (path && path !== '') {
       import('./lib/supabase').then(({ supabase }) => {
         supabase.from('socios').select('slug').eq('slug', path).single().then(({ data }) => {
@@ -184,6 +193,15 @@ function TiendaDetector() {
       <div style={{ ...shellStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
         <style>{globalCss}</style>
         <div style={{ fontSize: 48, fontWeight: 800, color: 'var(--c-primary)', letterSpacing: -2 }}>pidoo</div>
+      </div>
+    )
+  }
+
+  if (paginaLegal) {
+    return (
+      <div style={{ ...shellStyle, minHeight: '100vh' }}>
+        <style>{globalCss}</style>
+        <PaginaLegal slug={paginaLegal} onBack={() => window.history.back()} />
       </div>
     )
   }
