@@ -32,6 +32,7 @@ export default function Negocios() {
   }
 
   async function desvincular(relId) {
+    if (!confirm('¿Desvincularte de este establecimiento? Dejarás de recibir pedidos de delivery.')) return
     await supabase.from('socio_establecimiento').delete().eq('id', relId)
     fetchData()
   }

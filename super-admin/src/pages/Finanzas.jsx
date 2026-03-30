@@ -17,13 +17,26 @@ export default function Finanzas() {
   const [balancesSocio, setBalancesSocio] = useState([])
   const [movimientos, setMovimientos] = useState([])
   const [resumen, setResumen] = useState({ comisionesTotal: 0, pagadoRest: 0, pagadoSocio: 0, pendiente: 0 })
+  const [facturas, setFacturas] = useState([])
 
   useEffect(() => {
     loadResumen()
     loadBalancesRest()
     loadBalancesSocio()
     loadMovimientos()
+    loadFacturas()
   }, [])
+
+  async function loadFacturas() {
+    const { data } = await supabase.from('facturas_semanales').select('*, socios(nombre, nombre_comercial), establecimientos(nombre)')
+      .order('created_at', { ascending: false }).limit(50)
+    setFacturas(data || [])
+  }
+
+  async function marcarFacturaPagada(id) {
+    await supabase.from('facturas_semanales').update({ estado: 'pagado' }).eq('id', id)
+    loadFacturas()
+  }
 
   async function loadResumen() {
     const { data: comisiones } = await supabase.from('comisiones').select('comision_plataforma, estado_pago')
@@ -61,6 +74,7 @@ export default function Finanzas() {
     { id: 'resumen', label: 'Resumen' },
     { id: 'restaurantes', label: 'Balance Restaurantes' },
     { id: 'socios', label: 'Balance Socios' },
+    { id: 'facturas', label: 'Facturas' },
     { id: 'movimientos', label: 'Movimientos' },
   ]
 
@@ -147,6 +161,42 @@ export default function Finanzas() {
             </div>
           ))}
           {balancesSocio.length === 0 && <div style={{ padding: 32, textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Sin balances</div>}
+        </div>
+      )}
+
+      {tab === 'facturas' && (
+        <div style={ds.table}>
+          <div style={ds.tableHeader}>
+            <span style={{ width: 120 }}>Factura</span>
+            <span style={{ flex: 1 }}>Socio</span>
+            <span style={{ width: 140 }}>Restaurante</span>
+            <span style={{ width: 100 }}>Semana</span>
+            <span style={{ width: 50 }}>Ped.</span>
+            <span style={{ width: 80 }}>Comisiones</span>
+            <span style={{ width: 70 }}>Envíos</span>
+            <span style={{ width: 80 }}>Total</span>
+            <span style={{ width: 70 }}>Estado</span>
+            <span style={{ width: 60 }}></span>
+          </div>
+          {facturas.map(f => (
+            <div key={f.id} style={ds.tableRow}>
+              <span style={{ width: 120, fontSize: 11, fontWeight: 700, color: '#FF6B2C' }}>{f.numero_factura || '—'}</span>
+              <span style={{ flex: 1, fontWeight: 600, fontSize: 12 }}>{f.socios?.nombre_comercial || f.socios?.nombre || '—'}</span>
+              <span style={{ width: 140, fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>{f.establecimientos?.nombre || '—'}</span>
+              <span style={{ width: 100, fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{f.semana_inicio?.slice(5)}<br/>{f.semana_fin?.slice(5)}</span>
+              <span style={{ width: 50, fontSize: 12 }}>{f.pedidos_entregados}/{f.total_pedidos}</span>
+              <span style={{ width: 80, fontSize: 12 }}>{f.total_comisiones?.toFixed(2)}€</span>
+              <span style={{ width: 70, fontSize: 12 }}>{f.total_envios?.toFixed(2)}€</span>
+              <span style={{ width: 80, fontSize: 12, fontWeight: 700, color: '#16A34A' }}>{f.total_ganado?.toFixed(2)}€</span>
+              <span style={{ width: 70 }}>
+                <span style={{ ...ds.badge, background: f.estado === 'pagado' ? 'rgba(22,163,74,0.15)' : 'rgba(245,158,11,0.15)', color: f.estado === 'pagado' ? '#4ADE80' : '#FBBF24' }}>{f.estado}</span>
+              </span>
+              <span style={{ width: 60 }}>
+                {f.estado === 'pendiente' && <button onClick={() => marcarFacturaPagada(f.id)} style={styles.payBtn}>Pagar</button>}
+              </span>
+            </div>
+          ))}
+          {facturas.length === 0 && <div style={{ padding: 32, textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Sin facturas generadas</div>}
         </div>
       )}
 

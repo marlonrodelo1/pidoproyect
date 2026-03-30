@@ -7,6 +7,10 @@ export default function Perfil() {
   const [modo, setModo] = useState(socio?.modo_entrega || 'ambos')
   const [radio, setRadio] = useState(socio?.radio_km || 10)
   const [enServicio, setEnServicio] = useState(socio?.en_servicio || false)
+  const [nombreSocio, setNombreSocio] = useState(socio?.nombre || '')
+  const [nombreComercial, setNombreComercial] = useState(socio?.nombre_comercial || '')
+  const [emailSocio, setEmailSocio] = useState(socio?.email || '')
+  const [telefonoSocio, setTelefonoSocio] = useState(socio?.telefono || '')
   const [redes, setRedes] = useState(socio?.redes || {})
   const [editandoRedes, setEditandoRedes] = useState(false)
   const [tarifaBase, setTarifaBase] = useState(socio?.tarifa_base || 3)
@@ -19,6 +23,10 @@ export default function Perfil() {
 
   // Detectar cambios pendientes
   const hayCambios =
+    nombreSocio !== (socio?.nombre || '') ||
+    nombreComercial !== (socio?.nombre_comercial || '') ||
+    emailSocio !== (socio?.email || '') ||
+    telefonoSocio !== (socio?.telefono || '') ||
     modo !== (socio?.modo_entrega || 'ambos') ||
     radio !== (socio?.radio_km || 10) ||
     tarifaBase !== (socio?.tarifa_base || 3) ||
@@ -29,6 +37,10 @@ export default function Perfil() {
   async function guardarTodo() {
     setGuardando(true)
     await updateSocio({
+      nombre: nombreSocio.trim(),
+      nombre_comercial: nombreComercial.trim(),
+      email: emailSocio.trim(),
+      telefono: telefonoSocio.trim(),
       modo_entrega: modo,
       radio_km: radio,
       tarifa_base: tarifaBase,
@@ -72,25 +84,30 @@ export default function Perfil() {
         </button>
       </div>
 
-      {/* Info */}
+      {/* Info editable */}
       <div style={{ background: 'var(--c-surface)', borderRadius: 14, padding: 18, border: '1px solid var(--c-border)', marginBottom: 16 }}>
         <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>Información</h3>
-        {[
-          { label: 'Nombre', value: socio?.nombre },
-          { label: 'Nombre comercial', value: socio?.nombre_comercial },
-          { label: 'Email', value: socio?.email },
-          { label: 'Teléfono', value: socio?.telefono },
-          { label: 'URL tienda', value: `pidoo.es/${socio?.slug}`, url: `https://pidoo.es/${socio?.slug}`, accent: true },
-        ].map((item, i) => (
-          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: i < 4 ? '1px solid var(--c-border)' : 'none' }}>
-            <span style={{ fontSize: 13, color: 'var(--c-muted)' }}>{item.label}</span>
-            {item.url ? (
-              <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-accent)', textDecoration: 'none' }}>{item.value}</a>
-            ) : (
-              <span style={{ fontSize: 13, fontWeight: 600, color: item.accent ? 'var(--c-accent)' : 'var(--c-text)' }}>{item.value}</span>
-            )}
-          </div>
-        ))}
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-muted)', marginBottom: 4, display: 'block' }}>Nombre</label>
+          <input value={nombreSocio} onChange={e => setNombreSocio(e.target.value)} style={inputStyle} />
+        </div>
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-muted)', marginBottom: 4, display: 'block' }}>Nombre comercial</label>
+          <input value={nombreComercial} onChange={e => setNombreComercial(e.target.value)} style={inputStyle} />
+        </div>
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-muted)', marginBottom: 4, display: 'block' }}>Email</label>
+          <input type="email" value={emailSocio} onChange={e => setEmailSocio(e.target.value)} style={inputStyle} />
+        </div>
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-muted)', marginBottom: 4, display: 'block' }}>Teléfono</label>
+          <input type="tel" value={telefonoSocio} onChange={e => setTelefonoSocio(e.target.value)} style={inputStyle} />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0' }}>
+          <span style={{ fontSize: 13, color: 'var(--c-muted)' }}>URL tienda</span>
+          <a href={`https://pidoo.es/${socio?.slug}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-accent)', textDecoration: 'none' }}>pidoo.es/{socio?.slug}</a>
+        </div>
+        <div style={{ fontSize: 10, color: 'var(--c-muted)', marginTop: 4 }}>La URL de tu tienda solo puede ser modificada por el administrador.</div>
       </div>
 
       {/* Modo entrega */}
@@ -251,4 +268,11 @@ export default function Perfil() {
       )}
     </div>
   )
+}
+
+const inputStyle = {
+  width: '100%', padding: '12px 14px', borderRadius: 10,
+  border: '1px solid rgba(255,255,255,0.12)', fontSize: 13,
+  fontFamily: 'inherit', background: 'rgba(255,255,255,0.06)',
+  color: '#F5F5F5', outline: 'none', boxSizing: 'border-box',
 }

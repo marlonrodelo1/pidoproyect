@@ -85,15 +85,21 @@ export default function Informes() {
               <div style={{ marginTop: 16, animation: 'fadeIn 0.3s ease' }}>
                 {s.facturas.map((f, fi) => (
                   <div key={fi} style={{ padding: '14px 0', borderBottom: fi < s.facturas.length - 1 ? '1px solid var(--c-border)' : 'none' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                       <span style={{ fontWeight: 700, fontSize: 14 }}>{f.establecimientos?.nombre}</span>
                       <span style={{ fontWeight: 700, fontSize: 14, color: '#16A34A' }}>+{f.total_ganado.toFixed(2)} €</span>
                     </div>
+                    {f.numero_factura && <div style={{ fontSize: 10, color: 'var(--c-accent)', fontWeight: 600, marginBottom: 6 }}>{f.numero_factura}</div>}
                     <div style={{ display: 'flex', gap: 12, fontSize: 11, color: 'var(--c-muted)', flexWrap: 'wrap' }}>
                       <span>{f.pedidos_entregados} entregados</span>
+                      {f.pedidos_fallidos > 0 && <span style={{ color: '#EF4444' }}>{f.pedidos_fallidos} fallidos</span>}
                       <span>Comisión: {f.total_comisiones.toFixed(2)} €</span>
                       <span>Envíos: {f.total_envios.toFixed(2)} €</span>
                       <span>Propinas: {f.total_propinas.toFixed(2)} €</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 12, fontSize: 10, color: 'var(--c-muted)', marginTop: 4 }}>
+                      <span>💳 Tarjeta: {f.pedidos_tarjeta} ({f.ventas_tarjeta?.toFixed(2)} €)</span>
+                      <span>💵 Efectivo: {f.pedidos_efectivo} ({f.ventas_efectivo?.toFixed(2)} €)</span>
                     </div>
                   </div>
                 ))}
