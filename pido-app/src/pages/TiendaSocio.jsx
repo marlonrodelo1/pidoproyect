@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Home, ClipboardList, ShoppingCart, User, Search, X, ArrowLeft } from 'lucide-react'
+import { Home, ClipboardList, ShoppingCart, User, Search, X, ArrowLeft, Mail, Lock, Phone, Eye, EyeOff } from 'lucide-react'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { supabase } from '../lib/supabase'
@@ -531,39 +531,121 @@ function PaginaPerfil({ user, perfil, onLogin, onLogout }) {
 
 function LoginInline({ onSuccess }) {
   const { login, registro } = useAuth()
-  const [mode, setMode] = useState('login')
+  const [modo, setModo] = useState('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [nombre, setNombre] = useState('')
+  const [telefono, setTelefono] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [aceptaTerminos, setAceptaTerminos] = useState(false)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [errores, setErrores] = useState({})
+
+  function validar() {
+    const e = {}
+    if (!email.trim()) e.email = 'El email es obligatorio'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = 'Email no válido'
+    if (!password) e.password = 'La contraseña es obligatoria'
+    else if (password.length < 6) e.password = 'Mínimo 6 caracteres'
+    if (modo === 'registro') {
+      if (!nombre.trim()) e.nombre = 'El nombre es obligatorio'
+      if (telefono && !/^\+?\d{7,15}$/.test(telefono.replace(/\s/g, ''))) e.telefono = 'Teléfono no válido'
+      if (!aceptaTerminos) e.terminos = 'Debes aceptar los términos y condiciones'
+    }
+    setErrores(e)
+    return Object.keys(e).length === 0
+  }
 
   const handleSubmit = async () => {
+    if (!validar()) return
     setError(null); setLoading(true)
     try {
-      if (mode === 'login') await login(email, password)
-      else await registro(email, password, nombre, '')
+      if (modo === 'login') await login(email, password)
+      else await registro(email, password, nombre.trim(), telefono.replace(/\s/g, ''))
       onSuccess()
     } catch (err) { setError(err.message) }
     finally { setLoading(false) }
   }
 
-  const inp = { width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.1)', fontSize: 14, fontFamily: 'inherit', marginBottom: 10, background: 'rgba(255,255,255,0.06)', color: '#F5F5F5', outline: 'none', boxSizing: 'border-box' }
+  const handleKeyDown = (e) => { if (e.key === 'Enter') handleSubmit() }
+  const inputWrap = { position: 'relative', marginBottom: 12 }
+  const iconStyle = { position: 'absolute', left: 14, top: 14, color: 'rgba(255,255,255,0.4)' }
+  const inputStyle = { width: '100%', padding: '14px 16px 14px 44px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.12)', fontSize: 14, fontFamily: 'inherit', background: 'rgba(255,255,255,0.08)', color: '#F5F5F5', outline: 'none', boxSizing: 'border-box' }
+  const inputError = { ...inputStyle, borderColor: '#EF4444' }
 
   return (
-    <div style={{ padding: '40px 0', animation: 'fadeIn 0.3s ease', textAlign: 'center' }}>
-      <div style={{ fontSize: 28, fontWeight: 800, marginBottom: 8 }}>{mode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}</div>
-      <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', marginBottom: 24 }}>Para completar tu pedido</p>
-      <div style={{ maxWidth: 340, margin: '0 auto' }}>
-        {mode === 'registro' && <input placeholder="Nombre" value={nombre} onChange={e => setNombre(e.target.value)} style={inp} />}
-        <input placeholder="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} style={inp} />
-        <input placeholder="Contraseña" type="password" value={password} onChange={e => setPassword(e.target.value)} style={inp} />
-        {error && <div style={{ color: '#EF4444', fontSize: 12, marginBottom: 10 }}>{error}</div>}
-        <button onClick={handleSubmit} disabled={loading} style={{ width: '100%', padding: '16px 0', borderRadius: 14, border: 'none', background: loading ? 'rgba(255,255,255,0.2)' : '#FF6B2C', color: '#fff', fontSize: 16, fontWeight: 800, cursor: loading ? 'default' : 'pointer', fontFamily: 'inherit' }}>
-          {loading ? 'Cargando...' : mode === 'login' ? 'Entrar' : 'Registrarse'}
-        </button>
-        <button onClick={() => setMode(mode === 'login' ? 'registro' : 'login')} style={{ background: 'none', border: 'none', color: '#FF6B2C', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', marginTop: 16 }}>
-          {mode === 'login' ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión'}
+    <div style={{ padding: '40px 0', animation: 'fadeIn 0.3s ease', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <div style={{ fontSize: 48, fontWeight: 800, color: '#FF6B2C', marginBottom: 8, letterSpacing: -2 }}>pidoo</div>
+      <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', marginBottom: 32, textAlign: 'center' }}>Tu comida favorita, al alcance de un toque</p>
+
+      <div style={{ width: '100%', maxWidth: 340 }}>
+        {/* Tabs login/registro */}
+        <div style={{ display: 'flex', background: 'rgba(255,255,255,0.06)', borderRadius: 12, padding: 3, marginBottom: 20 }}>
+          {['login', 'registro'].map(m => (
+            <button key={m} onClick={() => { setModo(m); setError(null); setErrores({}) }} style={{
+              flex: 1, padding: '10px 0', borderRadius: 10, border: 'none',
+              background: modo === m ? '#FF6B2C' : 'transparent',
+              color: modo === m ? '#fff' : 'rgba(255,255,255,0.45)',
+              fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+            }}>
+              {m === 'login' ? 'Iniciar sesión' : 'Registrarse'}
+            </button>
+          ))}
+        </div>
+
+        {modo === 'registro' && (
+          <div style={inputWrap}>
+            <User size={16} strokeWidth={1.8} style={iconStyle} />
+            <input placeholder="Nombre completo" value={nombre} onChange={e => setNombre(e.target.value)} onKeyDown={handleKeyDown} style={errores.nombre ? inputError : inputStyle} />
+            {errores.nombre && <div style={{ color: '#EF4444', fontSize: 11, marginTop: 2, marginLeft: 4 }}>{errores.nombre}</div>}
+          </div>
+        )}
+
+        <div style={inputWrap}>
+          <Mail size={16} strokeWidth={1.8} style={iconStyle} />
+          <input placeholder="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={handleKeyDown} style={errores.email ? inputError : inputStyle} />
+          {errores.email && <div style={{ color: '#EF4444', fontSize: 11, marginTop: 2, marginLeft: 4 }}>{errores.email}</div>}
+        </div>
+
+        <div style={inputWrap}>
+          <Lock size={16} strokeWidth={1.8} style={iconStyle} />
+          <input placeholder="Contraseña" type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} onKeyDown={handleKeyDown} style={errores.password ? inputError : inputStyle} />
+          <button onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: 12, top: 12, background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.4)', padding: 4 }}>
+            {showPassword ? <EyeOff size={16} strokeWidth={1.8} /> : <Eye size={16} strokeWidth={1.8} />}
+          </button>
+          {errores.password && <div style={{ color: '#EF4444', fontSize: 11, marginTop: 2, marginLeft: 4 }}>{errores.password}</div>}
+        </div>
+
+        {modo === 'registro' && (
+          <>
+            <div style={inputWrap}>
+              <Phone size={16} strokeWidth={1.8} style={iconStyle} />
+              <input placeholder="Teléfono (opcional)" value={telefono} onChange={e => setTelefono(e.target.value)} onKeyDown={handleKeyDown} style={errores.telefono ? inputError : inputStyle} />
+              {errores.telefono && <div style={{ color: '#EF4444', fontSize: 11, marginTop: 2, marginLeft: 4 }}>{errores.telefono}</div>}
+            </div>
+
+            <div style={{ marginTop: 4, marginBottom: 8 }}>
+              <button onClick={() => setAceptaTerminos(!aceptaTerminos)} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', padding: 0 }}>
+                <div style={{
+                  width: 20, height: 20, borderRadius: 6, flexShrink: 0, marginTop: 1,
+                  border: aceptaTerminos ? 'none' : errores.terminos ? '2px solid #EF4444' : '2px solid rgba(255,255,255,0.2)',
+                  background: aceptaTerminos ? '#FF6B2C' : 'transparent',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#fff', transition: 'all 0.2s',
+                }}>{aceptaTerminos && '✓'}</div>
+                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', lineHeight: 1.4 }}>
+                  Acepto los <span style={{ color: '#FF6B2C', fontWeight: 600 }}>términos y condiciones</span> y la <span style={{ color: '#FF6B2C', fontWeight: 600 }}>política de privacidad</span>
+                </span>
+              </button>
+              {errores.terminos && <div style={{ color: '#EF4444', fontSize: 11, marginTop: 4, marginLeft: 30 }}>{errores.terminos}</div>}
+            </div>
+          </>
+        )}
+
+        {error && <div style={{ background: 'rgba(239,68,68,0.15)', color: '#EF4444', fontSize: 12, padding: '10px 14px', borderRadius: 10, marginBottom: 12, textAlign: 'center', fontWeight: 600 }}>{error}</div>}
+
+        <button onClick={handleSubmit} disabled={loading} style={{ width: '100%', padding: '16px 0', borderRadius: 14, border: 'none', background: loading ? 'rgba(255,255,255,0.2)' : '#FF6B2C', color: '#fff', fontSize: 16, fontWeight: 800, cursor: loading ? 'default' : 'pointer', fontFamily: 'inherit', marginTop: 6 }}>
+          {loading ? 'Cargando...' : modo === 'login' ? 'Entrar' : 'Crear cuenta'}
         </button>
       </div>
     </div>

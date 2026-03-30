@@ -14,6 +14,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [resetEnviado, setResetEnviado] = useState(false)
   const [errores, setErrores] = useState({})
+  const [aceptaTerminos, setAceptaTerminos] = useState(false)
 
   function validar() {
     const e = {}
@@ -28,6 +29,7 @@ export default function Login() {
     if (modo === 'registro') {
       if (!nombre.trim()) e.nombre = 'El nombre es obligatorio'
       if (telefono && !/^\+?\d{7,15}$/.test(telefono.replace(/\s/g, ''))) e.telefono = 'Teléfono no válido'
+      if (!aceptaTerminos) e.terminos = 'Debes aceptar los términos y condiciones'
     }
     setErrores(e)
     return Object.keys(e).length === 0
@@ -191,8 +193,25 @@ export default function Login() {
         )}
 
         {modo === 'registro' && (
-          <div style={{ textAlign: 'center', marginTop: 16, fontSize: 11, color: 'var(--c-muted)', lineHeight: 1.4 }}>
-            Al registrarte aceptas nuestros términos y condiciones
+          <div style={{ marginTop: 16 }}>
+            <button onClick={() => setAceptaTerminos(!aceptaTerminos)} style={{
+              display: 'flex', alignItems: 'flex-start', gap: 10, background: 'none', border: 'none',
+              cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', padding: 0,
+            }}>
+              <div style={{
+                width: 20, height: 20, borderRadius: 6, flexShrink: 0, marginTop: 1,
+                border: aceptaTerminos ? 'none' : errores.terminos ? '2px solid #EF4444' : '2px solid rgba(255,255,255,0.2)',
+                background: aceptaTerminos ? 'var(--c-primary)' : 'transparent',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 12, color: '#fff', transition: 'all 0.2s',
+              }}>
+                {aceptaTerminos && '✓'}
+              </div>
+              <span style={{ fontSize: 12, color: 'var(--c-muted)', lineHeight: 1.4 }}>
+                Acepto los <span style={{ color: 'var(--c-primary)', fontWeight: 600 }}>términos y condiciones</span> y la <span style={{ color: 'var(--c-primary)', fontWeight: 600 }}>política de privacidad</span>
+              </span>
+            </button>
+            {errores.terminos && <div style={{ color: '#EF4444', fontSize: 11, marginTop: 4, marginLeft: 30 }}>{errores.terminos}</div>}
           </div>
         )}
       </div>
