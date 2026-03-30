@@ -46,6 +46,13 @@ export function AuthProvider({ children }) {
   }
 
   async function registro(email, password, nombre, telefono) {
+    // Verificar que el email no esté en uso en otro rol
+    const { data: roleCheck } = await supabase.rpc('check_email_role', { check_email: email })
+    if (roleCheck?.exists) {
+      const roles = { socio: 'socio/rider', restaurante: 'restaurante' }
+      throw new Error(`Este email ya está registrado como ${roles[roleCheck.role] || roleCheck.role}. Usa otro email.`)
+    }
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
