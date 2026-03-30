@@ -4,28 +4,66 @@ import { useSocio } from '../context/SocioContext'
 
 export default function Informes() {
   const { socio } = useSocio()
-  const [facturas, setFacturas] = useState([])
   const [totalesGlobal, setTotalesGlobal] = useState({ comisiones: 0, envios: 0, propinas: 0, total: 0 })
+  const [semanaActual, setSemanaActual] = useState([]) // ganancias en curso por restaurante
+  const [facturas, setFacturas] = useState([])
   const [verDetalle, setVerDetalle] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => { if (socio) { fetchFacturas(); fetchTotalesGlobal() } }, [socio?.id])
+  useEffect(() => { if (socio) { fetchTodo() } }, [socio?.id])
 
-  async function fetchTotalesGlobal() {
-    const { data } = await supabase.from('comisiones').select('comision_socio, envio_socio, propina_socio').eq('socio_id', socio.id)
+  async function fetchTodo() {
+    setLoading(true)
+
+    // 1. Total global
+    const { data: allCom } = await supabase.from('comisiones').select('comision_socio, envio_socio, propina_socio').eq('socio_id', socio.id)
     let com = 0, env = 0, prop = 0
-    for (const c of (data || [])) { com += c.comision_socio || 0; env += c.envio_socio || 0; prop += c.propina_socio || 0 }
+    for (const c of (allCom || [])) { com += c.comision_socio || 0; env += c.envio_socio || 0; prop += c.propina_socio || 0 }
     setTotalesGlobal({ comisiones: com, envios: env, propinas: prop, total: com + env + prop })
-  }
 
-  async function fetchFacturas() {
-    const { data } = await supabase.from('facturas_semanales').select('*, establecimientos(nombre)')
+    // 2. Semana actual en curso (lunes actual hasta hoy)
+    const hoy = new Date()
+    const dia = hoy.getDay() || 7
+    const lunesActual = new Date(hoy)
+    lunesActual.setDate(hoy.getDate() - dia + 1)
+    lunesActual.setHours(0, 0, 0, 0)
+
+    const { data: pedidosSemana } = await supabase.from('pedidos')
+      .select('id, subtotal, coste_envio, propina, estado, metodo_pago, establecimiento_id, establecimientos(nombre)')
+      .eq('socio_id', socio.id)
+      .gte('created_at', lunesActual.toISOString())
+      .in('estado', ['entregado'])
+
+    const { data: comSemana } = await supabase.from('comisiones')
+      .select('comision_socio, envio_socio, propina_socio, establecimiento_id')
+      .eq('socio_id', socio.id)
+      .gte('created_at', lunesActual.toISOString())
+
+    // Agrupar por restaurante
+    const porRest = {}
+    for (const p of (pedidosSemana || [])) {
+      const eid = p.establecimiento_id
+      if (!porRest[eid]) porRest[eid] = { nombre: p.establecimientos?.nombre || '—', pedidos: 0, comisiones: 0, envios: 0, propinas: 0 }
+      porRest[eid].pedidos++
+    }
+    for (const c of (comSemana || [])) {
+      const eid = c.establecimiento_id
+      if (!porRest[eid]) porRest[eid] = { nombre: '—', pedidos: 0, comisiones: 0, envios: 0, propinas: 0 }
+      porRest[eid].comisiones += c.comision_socio || 0
+      porRest[eid].envios += c.envio_socio || 0
+      porRest[eid].propinas += c.propina_socio || 0
+    }
+    setSemanaActual(Object.values(porRest))
+
+    // 3. Facturas cerradas (semanas anteriores)
+    const { data: facs } = await supabase.from('facturas_semanales').select('*, establecimientos(nombre)')
       .eq('socio_id', socio.id).order('semana_inicio', { ascending: false }).limit(30)
-    setFacturas(data || [])
+    setFacturas(facs || [])
+
     setLoading(false)
   }
 
-  // Agrupar por semana
+  // Agrupar facturas por semana
   const porSemana = {}
   for (const f of facturas) {
     const key = `${f.semana_inicio}_${f.semana_fin}`
@@ -34,12 +72,16 @@ export default function Informes() {
   }
   const semanas = Object.values(porSemana)
 
+  const totalSemanaActual = semanaActual.reduce((s, r) => s + r.comisiones + r.envios + r.propinas, 0)
+  const pedidosSemanaActual = semanaActual.reduce((s, r) => s + r.pedidos, 0)
+
+  if (loading) return <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--c-muted)' }}>Cargando...</div>
+
   return (
     <div>
-      <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 8px' }}>Informes y facturación</h2>
-      <p style={{ fontSize: 13, color: 'var(--c-muted)', marginBottom: 20 }}>Resumen de ganancias y facturas semanales.</p>
+      <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 20px' }}>Informes y facturación</h2>
 
-      {/* Resumen global */}
+      {/* Total global */}
       <div style={{ background: 'linear-gradient(135deg, #FF5733 0%, #FF8F73 100%)', borderRadius: 16, padding: '20px 22px', marginBottom: 20 }}>
         <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.7)', marginBottom: 6 }}>Total ganado hasta la fecha</div>
         <div style={{ fontSize: 32, fontWeight: 800, color: '#fff', letterSpacing: -1 }}>{totalesGlobal.total.toFixed(2)} €</div>
@@ -50,88 +92,80 @@ export default function Informes() {
         </div>
       </div>
 
-      <h3 style={{ fontSize: 16, fontWeight: 800, margin: '0 0 14px' }}>Facturas semanales</h3>
-
-      {loading && <div style={{ textAlign: 'center', padding: '30px 0', color: 'var(--c-muted)' }}>Cargando...</div>}
-
-      {!loading && semanas.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--c-muted)' }}>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
-          <div style={{ fontSize: 14, fontWeight: 600 }}>Aún no hay facturas</div>
-          <div style={{ fontSize: 12, marginTop: 4 }}>Se generan automáticamente cada lunes</div>
+      {/* Semana en curso */}
+      <div style={{ background: 'var(--c-surface)', borderRadius: 16, padding: 20, border: '1px solid var(--c-border)', marginBottom: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 16 }}>Esta semana</div>
+            <div style={{ fontSize: 11, color: 'var(--c-muted)', marginTop: 2 }}>{pedidosSemanaActual} pedidos entregados</div>
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: '#16A34A' }}>{totalSemanaActual.toFixed(2)} €</div>
         </div>
-      )}
+
+        {semanaActual.length === 0 && <div style={{ fontSize: 12, color: 'var(--c-muted)', textAlign: 'center', padding: '10px 0' }}>Sin pedidos esta semana</div>}
+
+        {semanaActual.map((r, i) => {
+          const total = r.comisiones + r.envios + r.propinas
+          return (
+            <div key={i} style={{ padding: '10px 0', borderTop: '1px solid var(--c-border)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                <span style={{ fontWeight: 700, fontSize: 13 }}>{r.nombre}</span>
+                <span style={{ fontWeight: 700, fontSize: 13, color: '#16A34A' }}>+{total.toFixed(2)} €</span>
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--c-muted)' }}>
+                {r.pedidos} pedidos · Com: {r.comisiones.toFixed(2)} € · Envíos: {r.envios.toFixed(2)} € · Prop: {r.propinas.toFixed(2)} €
+              </div>
+            </div>
+          )
+        })}
+
+        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', marginTop: 12, textAlign: 'center' }}>La factura se cierra automáticamente cada lunes</div>
+      </div>
+
+      {/* Facturas cerradas */}
+      {semanas.length > 0 && <h3 style={{ fontSize: 16, fontWeight: 800, margin: '0 0 14px' }}>Facturas cerradas</h3>}
 
       {semanas.map((s, si) => {
         const totalGanado = s.facturas.reduce((sum, f) => sum + f.total_ganado, 0)
         const totalPedidos = s.facturas.reduce((sum, f) => sum + f.total_pedidos, 0)
         const totalEntregados = s.facturas.reduce((sum, f) => sum + f.pedidos_entregados, 0)
-        const totalCancelados = s.facturas.reduce((sum, f) => sum + f.pedidos_cancelados, 0)
-        const totalFallidos = s.facturas.reduce((sum, f) => sum + (f.pedidos_fallidos || 0), 0)
         const isOpen = verDetalle === si
 
         return (
-          <div key={si} style={{ background: 'var(--c-surface)', borderRadius: 16, padding: 20, border: '1px solid var(--c-border)', marginBottom: 16 }}>
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontWeight: 800, fontSize: 16 }}>Semana {s.inicio} — {s.fin}</div>
-              <div style={{ fontSize: 12, color: 'var(--c-muted)', marginTop: 2 }}>
-                {totalPedidos} pedidos · {totalEntregados} entregados
-                {totalCancelados > 0 && <span> · {totalCancelados} cancelados</span>}
-                {totalFallidos > 0 && <span style={{ color: '#EF4444' }}> · {totalFallidos} fallidos</span>}
-              </div>
-            </div>
-
-            <div style={{ background: 'var(--c-surface2)', borderRadius: 12, padding: 16, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 }}>
+          <div key={si} style={{ background: 'var(--c-surface)', borderRadius: 16, padding: 20, border: '1px solid var(--c-border)', marginBottom: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
               <div>
-                <div style={{ fontSize: 11, color: 'var(--c-muted)', fontWeight: 600 }}>Total ganado</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: '#16A34A' }}>{totalGanado.toFixed(2)} €</div>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>Semana {s.inicio} — {s.fin}</div>
+                <div style={{ fontSize: 11, color: 'var(--c-muted)' }}>{totalEntregados} entregados de {totalPedidos}</div>
               </div>
-              <div>
-                <div style={{ fontSize: 11, color: 'var(--c-muted)', fontWeight: 600 }}>Facturas</div>
-                <div style={{ fontSize: 22, fontWeight: 800 }}>{s.facturas.length}</div>
-              </div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: '#16A34A' }}>{totalGanado.toFixed(2)} €</div>
             </div>
 
             <button onClick={() => setVerDetalle(isOpen ? null : si)} style={{
-              width: '100%', padding: '10px 0', borderRadius: 10, border: '1px solid var(--c-border)',
-              background: 'var(--c-surface)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-              fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              color: 'var(--c-text)',
+              width: '100%', padding: '8px 0', borderRadius: 8, border: '1px solid var(--c-border)',
+              background: 'transparent', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              fontFamily: 'inherit', color: 'var(--c-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
             }}>
-              {isOpen ? 'Ocultar detalle' : 'Ver facturas por restaurante'}
-              <span style={{ fontSize: 10, transform: isOpen ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }}>▼</span>
+              {isOpen ? 'Ocultar' : `Ver ${s.facturas.length} facturas`}
+              <span style={{ fontSize: 9, transform: isOpen ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }}>▼</span>
             </button>
 
             {isOpen && (
-              <div style={{ marginTop: 16, animation: 'fadeIn 0.3s ease' }}>
+              <div style={{ marginTop: 14, animation: 'fadeIn 0.3s ease' }}>
                 {s.facturas.map((f, fi) => (
-                  <div key={fi} style={{ padding: '16px 0', borderBottom: fi < s.facturas.length - 1 ? '1px solid var(--c-border)' : 'none' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                      <span style={{ fontWeight: 700, fontSize: 15 }}>{f.establecimientos?.nombre}</span>
-                      <span style={{ fontWeight: 800, fontSize: 15, color: '#16A34A' }}>+{f.total_ganado.toFixed(2)} €</span>
+                  <div key={fi} style={{ padding: '14px 0', borderTop: '1px solid var(--c-border)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                      <span style={{ fontWeight: 700, fontSize: 14 }}>{f.establecimientos?.nombre}</span>
+                      <span style={{ fontWeight: 800, fontSize: 14, color: '#16A34A' }}>+{f.total_ganado.toFixed(2)} €</span>
                     </div>
-                    {f.numero_factura && (
-                      <div style={{ fontSize: 11, color: 'var(--c-accent)', fontWeight: 600, marginBottom: 6 }}>{f.numero_factura}</div>
-                    )}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, fontSize: 12, color: 'var(--c-muted)' }}>
-                      <span>Pedidos: {f.pedidos_entregados} entregados</span>
-                      <span>Comisión: {f.total_comisiones.toFixed(2)} €</span>
-                      <span>Envíos: {f.total_envios.toFixed(2)} €</span>
-                      <span>Propinas: {f.total_propinas.toFixed(2)} €</span>
+                    {f.numero_factura && <div style={{ fontSize: 10, color: 'var(--c-accent)', fontWeight: 700, marginBottom: 6 }}>{f.numero_factura}</div>}
+                    <div style={{ fontSize: 11, color: 'var(--c-muted)', lineHeight: 1.6 }}>
+                      Pedidos: {f.pedidos_entregados} · Comisión: {f.total_comisiones.toFixed(2)} € · Envíos: {f.total_envios.toFixed(2)} € · Propinas: {f.total_propinas.toFixed(2)} €
                     </div>
-                    {(f.pedidos_fallidos > 0 || f.pedidos_cancelados > 0) && (
-                      <div style={{ fontSize: 11, color: '#EF4444', marginTop: 4 }}>
-                        {f.pedidos_fallidos > 0 && <span>{f.pedidos_fallidos} fallidos</span>}
-                        {f.pedidos_cancelados > 0 && <span> · {f.pedidos_cancelados} cancelados</span>}
-                      </div>
-                    )}
-                    <div style={{ display: 'flex', gap: 12, fontSize: 10, color: 'rgba(255,255,255,0.3)', marginTop: 6 }}>
-                      <span>💳 Tarjeta: {f.pedidos_tarjeta} ({f.ventas_tarjeta?.toFixed(2)} €)</span>
-                      <span>💵 Efectivo: {f.pedidos_efectivo} ({f.ventas_efectivo?.toFixed(2)} €)</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-                      <span style={{ fontSize: 10, padding: '3px 8px', borderRadius: 6, background: f.estado === 'pagado' ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)', color: f.estado === 'pagado' ? '#4ADE80' : '#FBBF24', fontWeight: 700 }}>
-                        {f.estado === 'pagado' ? 'Pagado' : 'Pendiente de cobro'}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+                      <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)' }}>💳 {f.pedidos_tarjeta} · 💵 {f.pedidos_efectivo}</span>
+                      <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 6, fontWeight: 700, background: f.estado === 'pagado' ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)', color: f.estado === 'pagado' ? '#4ADE80' : '#FBBF24' }}>
+                        {f.estado === 'pagado' ? 'Pagado' : 'Pendiente'}
                       </span>
                     </div>
                   </div>
