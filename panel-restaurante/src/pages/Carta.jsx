@@ -16,7 +16,8 @@ export default function Carta() {
   const [editProd, setEditProd] = useState(null)
   const [prodForm, setProdForm] = useState({ nombre: '', descripcion: '', precio: '', categoria_id: '', imagen_url: '' })
   const [saving, setSaving] = useState(false)
-  const [extrasAsignados, setExtrasAsignados] = useState([]) // IDs de grupos asignados al producto
+  const [extrasAsignados, setExtrasAsignados] = useState([])
+  const [busqueda, setBusqueda] = useState('') // IDs de grupos asignados al producto
   const imgRef = useRef()
 
   useEffect(() => { if (restaurante) fetchCarta() }, [restaurante?.id])
@@ -140,7 +141,11 @@ export default function Carta() {
   }
 
   // Filtrar productos por categoría seleccionada
-  const filtrados = catFiltro ? productos.filter(p => p.categoria_id === catFiltro) : productos
+  const filtrados = productos.filter(p => {
+    if (catFiltro && p.categoria_id !== catFiltro) return false
+    if (busqueda && !p.nombre.toLowerCase().includes(busqueda.toLowerCase())) return false
+    return true
+  })
 
   // Categorías que el restaurante usa (tienen al menos 1 producto)
   const catsUsadas = [...new Set(productos.map(p => p.categoria_id).filter(Boolean))]
@@ -312,6 +317,13 @@ export default function Carta() {
       <button onClick={() => setGestionExtras(true)} style={{ width: '100%', padding: '10px 0', borderRadius: 10, border: '1px solid var(--c-border)', background: 'var(--c-surface)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', color: 'var(--c-primary)', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
         Gestionar extras ({gruposExtras.length})
       </button>
+
+      {/* Buscador */}
+      <div style={{ position: 'relative', marginBottom: 12 }}>
+        <span style={{ position: 'absolute', left: 14, top: 11, fontSize: 14 }}>🔍</span>
+        <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar producto..." style={{ width: '100%', padding: '10px 14px 10px 38px', borderRadius: 10, border: '1px solid var(--c-border)', fontSize: 13, fontFamily: 'inherit', background: 'var(--c-surface)', color: 'var(--c-text)', outline: 'none', boxSizing: 'border-box' }} />
+        {busqueda && <button onClick={() => setBusqueda('')} style={{ position: 'absolute', right: 10, top: 10, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--c-muted)', fontSize: 14 }}>×</button>}
+      </div>
 
       {/* Filtro por categorías */}
       <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 20, paddingBottom: 4 }}>
