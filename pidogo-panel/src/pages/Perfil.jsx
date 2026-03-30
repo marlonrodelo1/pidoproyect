@@ -9,6 +9,9 @@ export default function Perfil() {
   const [enServicio, setEnServicio] = useState(socio?.en_servicio || false)
   const [redes, setRedes] = useState(socio?.redes || {})
   const [editandoRedes, setEditandoRedes] = useState(false)
+  const [tarifaBase, setTarifaBase] = useState(socio?.tarifa_base || 3)
+  const [radioTarifa, setRadioTarifa] = useState(socio?.radio_tarifa_base_km || 3)
+  const [precioKm, setPrecioKm] = useState(socio?.precio_km_adicional || 0.50)
   const logoRef = useRef(null)
   const bannerRef = useRef(null)
 
@@ -65,7 +68,7 @@ export default function Perfil() {
           { label: 'Nombre comercial', value: socio?.nombre_comercial },
           { label: 'Email', value: socio?.email },
           { label: 'Teléfono', value: socio?.telefono },
-          { label: 'URL tienda', value: `socio.pidoo.es/${socio?.slug}`, url: `https://socio.pidoo.es/${socio?.slug}`, accent: true },
+          { label: 'URL tienda', value: `pidoo.es/${socio?.slug}`, url: `https://pidoo.es/${socio?.slug}`, accent: true },
         ].map((item, i) => (
           <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: i < 4 ? '1px solid var(--c-border)' : 'none' }}>
             <span style={{ fontSize: 13, color: 'var(--c-muted)' }}>{item.label}</span>
@@ -107,6 +110,51 @@ export default function Perfil() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <input type="range" min="1" max="20" value={radio} onChange={e => guardarRadio(Number(e.target.value))} style={{ flex: 1, accentColor: '#FF5733' }} />
           <span style={{ minWidth: 50, textAlign: 'center', fontWeight: 800, fontSize: 16, color: 'var(--c-accent)' }}>{radio} km</span>
+        </div>
+      </div>
+
+      {/* Tarifa de envío */}
+      <div style={{ background: 'var(--c-surface)', borderRadius: 14, padding: 18, border: '1px solid var(--c-border)', marginBottom: 16 }}>
+        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>Tarifa de envío</h3>
+        <p style={{ fontSize: 11, color: 'var(--c-muted)', marginBottom: 16 }}>Configura cuánto cobras por cada entrega desde tu tienda PIDOGO.</p>
+
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <span style={{ fontSize: 13, color: 'var(--c-muted)' }}>Tarifa base (mín. 3,00 €)</span>
+            <span style={{ fontWeight: 800, fontSize: 16, color: 'var(--c-accent)' }}>{tarifaBase.toFixed(2)} €</span>
+          </div>
+          <input type="range" min="3" max="10" step="0.50" value={tarifaBase}
+            onChange={e => { const v = Number(e.target.value); setTarifaBase(v); updateSocio({ tarifa_base: v }) }}
+            style={{ width: '100%', accentColor: '#FF5733' }} />
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <span style={{ fontSize: 13, color: 'var(--c-muted)' }}>Radio que cubre la tarifa base</span>
+            <span style={{ fontWeight: 800, fontSize: 16, color: 'var(--c-accent)' }}>{radioTarifa} km</span>
+          </div>
+          <input type="range" min="1" max="10" step="0.5" value={radioTarifa}
+            onChange={e => { const v = Number(e.target.value); setRadioTarifa(v); updateSocio({ radio_tarifa_base_km: v }) }}
+            style={{ width: '100%', accentColor: '#FF5733' }} />
+        </div>
+
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <span style={{ fontSize: 13, color: 'var(--c-muted)' }}>Precio por km adicional</span>
+            <span style={{ fontWeight: 800, fontSize: 16, color: 'var(--c-accent)' }}>{precioKm.toFixed(2)} €/km</span>
+          </div>
+          <input type="range" min="0.25" max="2" step="0.25" value={precioKm}
+            onChange={e => { const v = Number(e.target.value); setPrecioKm(v); updateSocio({ precio_km_adicional: v }) }}
+            style={{ width: '100%', accentColor: '#FF5733' }} />
+        </div>
+
+        <div style={{ background: 'var(--c-accent-light)', borderRadius: 10, padding: '12px 14px', marginTop: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--c-accent)', marginBottom: 4 }}>Ejemplo de coste</div>
+          <div style={{ fontSize: 12, color: 'var(--c-muted)' }}>
+            Hasta {radioTarifa} km → <strong style={{ color: 'var(--c-text)' }}>{tarifaBase.toFixed(2)} €</strong>
+            {' · '}{radioTarifa + 3} km → <strong style={{ color: 'var(--c-text)' }}>{(tarifaBase + 3 * precioKm).toFixed(2)} €</strong>
+            {' · '}{radioTarifa + 6} km → <strong style={{ color: 'var(--c-text)' }}>{(tarifaBase + 6 * precioKm).toFixed(2)} €</strong>
+          </div>
         </div>
       </div>
 
