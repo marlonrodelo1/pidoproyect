@@ -144,24 +144,47 @@ function PaginaInicio({ socio, establecimientos, categorias, catActiva, setCatAc
 function RestCard({ r, onOpen, socio }) {
   const tieneDelivery = socio.en_servicio && socio.modo_entrega !== 'recogida'
   return (
-    <div onClick={() => onOpen(r)} style={{ background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(12px)', borderRadius: 16, overflow: 'hidden', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.06)', marginBottom: 12, transition: 'transform 0.2s' }}>
-      <div style={{ height: 130, background: r.banner_url ? `url(${r.banner_url}) center/cover` : 'linear-gradient(135deg, rgba(255,107,44,0.15), rgba(255,107,44,0.25))', position: 'relative' }}>
-        <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 4 }}>
-          {tieneDelivery && <span style={{ fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 50, background: 'rgba(255,107,44,0.9)', color: '#fff' }}>Delivery</span>}
-          <span style={{ fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 50, background: 'rgba(255,255,255,0.92)', color: '#555' }}>Recogida</span>
+    <div onClick={() => onOpen(r)} style={{
+      background: 'rgba(255,255,255,0.06)', borderRadius: 16, overflow: 'hidden',
+      marginBottom: 14, cursor: 'pointer', border: '1px solid rgba(255,255,255,0.1)',
+      backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+    }}>
+      <div style={{
+        height: 130,
+        background: r.banner_url ? `url(${r.banner_url}) center/cover` : 'linear-gradient(135deg, rgba(255,107,44,0.15), rgba(255,107,44,0.25))',
+        position: 'relative',
+      }}>
+        <div style={{ position: 'absolute', bottom: 8, right: 10, display: 'flex', gap: 6 }}>
+          <span style={{ background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '4px 8px', borderRadius: 8, backdropFilter: 'blur(4px)' }}>
+            {r.radio_cobertura_km} km
+          </span>
         </div>
       </div>
-      <div style={{ position: 'relative', padding: '0 14px' }}>
-        <div style={{ width: 52, height: 52, borderRadius: 14, border: '3px solid #fff', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#1A1A1A', fontSize: 22, position: 'absolute', top: -26, left: 14 }}>
+      <div style={{ position: 'relative', padding: '0 16px' }}>
+        <div style={{
+          width: 52, height: 52, borderRadius: 14, border: '3px solid #fff',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.12)', overflow: 'hidden',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(255,255,255,0.12)', fontSize: 24,
+          position: 'absolute', top: -26, left: 16,
+        }}>
           {r.logo_url ? <img src={r.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '🍽️'}
         </div>
       </div>
-      <div style={{ padding: '32px 16px 14px' }}>
-        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{r.nombre}</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>
-          <Stars rating={r.rating} size={11} />
-          <span>{r.rating?.toFixed(1)}</span>
-          <span>({r.total_resenas})</span>
+      <div style={{ padding: '32px 16px 12px 16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+          <span style={{ fontWeight: 800, fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.nombre}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+            <Stars rating={r.rating} size={12} />
+            <span style={{ fontSize: 12, fontWeight: 700 }}>{r.rating?.toFixed(1)}</span>
+          </div>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>
+          <span>{r.total_resenas} resenas</span>
+          <div style={{ display: 'flex', gap: 4 }}>
+            {tieneDelivery && <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 50, background: 'rgba(255,107,44,0.15)', color: '#FF6B2C' }}>Delivery</span>}
+            <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 50, background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)' }}>Recogida</span>
+          </div>
         </div>
       </div>
     </div>
