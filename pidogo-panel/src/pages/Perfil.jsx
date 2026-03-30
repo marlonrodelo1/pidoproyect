@@ -12,28 +12,40 @@ export default function Perfil() {
   const [tarifaBase, setTarifaBase] = useState(socio?.tarifa_base || 3)
   const [radioTarifa, setRadioTarifa] = useState(socio?.radio_tarifa_base_km || 3)
   const [precioKm, setPrecioKm] = useState(socio?.precio_km_adicional || 0.50)
+  const [guardando, setGuardando] = useState(false)
+  const [guardado, setGuardado] = useState(false)
   const logoRef = useRef(null)
   const bannerRef = useRef(null)
+
+  // Detectar cambios pendientes
+  const hayCambios =
+    modo !== (socio?.modo_entrega || 'ambos') ||
+    radio !== (socio?.radio_km || 10) ||
+    tarifaBase !== (socio?.tarifa_base || 3) ||
+    radioTarifa !== (socio?.radio_tarifa_base_km || 3) ||
+    precioKm !== (socio?.precio_km_adicional || 0.50) ||
+    JSON.stringify(redes) !== JSON.stringify(socio?.redes || {})
+
+  async function guardarTodo() {
+    setGuardando(true)
+    await updateSocio({
+      modo_entrega: modo,
+      radio_km: radio,
+      tarifa_base: tarifaBase,
+      radio_tarifa_base_km: radioTarifa,
+      precio_km_adicional: precioKm,
+      redes,
+    })
+    setGuardando(false)
+    setGuardado(true)
+    setEditandoRedes(false)
+    setTimeout(() => setGuardado(false), 2500)
+  }
 
   async function toggleServicio() {
     const nuevo = !enServicio
     setEnServicio(nuevo)
     await updateSocio({ en_servicio: nuevo })
-  }
-
-  async function guardarModo(m) {
-    setModo(m)
-    await updateSocio({ modo_entrega: m })
-  }
-
-  async function guardarRadio(r) {
-    setRadio(r)
-    await updateSocio({ radio_km: r })
-  }
-
-  async function guardarRedes() {
-    await updateSocio({ redes })
-    setEditandoRedes(false)
   }
 
   async function subirImagen(file, bucket, field) {
@@ -46,10 +58,10 @@ export default function Perfil() {
   }
 
   return (
-    <div>
+    <div style={{ paddingBottom: hayCambios ? 90 : 0 }}>
       <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 20px' }}>Mi perfil</h2>
 
-      {/* Estado servicio */}
+      {/* Estado servicio — se guarda inmediatamente */}
       <div style={{ background: enServicio ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)', borderRadius: 14, padding: '16px 18px', marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <div style={{ fontWeight: 700, fontSize: 14, color: enServicio ? '#4ADE80' : '#FBBF24' }}>{enServicio ? 'En servicio' : 'Fuera de servicio'}</div>
@@ -89,7 +101,7 @@ export default function Perfil() {
           { id: 'recogida', label: 'Solo recogida', icon: '🏪', desc: 'El cliente recoge en el restaurante' },
           { id: 'ambos', label: 'Ambos', icon: '🔄', desc: 'Recogida y reparto disponibles' },
         ].map(m => (
-          <button key={m.id} onClick={() => guardarModo(m.id)} style={{
+          <button key={m.id} onClick={() => setModo(m.id)} style={{
             display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '12px 14px',
             borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', marginBottom: 8,
             border: modo === m.id ? '2px solid var(--c-accent)' : '1px solid var(--c-border)',
@@ -108,7 +120,7 @@ export default function Perfil() {
       <div style={{ background: 'var(--c-surface)', borderRadius: 14, padding: 18, border: '1px solid var(--c-border)', marginBottom: 16 }}>
         <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>Radio de cobertura</h3>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <input type="range" min="1" max="20" value={radio} onChange={e => guardarRadio(Number(e.target.value))} style={{ flex: 1, accentColor: '#FF5733' }} />
+          <input type="range" min="1" max="20" value={radio} onChange={e => setRadio(Number(e.target.value))} style={{ flex: 1, accentColor: '#FF5733' }} />
           <span style={{ minWidth: 50, textAlign: 'center', fontWeight: 800, fontSize: 16, color: 'var(--c-accent)' }}>{radio} km</span>
         </div>
       </div>
@@ -124,7 +136,7 @@ export default function Perfil() {
             <span style={{ fontWeight: 800, fontSize: 16, color: 'var(--c-accent)' }}>{tarifaBase.toFixed(2)} €</span>
           </div>
           <input type="range" min="3" max="10" step="0.50" value={tarifaBase}
-            onChange={e => { const v = Number(e.target.value); setTarifaBase(v); updateSocio({ tarifa_base: v }) }}
+            onChange={e => setTarifaBase(Number(e.target.value))}
             style={{ width: '100%', accentColor: '#FF5733' }} />
         </div>
 
@@ -134,7 +146,7 @@ export default function Perfil() {
             <span style={{ fontWeight: 800, fontSize: 16, color: 'var(--c-accent)' }}>{radioTarifa} km</span>
           </div>
           <input type="range" min="1" max="10" step="0.5" value={radioTarifa}
-            onChange={e => { const v = Number(e.target.value); setRadioTarifa(v); updateSocio({ radio_tarifa_base_km: v }) }}
+            onChange={e => setRadioTarifa(Number(e.target.value))}
             style={{ width: '100%', accentColor: '#FF5733' }} />
         </div>
 
@@ -144,7 +156,7 @@ export default function Perfil() {
             <span style={{ fontWeight: 800, fontSize: 16, color: 'var(--c-accent)' }}>{precioKm.toFixed(2)} €/km</span>
           </div>
           <input type="range" min="0.25" max="2" step="0.25" value={precioKm}
-            onChange={e => { const v = Number(e.target.value); setPrecioKm(v); updateSocio({ precio_km_adicional: v }) }}
+            onChange={e => setPrecioKm(Number(e.target.value))}
             style={{ width: '100%', accentColor: '#FF5733' }} />
         </div>
 
@@ -182,7 +194,7 @@ export default function Perfil() {
       <div style={{ background: 'var(--c-surface)', borderRadius: 14, padding: 18, border: '1px solid var(--c-border)', marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>Redes sociales</h3>
-          <button onClick={() => editandoRedes ? guardarRedes() : setEditandoRedes(true)} style={{ background: 'none', border: 'none', fontSize: 12, fontWeight: 600, color: 'var(--c-accent)', cursor: 'pointer', fontFamily: 'inherit' }}>{editandoRedes ? 'Guardar' : 'Editar'}</button>
+          <button onClick={() => setEditandoRedes(!editandoRedes)} style={{ background: 'none', border: 'none', fontSize: 12, fontWeight: 600, color: 'var(--c-accent)', cursor: 'pointer', fontFamily: 'inherit' }}>{editandoRedes ? 'Cerrar' : 'Editar'}</button>
         </div>
         {[
           { key: 'instagram', label: 'Instagram', icon: '📸', prefix: '@' },
@@ -204,7 +216,39 @@ export default function Perfil() {
       </div>
 
       {/* Cerrar sesión */}
-      <button onClick={logout} style={{ width: '100%', padding: '14px 0', borderRadius: 14, border: 'none', background: 'rgba(239,68,68,0.12)', color: '#EF4444', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Cerrar sesión</button>
+      <button onClick={logout} style={{ width: '100%', padding: '14px 0', borderRadius: 14, border: 'none', background: 'rgba(239,68,68,0.12)', color: '#EF4444', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 20 }}>Cerrar sesión</button>
+
+      {/* Botón guardar cambios flotante */}
+      {hayCambios && (
+        <div style={{
+          position: 'fixed', bottom: 70, left: '50%', transform: 'translateX(-50%)',
+          width: '100%', maxWidth: 420, padding: '0 20px', zIndex: 40,
+          animation: 'fadeIn 0.3s ease',
+        }}>
+          <button onClick={guardarTodo} disabled={guardando} style={{
+            width: '100%', padding: '16px 0', borderRadius: 14, border: 'none',
+            background: guardando ? 'var(--c-muted)' : 'var(--c-accent)', color: '#fff',
+            fontSize: 15, fontWeight: 800, cursor: guardando ? 'default' : 'pointer',
+            fontFamily: 'inherit',
+            boxShadow: '0 8px 32px rgba(255,87,51,0.3), 0 4px 12px rgba(0,0,0,0.2)',
+          }}>
+            {guardando ? 'Guardando...' : 'Guardar cambios'}
+          </button>
+        </div>
+      )}
+
+      {/* Toast de confirmación */}
+      {guardado && (
+        <div style={{
+          position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)',
+          background: '#16A34A', color: '#fff', padding: '12px 24px', borderRadius: 12,
+          fontSize: 13, fontWeight: 700, zIndex: 200,
+          boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+          animation: 'fadeIn 0.3s ease',
+        }}>
+          Cambios guardados correctamente
+        </div>
+      )}
     </div>
   )
 }
