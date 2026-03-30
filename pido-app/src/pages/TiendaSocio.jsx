@@ -497,6 +497,17 @@ function PaginaCarrito({ carrito, setCarrito, socio, user, onPedidoCreado, onLog
 // ===================== PAGINA: PERFIL =====================
 
 function PaginaPerfil({ user, perfil, onLogin, onLogout, updatePerfil }) {
+  const [editando, setEditando] = useState(false)
+  const [nombre, setNombre] = useState('')
+  const [apellido, setApellido] = useState('')
+  const [telefono, setTelefono] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState(null)
+  const [subSeccion, setSubSeccion] = useState(null)
+  const [direccion, setDireccion] = useState(perfil?.direccion || '')
+  const [savingDir, setSavingDir] = useState(false)
+  const [geoLoading, setGeoLoading] = useState(false)
+
   if (!user) return (
     <div style={{ textAlign: 'center', padding: '60px 20px', animation: 'fadeIn 0.3s ease' }}>
       <div style={{ fontSize: 48, marginBottom: 12 }}>👤</div>
@@ -506,88 +517,110 @@ function PaginaPerfil({ user, perfil, onLogin, onLogout, updatePerfil }) {
     </div>
   )
 
-  const [nombre, setNombre] = useState(perfil?.nombre || '')
-  const [apellido, setApellido] = useState(perfil?.apellido || '')
-  const [telefono, setTelefono] = useState(perfil?.telefono || '')
-  const [direccion, setDireccion] = useState(perfil?.direccion || '')
-  const [guardando, setGuardando] = useState(false)
-  const [guardado, setGuardado] = useState(false)
-  const [gpsLoading, setGpsLoading] = useState(false)
-
-  const hayCambios =
-    nombre !== (perfil?.nombre || '') ||
-    apellido !== (perfil?.apellido || '') ||
-    telefono !== (perfil?.telefono || '') ||
-    direccion !== (perfil?.direccion || '')
-
-  async function guardarPerfil() {
-    setGuardando(true)
-    await updatePerfil({ nombre: nombre.trim(), apellido: apellido.trim(), telefono: telefono.trim(), direccion: direccion.trim() })
-    setGuardando(false)
-    setGuardado(true)
-    setTimeout(() => setGuardado(false), 2500)
+  const handleGuardar = async () => {
+    setSaving(true); setMsg(null)
+    try {
+      await updatePerfil({ nombre: nombre.trim(), apellido: apellido.trim(), telefono: telefono.trim() })
+      setMsg('Perfil actualizado')
+      setTimeout(() => { setEditando(false); setMsg(null) }, 1200)
+    } catch { setMsg('Error al guardar') }
+    finally { setSaving(false) }
   }
 
-  async function obtenerDireccionGPS() {
-    setGpsLoading(true)
+  const handleGuardarDir = async () => {
+    setSavingDir(true)
+    try {
+      await updatePerfil({ direccion: direccion.trim() })
+      setMsg('Dirección guardada')
+      setTimeout(() => setMsg(null), 1500)
+    } catch { setMsg('Error al guardar') }
+    finally { setSavingDir(false) }
+  }
+
+  const handleGeo = async () => {
+    setGeoLoading(true)
     try {
       const pos = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(p => resolve(p.coords), reject, { enableHighAccuracy: true, timeout: 10000 }))
       const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${pos.latitude}&lon=${pos.longitude}&format=json`)
       const data = await res.json()
-      if (data.display_name) setDireccion(data.display_name.split(',').slice(0, 4).join(',').trim())
-    } catch { }
-    finally { setGpsLoading(false) }
+      const addr = data.display_name || `${pos.latitude.toFixed(6)}, ${pos.longitude.toFixed(6)}`
+      setDireccion(addr)
+      await updatePerfil({ direccion: addr, latitud: pos.latitude, longitud: pos.longitude })
+      setMsg('Ubicación actualizada')
+      setTimeout(() => setMsg(null), 1500)
+    } catch { setMsg('No se pudo obtener la ubicación') }
+    finally { setGeoLoading(false) }
   }
 
-  const inp = { width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)', fontSize: 13, fontFamily: 'inherit', background: 'rgba(255,255,255,0.08)', color: '#F5F5F5', outline: 'none', boxSizing: 'border-box' }
-  const lbl = { fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.45)', marginBottom: 4, display: 'block' }
+  const glass = { background: 'rgba(255,255,255,0.06)', borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)' }
+  const inp = { width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.15)', fontSize: 14, fontFamily: 'inherit', background: 'rgba(255,255,255,0.08)', color: '#F5F5F5', outline: 'none', boxSizing: 'border-box' }
+  const lbl = { fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.45)', marginBottom: 6, display: 'block' }
+
+  // Sub-sección dirección
+  if (subSeccion === 'direccion') {
+    return (
+      <div style={{ animation: 'fadeIn 0.3s ease' }}>
+        <button onClick={() => { setSubSeccion(null); setMsg(null) }} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: '#FF6B2C', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 20, padding: 0 }}>← Volver</button>
+        <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 16 }}>Mi dirección</h2>
+        <button onClick={handleGeo} disabled={geoLoading} style={{ width: '100%', padding: '14px 16px', borderRadius: 14, marginBottom: 12, background: 'rgba(255,107,44,0.1)', border: '1px solid rgba(255,107,44,0.2)', color: '#FF6B2C', fontSize: 13, fontWeight: 700, cursor: geoLoading ? 'default' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          📍 {geoLoading ? 'Obteniendo ubicación...' : 'Usar mi ubicación actual'}
+        </button>
+        <div style={{ ...glass, padding: 16 }}>
+          <label style={lbl}>Dirección de entrega</label>
+          <input value={direccion} onChange={e => setDireccion(e.target.value)} placeholder="Ej: Calle San Felipe 12, Puerto de la Cruz" style={inp} />
+          <button onClick={handleGuardarDir} disabled={savingDir} style={{ width: '100%', padding: '12px', borderRadius: 10, border: 'none', background: savingDir ? 'rgba(255,255,255,0.2)' : '#FF6B2C', color: '#fff', fontSize: 14, fontWeight: 700, cursor: savingDir ? 'default' : 'pointer', fontFamily: 'inherit', marginTop: 12 }}>
+            {savingDir ? 'Guardando...' : 'Guardar dirección'}
+          </button>
+          {msg && <div style={{ textAlign: 'center', fontSize: 12, color: '#FF6B2C', marginTop: 10, fontWeight: 600 }}>{msg}</div>}
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div style={{ animation: 'fadeIn 0.3s ease', paddingBottom: hayCambios ? 90 : 0 }}>
-      <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 20px' }}>Mi perfil</h2>
-
-      <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 14, padding: 18, border: '1px solid rgba(255,255,255,0.06)', marginBottom: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-          <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)' }}>Email</span>
-          <span style={{ fontSize: 13, fontWeight: 600 }}>{perfil?.email || user?.email}</span>
+    <div style={{ animation: 'fadeIn 0.3s ease' }}>
+      {/* Avatar y datos */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 24 }}>
+        <div style={{ width: 80, height: 80, borderRadius: 22, background: '#FF6B2C', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, fontWeight: 800, color: '#fff', marginBottom: 12, overflow: 'hidden' }}>
+          {perfil?.avatar_url ? <img src={perfil.avatar_url} alt="" style={{ width: 80, height: 80, objectFit: 'cover' }} /> : (perfil?.nombre?.[0] || 'U').toUpperCase()}
         </div>
+        <div style={{ fontSize: 18, fontWeight: 800 }}>{perfil?.nombre} {perfil?.apellido || ''}</div>
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>{perfil?.email || user?.email}</div>
+        {perfil?.telefono && <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>{perfil.telefono}</div>}
+        <button onClick={() => { setNombre(perfil?.nombre || ''); setApellido(perfil?.apellido || ''); setTelefono(perfil?.telefono || ''); setEditando(true) }} style={{ marginTop: 10, padding: '6px 16px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)', background: 'transparent', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', color: '#FF6B2C' }}>
+          Editar perfil
+        </button>
       </div>
 
-      <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 14, padding: 18, border: '1px solid rgba(255,255,255,0.06)', marginBottom: 16 }}>
-        <div style={{ marginBottom: 12 }}>
-          <label style={lbl}>Nombre</label>
-          <input value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Tu nombre" style={inp} />
-        </div>
-        <div style={{ marginBottom: 12 }}>
-          <label style={lbl}>Apellido</label>
-          <input value={apellido} onChange={e => setApellido(e.target.value)} placeholder="Tu apellido" style={inp} />
-        </div>
-        <div style={{ marginBottom: 12 }}>
-          <label style={lbl}>Teléfono</label>
-          <input type="tel" value={telefono} onChange={e => setTelefono(e.target.value)} placeholder="+34 600 000 000" style={inp} />
-        </div>
-        <div>
-          <label style={lbl}>Dirección de entrega</label>
-          <input value={direccion} onChange={e => setDireccion(e.target.value)} placeholder="Tu dirección" style={inp} />
-          <button onClick={obtenerDireccionGPS} disabled={gpsLoading} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: '#FF6B2C', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', marginTop: 6, padding: 0 }}>
-            📍 {gpsLoading ? 'Obteniendo ubicación...' : 'Usar mi ubicación actual'}
-          </button>
-        </div>
+      {/* Menú */}
+      <div style={glass}>
+        <button onClick={() => setSubSeccion('direccion')} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '14px 16px', border: 'none', background: 'transparent', borderBottom: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 600, color: '#F5F5F5', textAlign: 'left' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>📍 Mi dirección</span>
+          <span style={{ color: 'rgba(255,255,255,0.3)' }}>›</span>
+        </button>
+        <button onClick={onLogout} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '14px 16px', border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 600, color: '#EF4444', textAlign: 'left' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>↪ Cerrar sesión</span>
+          <span style={{ color: 'rgba(255,255,255,0.3)' }}>›</span>
+        </button>
       </div>
 
-      <button onClick={onLogout} style={{ width: '100%', padding: '14px 0', borderRadius: 14, border: 'none', background: 'rgba(239,68,68,0.12)', color: '#EF4444', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Cerrar sesión</button>
-
-      {hayCambios && (
-        <div style={{ position: 'fixed', bottom: 70, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 420, padding: '0 20px', zIndex: 40, animation: 'fadeIn 0.3s ease' }}>
-          <button onClick={guardarPerfil} disabled={guardando} style={{ width: '100%', padding: '16px 0', borderRadius: 14, border: 'none', background: guardando ? 'rgba(255,255,255,0.2)' : '#FF6B2C', color: '#fff', fontSize: 15, fontWeight: 800, cursor: guardando ? 'default' : 'pointer', fontFamily: 'inherit', boxShadow: '0 8px 32px rgba(255,107,44,0.3), 0 4px 12px rgba(0,0,0,0.2)' }}>
-            {guardando ? 'Guardando...' : 'Guardar cambios'}
-          </button>
-        </div>
-      )}
-
-      {guardado && (
-        <div style={{ position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', background: '#16A34A', color: '#fff', padding: '12px 24px', borderRadius: 12, fontSize: 13, fontWeight: 700, zIndex: 200, boxShadow: '0 8px 24px rgba(0,0,0,0.3)', animation: 'fadeIn 0.3s ease' }}>
-          Cambios guardados
+      {/* Modal Editar Perfil */}
+      {editando && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={e => e.target === e.currentTarget && setEditando(false)}>
+          <div style={{ width: '100%', maxWidth: 420, background: '#1A1A1A', borderRadius: '20px 20px 0 0', padding: 24, animation: 'slideUp 0.3s ease', border: '1px solid rgba(255,255,255,0.1)', borderBottom: 'none' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+              <h3 style={{ fontSize: 18, fontWeight: 800, color: '#F5F5F5', margin: 0 }}>Editar perfil</h3>
+              <button onClick={() => setEditando(false)} style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#F5F5F5', fontSize: 16 }}>×</button>
+            </div>
+            <div style={{ marginBottom: 14 }}><label style={lbl}>Nombre</label><input value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Nombre" style={inp} /></div>
+            <div style={{ marginBottom: 14 }}><label style={lbl}>Apellido</label><input value={apellido} onChange={e => setApellido(e.target.value)} placeholder="Apellido" style={inp} /></div>
+            <div style={{ marginBottom: 14 }}><label style={lbl}>Teléfono</label><input value={telefono} onChange={e => setTelefono(e.target.value)} placeholder="Teléfono" style={inp} /></div>
+            <div style={{ marginBottom: 20 }}><label style={lbl}>Email</label><input value={perfil?.email || ''} disabled style={{ ...inp, opacity: 0.4, cursor: 'not-allowed' }} /></div>
+            {msg && <div style={{ textAlign: 'center', fontSize: 12, fontWeight: 600, marginBottom: 14, color: msg.includes('Error') ? '#EF4444' : '#22C55E' }}>{msg}</div>}
+            <button onClick={handleGuardar} disabled={saving} style={{ width: '100%', padding: '14px', borderRadius: 12, border: 'none', background: saving ? 'rgba(255,255,255,0.2)' : '#FF6B2C', color: '#fff', fontSize: 15, fontWeight: 800, cursor: saving ? 'default' : 'pointer', fontFamily: 'inherit' }}>
+              {saving ? 'Guardando...' : 'Guardar cambios'}
+            </button>
+          </div>
         </div>
       )}
     </div>
