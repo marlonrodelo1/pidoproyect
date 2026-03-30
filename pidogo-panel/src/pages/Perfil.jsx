@@ -1,4 +1,5 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
+import { QRCodeCanvas } from 'qrcode.react'
 import { supabase } from '../lib/supabase'
 import { useSocio } from '../context/SocioContext'
 
@@ -187,6 +188,50 @@ export default function Perfil() {
         </div>
       </div>
 
+      {/* QR + Compartir tienda */}
+      <div style={{ background: 'var(--c-surface)', borderRadius: 14, padding: 18, border: '1px solid var(--c-border)', marginBottom: 16 }}>
+        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>Tu tienda pública</h3>
+
+        {/* QR */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 16 }}>
+          <div id="qr-container" style={{ background: '#fff', borderRadius: 16, padding: 16, marginBottom: 12 }}>
+            <QRCodeCanvas value={`https://pidoo.es/${socio?.slug}`} size={180} level="H" includeMargin={false} fgColor="#0D0D0D" />
+          </div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-accent)', marginBottom: 4 }}>pidoo.es/{socio?.slug}</div>
+          <button onClick={() => {
+            const canvas = document.querySelector('#qr-container canvas')
+            if (!canvas) return
+            const link = document.createElement('a')
+            link.download = `qr-${socio?.slug}.png`
+            link.href = canvas.toDataURL('image/png')
+            link.click()
+          }} style={{ padding: '8px 20px', borderRadius: 10, border: '1px solid var(--c-border)', background: 'var(--c-surface)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', color: 'var(--c-text)', display: 'flex', alignItems: 'center', gap: 6 }}>
+            📥 Descargar QR
+          </button>
+        </div>
+
+        {/* Compartir */}
+        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>Compartir</div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(`¡Pide tu comida en mi tienda! 🛵🍕\nhttps://pidoo.es/${socio?.slug}`)}`, '_blank')} style={shareBtn}>
+            💬 WhatsApp
+          </button>
+          <button onClick={() => window.open(`https://www.instagram.com/`, '_blank')} style={shareBtn}>
+            📸 Instagram
+          </button>
+          <button onClick={() => window.open(`https://www.tiktok.com/`, '_blank')} style={shareBtn}>
+            🎵 TikTok
+          </button>
+          <button onClick={() => {
+            navigator.clipboard.writeText(`https://pidoo.es/${socio?.slug}`)
+            const btn = document.getElementById('copy-btn')
+            if (btn) { btn.textContent = '✓ Copiado'; setTimeout(() => { btn.textContent = '🔗 Copiar enlace' }, 2000) }
+          }} id="copy-btn" style={shareBtn}>
+            🔗 Copiar enlace
+          </button>
+        </div>
+      </div>
+
       {/* Logo */}
       <div style={{ background: 'var(--c-surface)', borderRadius: 14, padding: 18, border: '1px solid var(--c-border)', marginBottom: 16 }}>
         <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>Logo</h3>
@@ -268,6 +313,14 @@ export default function Perfil() {
       )}
     </div>
   )
+}
+
+const shareBtn = {
+  padding: '10px 16px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)',
+  background: 'rgba(255,255,255,0.06)', fontSize: 12, fontWeight: 700,
+  cursor: 'pointer', fontFamily: 'inherit', color: '#F5F5F5',
+  display: 'flex', alignItems: 'center', gap: 6, flex: '1 1 45%',
+  justifyContent: 'center',
 }
 
 const inputStyle = {
