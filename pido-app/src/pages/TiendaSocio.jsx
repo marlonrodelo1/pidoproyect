@@ -103,7 +103,7 @@ function PaginaInicio({ socio, establecimientos, categorias, catActiva, setCatAc
   const destacados = establecimientos.filter(e => e.destacado)
   const filtered = busqueda
     ? establecimientos.filter(e => e.nombre.toLowerCase().includes(busqueda.toLowerCase()))
-    : catActiva ? establecimientos.filter(e => e._cats?.includes(catActiva)) : establecimientos
+    : catActiva ? establecimientos.filter(e => (e._catIds || []).includes(catActiva)) : establecimientos
 
   return (
     <div style={{ animation: 'fadeIn 0.3s ease' }}>
@@ -114,12 +114,18 @@ function PaginaInicio({ socio, establecimientos, categorias, catActiva, setCatAc
         {busqueda && <button onClick={() => setBusqueda('')} style={{ position: 'absolute', right: 12, top: 12, background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.4)' }}><X size={16} /></button>}
       </div>
 
-      {/* Categorías */}
+      {/* Categorías con emojis (nivel 2) */}
       {categorias.length > 0 && (
-        <div style={{ display: 'flex', gap: 8, overflowX: 'auto', marginBottom: 20, paddingBottom: 4 }}>
-          <button onClick={() => setCatActiva(null)} style={{ padding: '8px 16px', borderRadius: 50, border: 'none', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', background: !catActiva ? '#FF6B2C' : 'rgba(255,255,255,0.08)', color: !catActiva ? '#fff' : 'rgba(255,255,255,0.5)' }}>Todos</button>
+        <div style={{ display: 'flex', gap: 10, overflowX: 'auto', marginBottom: 20, paddingBottom: 4 }}>
+          <button onClick={() => setCatActiva(null)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '8px 12px', borderRadius: 12, border: 'none', cursor: 'pointer', fontFamily: 'inherit', minWidth: 60, background: !catActiva ? 'rgba(255,107,44,0.15)' : 'rgba(255,255,255,0.08)' }}>
+            <span style={{ fontSize: 22 }}>🍽️</span>
+            <span style={{ fontSize: 10, fontWeight: 600, color: !catActiva ? '#FF6B2C' : 'rgba(255,255,255,0.5)' }}>Todos</span>
+          </button>
           {categorias.map(cat => (
-            <button key={cat} onClick={() => setCatActiva(catActiva === cat ? null : cat)} style={{ padding: '8px 16px', borderRadius: 50, border: 'none', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', background: catActiva === cat ? '#FF6B2C' : 'rgba(255,255,255,0.08)', color: catActiva === cat ? '#fff' : 'rgba(255,255,255,0.5)' }}>{cat}</button>
+            <button key={cat.id} onClick={() => setCatActiva(catActiva === cat.id ? null : cat.id)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '8px 12px', borderRadius: 12, border: 'none', cursor: 'pointer', fontFamily: 'inherit', minWidth: 60, opacity: catActiva && catActiva !== cat.id ? 0.4 : 1, background: catActiva === cat.id ? 'rgba(255,107,44,0.15)' : 'rgba(255,255,255,0.08)', transition: 'opacity 0.2s' }}>
+              <span style={{ fontSize: 22 }}>{cat.emoji || '🍽️'}</span>
+              <span style={{ fontSize: 10, fontWeight: 600, color: catActiva === cat.id ? '#FF6B2C' : 'rgba(255,255,255,0.5)' }}>{cat.nombre}</span>
+            </button>
           ))}
         </div>
       )}
@@ -843,11 +849,18 @@ export default function TiendaSocio({ slug: slugProp }) {
     if (rels && rels.length > 0) {
       const estIds = rels.map(r => r.establecimiento_id)
       const { data: ests } = await supabase.from('establecimientos').select('*').in('id', estIds).eq('activo', true)
-      const { data: cats } = await supabase.from('categorias').select('nombre, establecimiento_id').in('establecimiento_id', estIds).eq('activa', true)
+      // Cargar categorías generales (nivel 2) asignadas a estos establecimientos
+      const { data: estCats } = await supabase.from('establecimiento_categorias').select('establecimiento_id, categoria_id').in('establecimiento_id', estIds)
+      const { data: allCatsGen } = await supabase.from('categorias_generales').select('*').eq('activa', true).order('orden')
       const catMap = {}
-      for (const c of (cats || [])) { if (!catMap[c.establecimiento_id]) catMap[c.establecimiento_id] = []; catMap[c.establecimiento_id].push(c.nombre) }
-      setEstablecimientos((ests || []).map(e => ({ ...e, destacado: rels.find(r => r.establecimiento_id === e.id)?.destacado || false, _cats: catMap[e.id] || [] })))
-      setCategorias([...new Set((cats || []).map(c => c.nombre))])
+      for (const ec of (estCats || [])) {
+        if (!catMap[ec.establecimiento_id]) catMap[ec.establecimiento_id] = []
+        catMap[ec.establecimiento_id].push(ec.categoria_id)
+      }
+      setEstablecimientos((ests || []).map(e => ({ ...e, destacado: rels.find(r => r.establecimiento_id === e.id)?.destacado || false, _catIds: catMap[e.id] || [] })))
+      // Solo mostrar categorías que tienen al menos un restaurante del socio
+      const usedCatIds = new Set((estCats || []).map(ec => ec.categoria_id))
+      setCategorias((allCatsGen || []).filter(c => usedCatIds.has(c.id)))
     }
     setLoading(false)
   }
