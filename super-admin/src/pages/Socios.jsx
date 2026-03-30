@@ -13,6 +13,7 @@ export default function Socios() {
   const [form, setForm] = useState({})
   const [saving, setSaving] = useState(false)
   const [solicitudes, setSolicitudes] = useState([])
+  const [resenas, setResenas] = useState([])
   const logoRef = useRef()
 
   useEffect(() => { load() }, [])
@@ -54,6 +55,17 @@ export default function Socios() {
       setDetalle(prev => ({ ...prev, logo_url: url }))
       setForm(prev => ({ ...prev, logo_url: url }))
     } catch (e) { alert(e.message) }
+  }
+
+  async function loadResenas(socioId) {
+    const { data } = await supabase.from('resenas').select('*, usuarios(nombre, email), establecimientos(nombre)').eq('socio_id', socioId).order('created_at', { ascending: false }).limit(20)
+    setResenas(data || [])
+  }
+
+  async function eliminarResena(id) {
+    if (!confirm('¿Eliminar esta reseña?')) return
+    await supabase.from('resenas').delete().eq('id', id)
+    if (detalle) loadResenas(detalle.id)
   }
 
   const filtrados = items.filter(s => {
@@ -132,6 +144,33 @@ export default function Socios() {
             </div>
           </div>
 
+          {/* Reseñas */}
+          <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <h3 style={{ fontSize: 14, fontWeight: 700, color: '#F5F5F5' }}>Reseñas ({resenas.length})</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 16, fontWeight: 800, color: '#F5F5F5' }}>{detalle.rating?.toFixed(1) || '—'}</span>
+                <div style={{ display: 'flex', gap: 1 }}>{[1,2,3,4,5].map(i => <span key={i} style={{ color: i <= Math.round(detalle.rating || 0) ? '#FBBF24' : 'rgba(255,255,255,0.15)', fontSize: 14 }}>★</span>)}</div>
+              </div>
+            </div>
+            {resenas.map(r => (
+              <div key={r.id} style={{ ...ds.card, padding: '10px 16px', marginBottom: 6, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                    <span style={{ fontWeight: 700, fontSize: 12, color: '#F5F5F5' }}>{r.usuarios?.nombre || 'Usuario'}</span>
+                    <div style={{ display: 'flex', gap: 1 }}>{[1,2,3,4,5].map(i => <span key={i} style={{ color: i <= r.rating ? '#FBBF24' : 'rgba(255,255,255,0.15)', fontSize: 10 }}>★</span>)}</div>
+                    {r.establecimientos?.nombre && <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>· {r.establecimientos.nombre}</span>}
+                  </div>
+                  {r.texto && <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.4 }}>{r.texto}</div>}
+                  {!r.texto && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.2)', fontStyle: 'italic' }}>Sin comentario</div>}
+                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', marginTop: 3 }}>{new Date(r.created_at).toLocaleDateString('es-ES')}</div>
+                </div>
+                <button onClick={() => eliminarResena(r.id)} style={{ ...ds.actionBtn, color: '#EF4444', fontSize: 10, flexShrink: 0 }}>Eliminar</button>
+              </div>
+            ))}
+            {resenas.length === 0 && <div style={{ padding: 16, textAlign: 'center', color: 'rgba(255,255,255,0.25)', fontSize: 12 }}>Sin reseñas</div>}
+          </div>
+
           {/* Acciones */}
           {!detalle.activo && (
             <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
@@ -170,7 +209,7 @@ export default function Socios() {
                 <div style={{ fontWeight: 700, fontSize: 13, color: '#F5F5F5' }}>{s.nombre}</div>
                 <div style={{ fontSize: 11, ...ds.muted }}>{s.nombre_comercial} · {s.email}</div>
               </div>
-              <button onClick={() => setDetalle(s)} style={{ ...ds.actionBtn, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <button onClick={() => { setDetalle(s); loadResenas(s.id) }} style={{ ...ds.actionBtn, display: 'flex', alignItems: 'center', gap: 4 }}>
                 <Eye size={12} /> Revisar
               </button>
               <button onClick={() => aceptarSocio(s.id)} style={{ ...ds.actionBtn, color: '#22C55E' }}>Aceptar</button>
@@ -208,7 +247,7 @@ export default function Socios() {
                 {s.logo_url ? <img src={s.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : s.nombre_comercial?.[0]?.toUpperCase()}
               </div>
             </span>
-            <span style={{ flex: 1, fontWeight: 700, fontSize: 13, cursor: 'pointer', color: '#F5F5F5' }} onClick={() => setDetalle(s)}>{s.nombre}</span>
+            <span style={{ flex: 1, fontWeight: 700, fontSize: 13, cursor: 'pointer', color: '#F5F5F5' }} onClick={() => { setDetalle(s); loadResenas(s.id) }}>{s.nombre}</span>
             <span style={{ width: 120, fontSize: 12, ...ds.muted }}>{s.nombre_comercial}</span>
             <span style={{ width: 80 }}><span style={{ ...ds.badge, background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)' }}>{s.modo_entrega}</span></span>
             <span style={{ width: 60, fontSize: 12, color: '#F5F5F5' }}>{s.rating?.toFixed(1)}</span>
@@ -216,7 +255,7 @@ export default function Socios() {
               <span style={{ ...ds.badge, background: s.activo ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)', color: s.activo ? '#22C55E' : '#EF4444' }}>{s.activo ? 'Activo' : 'Inactivo'}</span>
             </span>
             <span style={{ width: 120, display: 'flex', gap: 6 }}>
-              <button onClick={() => setDetalle(s)} style={ds.actionBtn}>Ver</button>
+              <button onClick={() => { setDetalle(s); loadResenas(s.id) }} style={ds.actionBtn}>Ver</button>
               <button onClick={() => toggleActivo(s.id, s.activo)} style={{ ...ds.actionBtn, color: s.activo ? '#EF4444' : '#22C55E' }}>
                 {s.activo ? 'Desactivar' : 'Activar'}
               </button>
