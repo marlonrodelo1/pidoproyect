@@ -4,11 +4,13 @@ import { useRest } from '../context/RestContext'
 
 export default function Carta() {
   const { restaurante } = useRest()
-  const [categoriasGenerales, setCategoriasGenerales] = useState([])
+  const [categoriasRest, setCategoriasRest] = useState([]) // categorias propias del restaurante (nivel 3)
   const [productos, setProductos] = useState([])
   const [gruposExtras, setGruposExtras] = useState([])
   const [catFiltro, setCatFiltro] = useState(null)
   const [gestionExtras, setGestionExtras] = useState(false)
+  const [gestionCats, setGestionCats] = useState(false)
+  const [nuevaCat, setNuevaCat] = useState('')
   const [loading, setLoading] = useState(true)
 
   // Crear/editar producto
@@ -27,21 +29,35 @@ export default function Carta() {
   async function fetchCarta() {
     setLoading(true)
     const [catRes, prodRes, grpRes, peRes] = await Promise.all([
-      supabase.from('categorias_generales').select('*').eq('activa', true).order('orden'),
+      supabase.from('categorias').select('*').eq('establecimiento_id', restaurante.id).eq('activa', true).order('orden'),
       supabase.from('productos').select('*').eq('establecimiento_id', restaurante.id).order('orden'),
       supabase.from('grupos_extras').select('*, extras_opciones(*)').eq('establecimiento_id', restaurante.id),
       supabase.from('producto_extras').select('producto_id, grupo_id'),
     ])
-    setCategoriasGenerales(catRes.data || [])
+    setCategoriasRest(catRes.data || [])
     setProductos(prodRes.data || [])
     setGruposExtras(grpRes.data || [])
-    // Contar extras por producto
     const map = {}
     for (const pe of (peRes.data || [])) {
       map[pe.producto_id] = (map[pe.producto_id] || 0) + 1
     }
     setProdExtrasMap(map)
     setLoading(false)
+  }
+
+  // CRUD categorías del restaurante (nivel 3)
+  async function addCatRest() {
+    if (!nuevaCat.trim()) return
+    await supabase.from('categorias').insert({ establecimiento_id: restaurante.id, nombre: nuevaCat.trim(), orden: categoriasRest.length, activa: true })
+    setNuevaCat('')
+    fetchCarta()
+  }
+
+  async function removeCatRest(id) {
+    if (!confirm('¿Eliminar esta categoría? Los productos se quedarán sin categoría.')) return
+    await supabase.from('productos').update({ categoria_id: null }).eq('categoria_id', id)
+    await supabase.from('categorias').delete().eq('id', id)
+    fetchCarta()
   }
 
   async function toggleDisponible(id, current) {
@@ -63,7 +79,7 @@ export default function Carta() {
 
   // --- Productos ---
   function abrirCrearProducto() {
-    setProdForm({ nombre: '', descripcion: '', precio: '', categoria_id: catFiltro || categoriasGenerales[0]?.id || '', imagen_url: '' })
+    setProdForm({ nombre: '', descripcion: '', precio: '', categoria_id: catFiltro || categoriasRest[0]?.id || '', imagen_url: '' })
     setEditProd(null)
     setExtrasAsignados([])
     setShowAddProd(true)
@@ -150,7 +166,7 @@ export default function Carta() {
   // Categorías que el restaurante usa (tienen al menos 1 producto)
   const catsUsadas = [...new Set(productos.map(p => p.categoria_id).filter(Boolean))]
   const catLabel = (id) => {
-    const cat = categoriasGenerales.find(c => c.id === id)
+    const cat = categoriasRest.find(c => c.id === id)
     return cat ? `${cat.emoji} ${cat.nombre}` : 'Sin categoría'
   }
 
@@ -307,6 +323,37 @@ export default function Carta() {
     )
   }
 
+  // --- Gestión categorías del restaurante (nivel 3) ---
+  if (gestionCats) {
+    return (
+      <div style={{ animation: 'fadeIn 0.3s ease' }}>
+        <button onClick={() => setGestionCats(false)} style={s.backBtn}>← Volver a carta</button>
+        <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 16px' }}>Categorías de mi carta</h2>
+        <p style={{ fontSize: 12, color: 'var(--c-muted)', marginBottom: 16 }}>Organiza tus productos en categorías (ej: Pizzas, Entrantes, Bebidas)</p>
+
+        {categoriasRest.map(c => {
+          const count = productos.filter(p => p.categoria_id === c.id).length
+          return (
+            <div key={c.id} style={{ ...s.card, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>{c.nombre}</div>
+                <div style={{ fontSize: 11, color: 'var(--c-muted)' }}>{count} productos</div>
+              </div>
+              <button onClick={() => removeCatRest(c.id)} style={{ ...s.miniBtn, color: '#EF4444' }}>Eliminar</button>
+            </div>
+          )
+        })}
+
+        {categoriasRest.length === 0 && <div style={{ textAlign: 'center', padding: 32, color: 'var(--c-muted)', fontSize: 13 }}>Sin categorías. Añade una para organizar tu carta.</div>}
+
+        <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+          <input value={nuevaCat} onChange={e => setNuevaCat(e.target.value)} placeholder="Nueva categoría..." onKeyDown={e => e.key === 'Enter' && addCatRest()} style={s.formInput} />
+          <button onClick={addCatRest} style={s.btnPrimary}>Añadir</button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -314,9 +361,14 @@ export default function Carta() {
         <button onClick={abrirCrearProducto} style={s.btnPrimary}>+ Producto</button>
       </div>
 
-      <button onClick={() => setGestionExtras(true)} style={{ width: '100%', padding: '10px 0', borderRadius: 10, border: '1px solid var(--c-border)', background: 'var(--c-surface)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', color: 'var(--c-primary)', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-        Gestionar extras ({gruposExtras.length})
-      </button>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        <button onClick={() => setGestionExtras(true)} style={{ flex: 1, padding: '10px 0', borderRadius: 10, border: '1px solid var(--c-border)', background: 'var(--c-surface)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', color: 'var(--c-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+          Extras ({gruposExtras.length})
+        </button>
+        <button onClick={() => setGestionCats(true)} style={{ flex: 1, padding: '10px 0', borderRadius: 10, border: '1px solid var(--c-border)', background: 'var(--c-surface)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', color: 'var(--c-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+          Categorías ({categoriasRest.length})
+        </button>
+      </div>
 
       {/* Buscador */}
       <div style={{ position: 'relative', marginBottom: 12 }}>
@@ -328,9 +380,9 @@ export default function Carta() {
       {/* Filtro por categorías */}
       <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 20, paddingBottom: 4 }}>
         <button onClick={() => setCatFiltro(null)} style={{ ...s.catBtn, background: !catFiltro ? 'var(--c-primary)' : 'var(--c-surface2)', color: !catFiltro ? '#fff' : 'var(--c-text)' }}>Todos ({productos.length})</button>
-        {categoriasGenerales.filter(c => catsUsadas.includes(c.id)).map(c => (
+        {categoriasRest.map(c => (
           <button key={c.id} onClick={() => setCatFiltro(c.id)} style={{ ...s.catBtn, background: catFiltro === c.id ? 'var(--c-primary)' : 'var(--c-surface2)', color: catFiltro === c.id ? '#fff' : 'var(--c-text)' }}>
-            {c.emoji} {c.nombre}
+            {c.nombre}
           </button>
         ))}
       </div>
@@ -394,7 +446,7 @@ export default function Carta() {
               <label style={s.label}>Categoría *</label>
               <select value={prodForm.categoria_id} onChange={e => setProdForm({ ...prodForm, categoria_id: e.target.value })} style={s.formInput}>
                 <option value="">Sin categoría</option>
-                {categoriasGenerales.map(c => <option key={c.id} value={c.id}>{c.emoji} {c.nombre}</option>)}
+                {categoriasRest.map(c => <option key={c.id} value={c.id}>{c.emoji} {c.nombre}</option>)}
               </select>
             </div>
             <div style={{ marginBottom: 12 }}>

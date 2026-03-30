@@ -48,7 +48,19 @@ export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
     }
 
     const { data } = await query.order('rating', { ascending: false })
-    setEstablecimientos(data || [])
+
+    // Cargar categorías asignadas a cada establecimiento (nivel 2)
+    if (data && data.length > 0) {
+      const { data: estCats } = await supabase.from('establecimiento_categorias').select('establecimiento_id, categoria_id').in('establecimiento_id', data.map(e => e.id))
+      const catMap = {}
+      for (const ec of (estCats || [])) {
+        if (!catMap[ec.establecimiento_id]) catMap[ec.establecimiento_id] = []
+        catMap[ec.establecimiento_id].push(ec.categoria_id)
+      }
+      setEstablecimientos(data.map(e => ({ ...e, _catIds: catMap[e.id] || [] })))
+    } else {
+      setEstablecimientos(data || [])
+    }
 
     // Cargar riders activos por establecimiento
     if (data && data.length > 0) {
@@ -95,6 +107,10 @@ export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
 
   const filtrados = establecimientos.filter(r => {
     if (busqueda && !r.nombre.toLowerCase().includes(busqueda.toLowerCase())) return false
+    if (catActiva) {
+      const cat = categoriasGenerales.find(c => c.nombre === catActiva)
+      if (cat && !(r._catIds || []).includes(cat.id)) return false
+    }
     return true
   })
 

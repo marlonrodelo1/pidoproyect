@@ -14,8 +14,34 @@ export default function Ajustes() {
   const [radioCobertura, setRadioCobertura] = useState(restaurante?.radio_cobertura_km || 10)
   const [guardando, setGuardando] = useState(false)
   const [guardado, setGuardado] = useState(false)
+  const [catsGenerales, setCatsGenerales] = useState([]) // todas las categorias disponibles
+  const [catsSeleccionadas, setCatsSeleccionadas] = useState([]) // IDs de categorias del restaurante
+  const [catsOriginales, setCatsOriginales] = useState([])
   const logoRef = useRef()
   const bannerRef = useRef()
+
+  useEffect(() => {
+    if (restaurante) loadCategorias()
+  }, [restaurante?.id])
+
+  async function loadCategorias() {
+    const [allRes, asignRes] = await Promise.all([
+      supabase.from('categorias_generales').select('*').eq('activa', true).order('orden'),
+      supabase.from('establecimiento_categorias').select('categoria_id').eq('establecimiento_id', restaurante.id),
+    ])
+    setCatsGenerales(allRes.data || [])
+    const ids = (asignRes.data || []).map(r => r.categoria_id)
+    setCatsSeleccionadas(ids)
+    setCatsOriginales(ids)
+  }
+
+  function toggleCat(catId) {
+    setCatsSeleccionadas(prev => {
+      if (prev.includes(catId)) return prev.filter(id => id !== catId)
+      if (prev.length >= 3) return prev // máximo 3
+      return [...prev, catId]
+    })
+  }
 
   const hayCambios =
     nombre !== (restaurante?.nombre || '') ||
@@ -24,7 +50,8 @@ export default function Ajustes() {
     direccion !== (restaurante?.direccion || '') ||
     email !== (restaurante?.email || '') ||
     telefono !== (restaurante?.telefono || '') ||
-    radioCobertura !== (restaurante?.radio_cobertura_km || 10)
+    radioCobertura !== (restaurante?.radio_cobertura_km || 10) ||
+    JSON.stringify(catsSeleccionadas.sort()) !== JSON.stringify(catsOriginales.sort())
 
   async function guardarTodo() {
     setGuardando(true)
@@ -37,6 +64,14 @@ export default function Ajustes() {
       telefono: telefono.trim() || null,
       radio_cobertura_km: radioCobertura,
     })
+    // Guardar categorías del establecimiento (nivel 2)
+    await supabase.from('establecimiento_categorias').delete().eq('establecimiento_id', restaurante.id)
+    if (catsSeleccionadas.length > 0) {
+      await supabase.from('establecimiento_categorias').insert(
+        catsSeleccionadas.map(catId => ({ establecimiento_id: restaurante.id, categoria_id: catId }))
+      )
+    }
+    setCatsOriginales([...catsSeleccionadas])
     setGuardando(false)
     setGuardado(true)
     setTimeout(() => setGuardado(false), 2500)
@@ -149,6 +184,35 @@ export default function Ajustes() {
           <span style={{ minWidth: 50, textAlign: 'center', fontWeight: 800, fontSize: 16, color: 'var(--c-primary)' }}>{radioCobertura} km</span>
         </div>
         <div style={{ fontSize: 11, color: 'var(--c-muted)', marginTop: 8 }}>Solo los clientes dentro de este radio verán tu restaurante.</div>
+      </div>
+
+      {/* Categorías del establecimiento (nivel 2) */}
+      <div style={{ background: 'var(--c-surface)', borderRadius: 14, padding: 18, border: '1px solid var(--c-border)', marginBottom: 16 }}>
+        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>Categorías de tu negocio</h3>
+        <p style={{ fontSize: 11, color: 'var(--c-muted)', marginBottom: 14 }}>Elige hasta 3 categorías para que los clientes te encuentren (ej: Pizzas, Burgers)</p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {catsGenerales.map(c => {
+            const sel = catsSeleccionadas.includes(c.id)
+            const disabled = !sel && catsSeleccionadas.length >= 3
+            return (
+              <button key={c.id} onClick={() => !disabled && toggleCat(c.id)} style={{
+                padding: '8px 14px', borderRadius: 50, cursor: disabled ? 'default' : 'pointer',
+                fontFamily: 'inherit', fontSize: 12, fontWeight: 700,
+                border: sel ? '2px solid var(--c-primary)' : '1px solid var(--c-border)',
+                background: sel ? 'rgba(185,28,28,0.12)' : 'var(--c-surface)',
+                color: sel ? 'var(--c-primary)' : disabled ? 'rgba(255,255,255,0.2)' : 'var(--c-text)',
+                opacity: disabled ? 0.5 : 1,
+              }}>
+                {c.emoji} {c.nombre}
+              </button>
+            )
+          })}
+        </div>
+        {catsSeleccionadas.length > 0 && (
+          <div style={{ fontSize: 11, color: 'var(--c-primary)', marginTop: 10, fontWeight: 600 }}>
+            {catsSeleccionadas.length}/3 seleccionadas
+          </div>
+        )}
       </div>
 
       {/* Cerrar sesión */}
