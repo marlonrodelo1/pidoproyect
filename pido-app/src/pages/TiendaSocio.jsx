@@ -105,6 +105,14 @@ function EstablecimientoDetail({ est, onBack, carrito, setCarrito, modoEntrega, 
   const [loading, setLoading] = useState(true)
   const soloRecogida = modoEntrega === 'recogida'
 
+  // Modal producto con extras
+  const [modal, setModal] = useState(null)
+  const [gruposExtras, setGruposExtras] = useState([])
+  const [tamanos, setTamanos] = useState([])
+  const [tamSel, setTamSel] = useState(null)
+  const [exSel, setExSel] = useState([])
+  const [cant, setCant] = useState(1)
+
   useEffect(() => { fetchCarta() }, [est.id])
 
   async function fetchCarta() {
@@ -118,12 +126,51 @@ function EstablecimientoDetail({ est, onBack, carrito, setCarrito, modoEntrega, 
     setLoading(false)
   }
 
-  function addItem(p) {
-    setCarrito(prev => {
-      const existing = prev.find(i => i.id === p.id)
-      if (existing) return prev.map(i => i.id === p.id ? { ...i, cantidad: i.cantidad + 1 } : i)
-      return [...prev, { ...p, cantidad: 1, establecimiento_id: est.id, establecimiento_nombre: est.nombre }]
+  async function abrirProducto(p) {
+    setModal(p)
+    setCant(1)
+    setExSel([])
+    setTamSel(null)
+    const { data: tams } = await supabase.from('producto_tamanos').select('*').eq('producto_id', p.id).order('orden')
+    setTamanos(tams || [])
+    if (tams && tams.length > 0) setTamSel(0)
+    const { data: prodExtras } = await supabase.from('producto_extras').select('grupo_id').eq('producto_id', p.id)
+    if (prodExtras && prodExtras.length > 0) {
+      const { data: grupos } = await supabase.from('grupos_extras').select('*, extras_opciones(*)').in('id', prodExtras.map(pe => pe.grupo_id))
+      setGruposExtras(grupos || [])
+    } else {
+      setGruposExtras([])
+    }
+  }
+
+  function precioTotal() {
+    if (!modal) return 0
+    const base = tamSel !== null && tamanos[tamSel] ? tamanos[tamSel].precio : modal.precio
+    const extrasTotal = exSel.reduce((s, e) => s + e.precio, 0)
+    return (base + extrasTotal) * cant
+  }
+
+  function toggleExtra(op, max) {
+    setExSel(prev => {
+      if (prev.find(e => e.id === op.id)) return prev.filter(e => e.id !== op.id)
+      if (prev.length >= max) return prev
+      return [...prev, op]
     })
+  }
+
+  function confirmarItem() {
+    setCarrito(prev => [...prev, {
+      id: Math.random().toString(36).substr(2, 9),
+      producto_id: modal.id,
+      nombre: modal.nombre,
+      tamano: tamSel !== null && tamanos[tamSel] ? tamanos[tamSel].nombre : null,
+      extras: exSel.map(e => e.nombre),
+      cantidad: cant,
+      precio: precioTotal() / cant,
+      establecimiento_id: est.id,
+      establecimiento_nombre: est.nombre,
+    }])
+    setModal(null)
   }
 
   return (
@@ -175,7 +222,7 @@ function EstablecimientoDetail({ est, onBack, carrito, setCarrito, modoEntrega, 
                         <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--c-accent)' }}>{p.precio.toFixed(2)} €</div>
                       </div>
                       {p.imagen_url && <img src={p.imagen_url} alt="" style={{ width: 50, height: 50, borderRadius: 10, objectFit: 'cover', marginRight: 10 }} />}
-                      <button onClick={() => addItem(p)} style={{
+                      <button onClick={() => abrirProducto(p)} style={{
                         width: 38, height: 38, borderRadius: 10, border: 'none',
                         background: enCarrito ? 'var(--c-accent)' : 'var(--c-surface2)',
                         color: enCarrito ? '#fff' : 'var(--c-accent)',
@@ -199,7 +246,7 @@ function EstablecimientoDetail({ est, onBack, carrito, setCarrito, modoEntrega, 
                   <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--c-text)' }}>{p.nombre}</div>
                   <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--c-accent)' }}>{p.precio.toFixed(2)} €</div>
                 </div>
-                <button onClick={() => addItem(p)} style={{
+                <button onClick={() => abrirProducto(p)} style={{
                   width: 38, height: 38, borderRadius: 10, border: 'none',
                   background: enCarrito ? 'var(--c-accent)' : 'var(--c-surface2)',
                   color: enCarrito ? '#fff' : 'var(--c-accent)', fontSize: 20, fontWeight: 700,
@@ -219,6 +266,87 @@ function EstablecimientoDetail({ est, onBack, carrito, setCarrito, modoEntrega, 
           <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--c-text)', marginBottom: 12 }}>Reseñas</h3>
           <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 6 }}>
             {resenas.map(r => <ResenaCard key={r.id} r={r} />)}
+          </div>
+        </div>
+      )}
+
+      {/* Modal producto con extras */}
+      {modal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 200, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={() => setModal(null)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#1A1A1A', borderRadius: '24px 24px 0 0', padding: '24px 20px 32px', width: '100%', maxWidth: 420, maxHeight: '85vh', overflowY: 'auto', animation: 'slideUp 0.3s ease', border: '1px solid rgba(255,255,255,0.08)', borderBottom: 'none' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+              <div style={{ flex: 1 }}>
+                <h3 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 800, color: '#F5F5F5' }}>{modal.nombre}</h3>
+                {modal.descripcion && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', margin: 0 }}>{modal.descripcion}</p>}
+              </div>
+              {modal.imagen_url && <img src={modal.imagen_url} alt="" style={{ width: 64, height: 64, borderRadius: 14, objectFit: 'cover', marginLeft: 12 }} />}
+            </div>
+
+            {/* Tamaños */}
+            {tamanos.length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#F5F5F5', marginBottom: 8 }}>Tamaño</div>
+                {tamanos.map((t, i) => (
+                  <button key={t.id} onClick={() => setTamSel(i)} style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '10px 14px',
+                    borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 6,
+                    border: tamSel === i ? '2px solid var(--c-accent)' : '1px solid rgba(255,255,255,0.1)',
+                    background: tamSel === i ? 'rgba(255,107,44,0.12)' : 'rgba(255,255,255,0.04)',
+                  }}>
+                    <span style={{ fontWeight: 600, fontSize: 13, color: '#F5F5F5' }}>{t.nombre}</span>
+                    <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--c-accent)' }}>{t.precio.toFixed(2)} €</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Extras */}
+            {gruposExtras.map(g => (
+              <div key={g.id} style={{ marginBottom: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#F5F5F5' }}>{g.nombre}</span>
+                  <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', fontWeight: 600 }}>{g.tipo === 'single' ? 'Elige 1' : `Máx. ${g.max_selecciones}`}</span>
+                </div>
+                {(g.extras_opciones || []).map(op => {
+                  const sel = exSel.find(e => e.id === op.id)
+                  return (
+                    <button key={op.id} onClick={() => toggleExtra(op, g.tipo === 'single' ? 1 : g.max_selecciones)} style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '10px 14px',
+                      borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 4,
+                      border: sel ? '2px solid var(--c-accent)' : '1px solid rgba(255,255,255,0.08)',
+                      background: sel ? 'rgba(255,107,44,0.12)' : 'rgba(255,255,255,0.04)',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{
+                          width: 18, height: 18, borderRadius: 5, border: sel ? 'none' : '2px solid rgba(255,255,255,0.2)',
+                          background: sel ? 'var(--c-accent)' : 'transparent',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#fff',
+                        }}>{sel && '✓'}</div>
+                        <span style={{ fontSize: 13, color: '#F5F5F5' }}>{op.nombre}</span>
+                      </div>
+                      <span style={{ fontSize: 12, color: 'var(--c-accent)', fontWeight: 600 }}>+{op.precio.toFixed(2)} €</span>
+                    </button>
+                  )
+                })}
+              </div>
+            ))}
+
+            {/* Cantidad */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20, marginBottom: 20, marginTop: 8 }}>
+              <button onClick={() => setCant(Math.max(1, cant - 1))} style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.06)', fontSize: 18, color: '#F5F5F5', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+              <span style={{ fontSize: 18, fontWeight: 800, color: '#F5F5F5', minWidth: 24, textAlign: 'center' }}>{cant}</span>
+              <button onClick={() => setCant(cant + 1)} style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.06)', fontSize: 18, color: '#F5F5F5', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+            </div>
+
+            {/* Botón añadir */}
+            <button onClick={confirmarItem} style={{
+              width: '100%', padding: '16px 0', borderRadius: 14, border: 'none',
+              background: 'var(--c-accent)', color: '#fff', fontSize: 16, fontWeight: 800,
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}>
+              Añadir al carrito — {precioTotal().toFixed(2)} €
+            </button>
           </div>
         </div>
       )}

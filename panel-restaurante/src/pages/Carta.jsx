@@ -16,6 +16,7 @@ export default function Carta() {
   const [editProd, setEditProd] = useState(null)
   const [prodForm, setProdForm] = useState({ nombre: '', descripcion: '', precio: '', categoria_id: '', imagen_url: '' })
   const [saving, setSaving] = useState(false)
+  const [extrasAsignados, setExtrasAsignados] = useState([]) // IDs de grupos asignados al producto
   const imgRef = useRef()
 
   useEffect(() => { if (restaurante) fetchCarta() }, [restaurante?.id])
@@ -54,13 +55,23 @@ export default function Carta() {
   function abrirCrearProducto() {
     setProdForm({ nombre: '', descripcion: '', precio: '', categoria_id: catFiltro || categoriasGenerales[0]?.id || '', imagen_url: '' })
     setEditProd(null)
+    setExtrasAsignados([])
     setShowAddProd(true)
   }
 
-  function abrirEditarProducto(p) {
+  async function abrirEditarProducto(p) {
     setProdForm({ nombre: p.nombre, descripcion: p.descripcion || '', precio: p.precio, categoria_id: p.categoria_id || '', imagen_url: p.imagen_url || '' })
     setEditProd(p)
+    // Cargar extras asignados a este producto
+    const { data } = await supabase.from('producto_extras').select('grupo_id').eq('producto_id', p.id)
+    setExtrasAsignados((data || []).map(d => d.grupo_id))
     setShowAddProd(true)
+  }
+
+  function toggleExtraAsignado(grupoId) {
+    setExtrasAsignados(prev =>
+      prev.includes(grupoId) ? prev.filter(id => id !== grupoId) : [...prev, grupoId]
+    )
   }
 
   async function guardarProducto() {
@@ -76,10 +87,22 @@ export default function Carta() {
       disponible: true,
       orden: productos.length,
     }
+    let productoId
     if (editProd) {
       await supabase.from('productos').update(data).eq('id', editProd.id)
+      productoId = editProd.id
     } else {
-      await supabase.from('productos').insert(data)
+      const { data: nuevo } = await supabase.from('productos').insert(data).select().single()
+      productoId = nuevo?.id
+    }
+    // Guardar extras asignados
+    if (productoId) {
+      await supabase.from('producto_extras').delete().eq('producto_id', productoId)
+      if (extrasAsignados.length > 0) {
+        await supabase.from('producto_extras').insert(
+          extrasAsignados.map(grupoId => ({ producto_id: productoId, grupo_id: grupoId }))
+        )
+      }
     }
     setShowAddProd(false)
     setEditProd(null)
@@ -242,6 +265,40 @@ export default function Carta() {
               </label>
               {prodForm.imagen_url && <img src={prodForm.imagen_url} alt="" style={{ width: 80, height: 80, borderRadius: 10, objectFit: 'cover', marginTop: 8 }} />}
             </div>
+
+            {/* Extras asignados */}
+            {gruposExtras.length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                <label style={s.label}>Grupos de extras</label>
+                <p style={{ fontSize: 11, color: 'var(--c-muted)', marginBottom: 10 }}>Selecciona qué extras puede elegir el cliente para este producto.</p>
+                {gruposExtras.map(g => {
+                  const activo = extrasAsignados.includes(g.id)
+                  return (
+                    <button key={g.id} onClick={() => toggleExtraAsignado(g.id)} style={{
+                      display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 12px',
+                      borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', marginBottom: 6,
+                      border: activo ? '2px solid var(--c-primary)' : '1px solid rgba(255,255,255,0.1)',
+                      background: activo ? 'rgba(185,28,28,0.12)' : 'rgba(255,255,255,0.04)',
+                    }}>
+                      <div style={{
+                        width: 20, height: 20, borderRadius: 6, border: activo ? 'none' : '2px solid rgba(255,255,255,0.2)',
+                        background: activo ? 'var(--c-primary)' : 'transparent',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                        fontSize: 12, color: '#fff',
+                      }}>
+                        {activo && '✓'}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 700, fontSize: 13, color: '#F5F5F5' }}>{g.nombre}</div>
+                        <div style={{ fontSize: 10, color: 'var(--c-muted)' }}>
+                          {g.tipo === 'single' ? 'Elige 1' : `Máx. ${g.max_selecciones}`} · {(g.extras_opciones || []).map(o => o.nombre).join(', ')}
+                        </div>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
 
             <button onClick={guardarProducto} disabled={saving || !prodForm.nombre.trim() || !prodForm.precio} style={{
               width: '100%', padding: '14px 0', borderRadius: 12, border: 'none',
