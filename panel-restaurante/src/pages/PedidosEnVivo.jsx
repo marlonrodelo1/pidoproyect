@@ -42,9 +42,14 @@ export default function PedidosEnVivo() {
       .on('postgres_changes', {
         event: 'INSERT', schema: 'public', table: 'pedidos',
         filter: `establecimiento_id=eq.${restaurante.id}`,
-      }, payload => {
+      }, async payload => {
         setEntrantes(prev => [payload.new, ...prev])
         setTimers(prev => ({ ...prev, [payload.new.id]: 180 }))
+        // Cargar items del nuevo pedido
+        const { data: newItems } = await supabase.from('pedido_items').select('*').eq('pedido_id', payload.new.id)
+        if (newItems && newItems.length > 0) {
+          setItemsMap(prev => ({ ...prev, [payload.new.id]: newItems }))
+        }
         // Alarma sonora
         startAlarm()
       })
