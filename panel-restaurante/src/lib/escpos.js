@@ -128,6 +128,16 @@ export function generarComandaCocina(pedido, items, restaurante) {
     )
   }
 
+  // Promo applied
+  if (pedido.promo_titulo) {
+    bytes.push(
+      ...center(),
+      ...boldOn(),
+      ...line('PROMO: ' + pedido.promo_titulo),
+      ...boldOff(),
+    )
+  }
+
   // Payment method reminder
   bytes.push(
     ...feed(1),
@@ -214,11 +224,19 @@ export function generarTicketCliente(pedido, items, restaurante) {
 
   // Totals
   const envio = pedido.coste_envio || 0
-  const total = pedido.total || subtotal + envio
+  const descuento = pedido.descuento || 0
+  const total = pedido.total || subtotal + envio - descuento
 
+  bytes.push(
+    ...twoColumns('Subtotal:', subtotal.toFixed(2) + ' EUR'),
+  )
+  if (descuento > 0) {
+    bytes.push(
+      ...twoColumns('Descuento (' + (pedido.promo_titulo || 'Promo') + '):', '-' + descuento.toFixed(2) + ' EUR'),
+    )
+  }
   if (envio > 0) {
     bytes.push(
-      ...twoColumns('Subtotal:', subtotal.toFixed(2) + ' EUR'),
       ...twoColumns('Envio:', envio.toFixed(2) + ' EUR'),
     )
   }
