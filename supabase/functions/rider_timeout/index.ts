@@ -13,6 +13,10 @@ serve(async (req) => {
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
     const now = new Date()
 
+    // Timeout config
+    const RIDER_ACCEPT_TIMEOUT = 120   // 2 min para que un rider acepte
+    const TOTAL_SEARCH_TIMEOUT = 480   // 8 min total buscando riders (antes 5)
+
     // Buscar pedidos con rider pendiente que han pasado los 2 min
     const { data: pedidosPendientes } = await supabase
       .from('pedidos')
@@ -29,11 +33,11 @@ serve(async (req) => {
       const diffAsignado = (now.getTime() - asignadoAt) / 1000
       const diffTotal = (now.getTime() - buscandoDesde) / 1000
 
-      // Si han pasado más de 5 min buscando → cancelar entrega
-      if (diffTotal > 300) {
+      // Si han pasado más de 8 min buscando → cambiar a sin_rider (no cancelar pedido)
+      if (diffTotal > TOTAL_SEARCH_TIMEOUT) {
         await supabase.from('pedidos').update({
           socio_id: null,
-          rider_estado: 'cancelado',
+          rider_estado: 'sin_rider',
           rider_asignado_at: null,
         }).eq('id', pedido.id)
 
@@ -42,40 +46,34 @@ serve(async (req) => {
           await supabase.from('notificaciones').insert({
             usuario_id: pedido.usuario_id,
             titulo: 'Sin repartidor disponible',
-            descripcion: `No encontramos repartidor para tu pedido ${pedido.codigo}. Puedes recogerlo en el restaurante.`,
+            descripcion: `No encontramos repartidor para tu pedido ${pedido.codigo}. El restaurante te informara sobre la recogida.`,
             leida: false,
           })
+          // Push al cliente
+          await notificarPush(supabase, 'cliente', pedido.usuario_id,
+            'Sin repartidor disponible',
+            `No encontramos repartidor para ${pedido.codigo}. El restaurante te informara.`
+          )
         }
+
+        // Notificar al restaurante
+        await notificarPush(supabase, 'restaurante', pedido.establecimiento_id,
+          'Sin repartidor',
+          `Pedido ${pedido.codigo}: no se encontro repartidor. Puedes reintentar o cambiar a recogida.`
+        )
 
         cancelados++
         continue
       }
 
       // Si han pasado más de 2 min con este rider → reasignar
-      if (diffAsignado > 120) {
+      if (diffAsignado > RIDER_ACCEPT_TIMEOUT) {
         const rechazados = pedido.riders_rechazados || []
         const riderActual = pedido.socio_id
         if (riderActual) rechazados.push(riderActual)
 
         // Buscar otro rider disponible
-        const { data: relaciones } = await supabase
-          .from('socio_establecimiento').select('socio_id')
-          .eq('establecimiento_id', pedido.establecimiento_id).eq('estado', 'aceptado')
-
-        let nuevoRider = null
-        if (relaciones && relaciones.length > 0) {
-          let socioIds = relaciones.map((r: any) => r.socio_id)
-          socioIds = socioIds.filter((id: string) => !rechazados.includes(id))
-
-          if (socioIds.length > 0) {
-            const { data: sociosActivos } = await supabase
-              .from('socios').select('id')
-              .in('id', socioIds).eq('activo', true).eq('en_servicio', true).limit(1)
-            if (sociosActivos && sociosActivos.length > 0) {
-              nuevoRider = sociosActivos[0].id
-            }
-          }
-        }
+        const nuevoRider = await buscarRiderDisponible(supabase, pedido.establecimiento_id, rechazados)
 
         if (nuevoRider) {
           // Reasignar a nuevo rider
@@ -85,25 +83,38 @@ serve(async (req) => {
             rider_asignado_at: now.toISOString(),
             riders_rechazados: rechazados,
           }).eq('id', pedido.id)
+
+          // Push al nuevo rider
+          await notificarPush(supabase, 'socio', nuevoRider,
+            'Nuevo pedido',
+            `Pedido ${pedido.codigo} - ${pedido.total?.toFixed(2)} € · Tienes 2 min para aceptar`
+          )
+
+          // Notificar al cliente que se busca otro rider
+          if (pedido.usuario_id) {
+            await notificarPush(supabase, 'cliente', pedido.usuario_id,
+              'Buscando repartidor',
+              `Estamos asignando otro repartidor para tu pedido ${pedido.codigo}`
+            )
+          }
+
           reasignados++
         } else {
-          // No hay más riders → cancelar entrega
+          // No hay más riders → poner en buscando (no cancelar aún, esperar los 8 min)
           await supabase.from('pedidos').update({
             socio_id: null,
-            rider_estado: 'cancelado',
+            rider_estado: 'buscando',
             rider_asignado_at: null,
             riders_rechazados: rechazados,
           }).eq('id', pedido.id)
 
+          // Notificar al cliente
           if (pedido.usuario_id) {
-            await supabase.from('notificaciones').insert({
-              usuario_id: pedido.usuario_id,
-              titulo: 'Sin repartidor disponible',
-              descripcion: `No encontramos repartidor para tu pedido ${pedido.codigo}. Puedes recogerlo en el restaurante.`,
-              leida: false,
-            })
+            await notificarPush(supabase, 'cliente', pedido.usuario_id,
+              'Buscando repartidor',
+              `Seguimos buscando un repartidor disponible para tu pedido ${pedido.codigo}`
+            )
           }
-          cancelados++
         }
       }
     }
@@ -118,30 +129,38 @@ serve(async (req) => {
       const buscandoDesde = new Date(pedido.rider_buscando_desde).getTime()
       const diffTotal = (now.getTime() - buscandoDesde) / 1000
 
-      if (diffTotal > 300) {
+      if (diffTotal > TOTAL_SEARCH_TIMEOUT) {
         await supabase.from('pedidos').update({
-          rider_estado: 'cancelado',
+          socio_id: null,
+          rider_estado: 'sin_rider',
         }).eq('id', pedido.id)
+
+        if (pedido.usuario_id) {
+          await supabase.from('notificaciones').insert({
+            usuario_id: pedido.usuario_id,
+            titulo: 'Sin repartidor disponible',
+            descripcion: `No encontramos repartidor para tu pedido ${pedido.codigo}. El restaurante te informara sobre la recogida.`,
+            leida: false,
+          })
+          await notificarPush(supabase, 'cliente', pedido.usuario_id,
+            'Sin repartidor disponible',
+            `No encontramos repartidor para ${pedido.codigo}. El restaurante te informara.`
+          )
+        }
+
+        // Notificar al restaurante
+        await notificarPush(supabase, 'restaurante', pedido.establecimiento_id,
+          'Sin repartidor',
+          `Pedido ${pedido.codigo}: no se encontro repartidor. Puedes reintentar o cambiar a recogida.`
+        )
+
         cancelados++
         continue
       }
 
+      // Intentar reasignar
       const rechazados = pedido.riders_rechazados || []
-      const { data: relaciones } = await supabase
-        .from('socio_establecimiento').select('socio_id')
-        .eq('establecimiento_id', pedido.establecimiento_id).eq('estado', 'aceptado')
-
-      let nuevoRider = null
-      if (relaciones && relaciones.length > 0) {
-        let socioIds = relaciones.map((r: any) => r.socio_id)
-        socioIds = socioIds.filter((id: string) => !rechazados.includes(id))
-        if (socioIds.length > 0) {
-          const { data: sociosActivos } = await supabase
-            .from('socios').select('id')
-            .in('id', socioIds).eq('activo', true).eq('en_servicio', true).limit(1)
-          if (sociosActivos && sociosActivos.length > 0) nuevoRider = sociosActivos[0].id
-        }
-      }
+      const nuevoRider = await buscarRiderDisponible(supabase, pedido.establecimiento_id, rechazados)
 
       if (nuevoRider) {
         await supabase.from('pedidos').update({
@@ -149,6 +168,12 @@ serve(async (req) => {
           rider_estado: 'pendiente',
           rider_asignado_at: now.toISOString(),
         }).eq('id', pedido.id)
+
+        await notificarPush(supabase, 'socio', nuevoRider,
+          'Nuevo pedido',
+          `Pedido ${pedido.codigo} - ${pedido.total?.toFixed(2)} € · Tienes 2 min para aceptar`
+        )
+
         reasignados++
       }
     }
@@ -162,3 +187,53 @@ serve(async (req) => {
     })
   }
 })
+
+// Buscar rider disponible excluyendo los rechazados
+async function buscarRiderDisponible(supabase: any, establecimientoId: string, rechazados: string[]) {
+  const { data: relaciones } = await supabase
+    .from('socio_establecimiento').select('socio_id')
+    .eq('establecimiento_id', establecimientoId).eq('estado', 'aceptado')
+
+  if (!relaciones || relaciones.length === 0) return null
+
+  let socioIds = relaciones.map((r: any) => r.socio_id)
+  socioIds = socioIds.filter((id: string) => !rechazados.includes(id))
+  if (socioIds.length === 0) return null
+
+  // Buscar el más cercano al restaurante
+  const { data: est } = await supabase
+    .from('establecimientos').select('latitud, longitud')
+    .eq('id', establecimientoId).single()
+
+  const { data: sociosActivos } = await supabase
+    .from('socios').select('id, latitud_actual, longitud_actual')
+    .in('id', socioIds).eq('activo', true).eq('en_servicio', true)
+
+  if (!sociosActivos || sociosActivos.length === 0) return null
+
+  // Ordenar por distancia
+  if (est?.latitud && est?.longitud) {
+    const conDist = sociosActivos
+      .filter((s: any) => s.latitud_actual && s.longitud_actual)
+      .map((s: any) => {
+        const dLat = (s.latitud_actual - est.latitud) * 111.32
+        const dLng = (s.longitud_actual - est.longitud) * 111.32 * Math.cos(est.latitud * Math.PI / 180)
+        return { ...s, dist: Math.sqrt(dLat * dLat + dLng * dLng) }
+      })
+      .sort((a: any, b: any) => a.dist - b.dist)
+    return conDist.length > 0 ? conDist[0].id : sociosActivos[0].id
+  }
+
+  return sociosActivos[0].id
+}
+
+// Enviar push notification usando la Edge Function enviar_push
+async function notificarPush(supabase: any, targetType: string, targetId: string, title: string, body: string) {
+  try {
+    await supabase.functions.invoke('enviar_push', {
+      body: { targetType, targetId, title, body },
+    })
+  } catch {
+    // Silenciar errores de push - no son críticos
+  }
+}
