@@ -1,21 +1,24 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { Phone } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 const ETAPAS = [
-  { label: 'Pedido recibido', desc: 'El restaurante ha recibido tu pedido', icon: '📋', estado: 'nuevo' },
+  { label: 'Pendiente', desc: 'Esperando que el restaurante acepte', icon: '⏳', estado: 'nuevo' },
   { label: 'Aceptado', desc: 'El restaurante esta preparando tu pedido', icon: '👨‍🍳', estado: 'preparando' },
-  { label: 'Recogido', desc: 'El repartidor ha recogido tu pedido', icon: '🏪', estado: 'recogido' },
+  { label: 'Recogido', desc: 'El repartidor ha recogido tu pedido', icon: '📦', estado: 'recogido' },
   { label: 'En camino', desc: 'Tu pedido esta en camino', icon: '🛵', estado: 'en_camino' },
   { label: 'Entregado', desc: 'Tu pedido ha llegado', icon: '✅', estado: 'entregado' },
 ]
 
 // listo queda en etapa 1 (igual que preparando) — solo el socio avanza el tracking del cliente
-const ESTADO_MAP = { nuevo: 0, aceptado: 1, preparando: 1, listo: 1, recogido: 2, en_camino: 3, entregado: 4, cancelado: -1, fallido: -1 }
+function getEtapa(estado) {
+  const map = { nuevo: 0, aceptado: 1, preparando: 1, listo: 1, recogido: 2, en_camino: 3, entregado: 4 }
+  return map[estado] ?? 0
+}
 
 export default function Tracking({ pedido: pedidoInicial, onClose }) {
   const [pedido, setPedido] = useState(pedidoInicial)
-  const [etapa, setEtapa] = useState(ESTADO_MAP[pedidoInicial.estado] || 0)
+  const [etapa, setEtapa] = useState(getEtapa(pedidoInicial.estado))
   const [riderPos, setRiderPos] = useState(0)
   const [socio, setSocio] = useState(null)
   const [valoracion, setValoracion] = useState(0)
@@ -23,20 +26,15 @@ export default function Tracking({ pedido: pedidoInicial, onClose }) {
   const [resenaEnviada, setResenaEnviada] = useState(false)
   const [yaValorado, setYaValorado] = useState(false)
 
-  // Fetch estado actual del pedido al montar (por si cambio mientras no miraba)
+  // Fetch estado actual al montar
   useEffect(() => {
-    async function fetchEstadoActual() {
-      const { data } = await supabase
-        .from('pedidos')
-        .select('*')
-        .eq('id', pedidoInicial.id)
-        .single()
-      if (data) {
-        setPedido(data)
-        setEtapa(ESTADO_MAP[data.estado] || 0)
-      }
-    }
-    fetchEstadoActual()
+    supabase.from('pedidos').select('*').eq('id', pedidoInicial.id).single()
+      .then(({ data }) => {
+        if (data) {
+          setPedido(data)
+          setEtapa(getEtapa(data.estado))
+        }
+      })
   }, [pedidoInicial.id])
 
   // Fetch socio
@@ -47,7 +45,7 @@ export default function Tracking({ pedido: pedidoInicial, onClose }) {
     }
   }, [pedido.socio_id])
 
-  // Comprobar si ya valoró este pedido
+  // Comprobar si ya valoro
   useEffect(() => {
     if (pedido.id && pedido.usuario_id) {
       supabase.from('resenas').select('id').eq('pedido_id', pedido.id).eq('usuario_id', pedido.usuario_id).single()
@@ -55,39 +53,39 @@ export default function Tracking({ pedido: pedidoInicial, onClose }) {
     }
   }, [pedido.id])
 
-  // Realtime + polling como fallback
+  // Realtime + polling
   useEffect(() => {
-    // Suscripcion realtime
     const channel = supabase.channel(`tracking-${pedido.id}`)
       .on('postgres_changes', {
         event: 'UPDATE', schema: 'public', table: 'pedidos',
         filter: `id=eq.${pedido.id}`,
       }, payload => {
-        setPedido(prev => ({ ...prev, ...payload.new }))
-        setEtapa(ESTADO_MAP[payload.new.estado] || 0)
+        const nuevo = payload.new
+        setPedido(prev => ({ ...prev, ...nuevo }))
+        if (nuevo.estado !== 'cancelado' && nuevo.estado !== 'fallido') {
+          setEtapa(getEtapa(nuevo.estado))
+        }
       })
       .subscribe()
 
-    // Polling cada 5 segundos como fallback por si realtime falla
     const pollInterval = setInterval(async () => {
       const { data } = await supabase
         .from('pedidos')
-        .select('estado, socio_id, motivo_cancelacion')
+        .select('estado, socio_id, motivo_cancelacion, metodo_pago')
         .eq('id', pedido.id)
         .single()
       if (data) {
-        const nuevaEtapa = ESTADO_MAP[data.estado] || 0
-        if (nuevaEtapa !== etapa) {
-          setEtapa(nuevaEtapa)
-          setPedido(prev => ({ ...prev, estado: data.estado, socio_id: data.socio_id, motivo_cancelacion: data.motivo_cancelacion }))
+        setPedido(prev => ({ ...prev, ...data }))
+        if (data.estado !== 'cancelado' && data.estado !== 'fallido') {
+          const nuevaEtapa = getEtapa(data.estado)
+          if (nuevaEtapa !== etapa) setEtapa(nuevaEtapa)
         }
-        // Si se asigno socio y no lo teniamos
         if (data.socio_id && !socio) {
           supabase.from('socios').select('nombre, rating, telefono').eq('id', data.socio_id).single()
             .then(({ data: s }) => { if (s) setSocio(s) })
         }
       }
-    }, 5000)
+    }, 4000)
 
     return () => {
       supabase.removeChannel(channel)
@@ -119,7 +117,7 @@ export default function Tracking({ pedido: pedidoInicial, onClose }) {
     }
   }
 
-  // Pedido cancelado
+  // ==================== CANCELADO ====================
   if (pedido.estado === 'cancelado' || pedido.estado === 'fallido') {
     return (
       <div style={{ animation: 'fadeIn 0.3s ease' }}>
@@ -131,10 +129,13 @@ export default function Tracking({ pedido: pedidoInicial, onClose }) {
           <div style={{ fontSize: 48, marginBottom: 12 }}>😔</div>
           <div style={{ fontWeight: 800, fontSize: 18, color: '#EF4444', marginBottom: 8 }}>Pedido cancelado</div>
           {pedido.motivo_cancelacion && (
-            <div style={{ fontSize: 14, color: 'var(--c-text)', marginBottom: 6, fontWeight: 600 }}>{pedido.motivo_cancelacion}</div>
+            <div style={{
+              fontSize: 14, color: 'var(--c-text)', marginBottom: 12, fontWeight: 600,
+              background: 'rgba(239,68,68,0.08)', borderRadius: 10, padding: '10px 14px',
+            }}>{pedido.motivo_cancelacion}</div>
           )}
           <div style={{ fontSize: 12, color: 'var(--c-muted)', marginBottom: 20 }}>
-            {pedido.metodo_pago === 'tarjeta' ? 'Si se realizó el cobro, el reembolso se procesará automáticamente.' : 'No se ha realizado ningún cobro.'}
+            {pedido.metodo_pago === 'tarjeta' ? 'Si se realizo el cobro, el reembolso se procesara automaticamente.' : 'No se ha realizado ningun cobro.'}
           </div>
           <button onClick={onClose} style={{
             padding: '12px 28px', borderRadius: 12, border: 'none',
@@ -146,6 +147,7 @@ export default function Tracking({ pedido: pedidoInicial, onClose }) {
     )
   }
 
+  // ==================== TRACKING ACTIVO ====================
   return (
     <div style={{ animation: 'fadeIn 0.3s ease' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -166,8 +168,12 @@ export default function Tracking({ pedido: pedidoInicial, onClose }) {
         )}
         {etapa < 3 && (
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#166534', background: 'rgba(255,255,255,0.8)', padding: '6px 14px', borderRadius: 8 }}>
-              {etapa === 0 ? 'Esperando confirmacion...' : etapa === 1 ? 'Preparando tu pedido...' : 'Repartidor recogiendo...'}
+            <div style={{
+              fontSize: 11, fontWeight: 700, color: '#166534', background: 'rgba(255,255,255,0.8)',
+              padding: '6px 14px', borderRadius: 8,
+              animation: etapa === 0 ? 'pulse 2s ease-in-out infinite' : 'none',
+            }}>
+              {etapa === 0 ? '⏳ Esperando al restaurante...' : etapa === 1 ? '👨‍🍳 Preparando tu pedido...' : '📦 Repartidor recogiendo...'}
             </div>
           </div>
         )}
@@ -177,13 +183,13 @@ export default function Tracking({ pedido: pedidoInicial, onClose }) {
           </div>
         ) : (
           <div style={{ position: 'absolute', bottom: 10, left: 12, background: 'rgba(0,0,0,0.7)', color: '#fff', borderRadius: 8, padding: '5px 10px', fontSize: 11, fontWeight: 600 }}>
-            Estimado: {Math.max(5, 25 - etapa * 5)} min
+            {etapa === 0 ? 'Pendiente de aceptar' : `Estimado: ${Math.max(5, 25 - etapa * 5)} min`}
           </div>
         )}
       </div>
 
       {/* Info repartidor */}
-      {socio && etapa >= 0 && etapa < 5 && (
+      {socio && etapa >= 1 && etapa < 5 && (
         <div style={{ background: 'var(--c-surface)', borderRadius: 14, padding: '14px 16px', border: '1px solid var(--c-border)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ width: 44, height: 44, borderRadius: 14, background: 'var(--c-primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>🛵</div>
           <div style={{ flex: 1 }}>
@@ -203,7 +209,13 @@ export default function Tracking({ pedido: pedidoInicial, onClose }) {
         {ETAPAS.map((e, i) => (
           <div key={i} style={{ display: 'flex', gap: 12 }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div style={{ width: 32, height: 32, borderRadius: 10, background: i <= etapa ? 'var(--c-primary)' : 'var(--c-surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, transition: 'all 0.3s' }}>
+              <div style={{
+                width: 32, height: 32, borderRadius: 10,
+                background: i <= etapa ? 'var(--c-primary)' : 'var(--c-surface2)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 14, transition: 'all 0.3s',
+                animation: i === 0 && etapa === 0 ? 'pulse 2s ease-in-out infinite' : 'none',
+              }}>
                 {i <= etapa ? e.icon : ''}
               </div>
               {i < 4 && <div style={{ width: 2, height: 24, background: i < etapa ? 'var(--c-primary)' : 'var(--c-border)' }} />}
@@ -222,12 +234,12 @@ export default function Tracking({ pedido: pedidoInicial, onClose }) {
           {yaValorado || resenaEnviada ? (
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 32, marginBottom: 8 }}>🎉</div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-primary)' }}>Gracias por tu valoración</div>
-              <div style={{ fontSize: 12, color: 'var(--c-muted)', marginTop: 4 }}>Tu opinión nos ayuda a mejorar</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-primary)' }}>Gracias por tu valoracion</div>
+              <div style={{ fontSize: 12, color: 'var(--c-muted)', marginTop: 4 }}>Tu opinion nos ayuda a mejorar</div>
             </div>
           ) : (
             <>
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-text)', marginBottom: 10, textAlign: 'center' }}>¿Cómo fue tu experiencia?</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-text)', marginBottom: 10, textAlign: 'center' }}>¿Como fue tu experiencia?</div>
               <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginBottom: 14 }}>
                 {[1, 2, 3, 4, 5].map(i => (
                   <button key={i} onClick={() => setValoracion(i)} style={{
@@ -242,7 +254,7 @@ export default function Tracking({ pedido: pedidoInicial, onClose }) {
               </div>
               {valoracion > 0 && (
                 <>
-                  <textarea value={textoResena} onChange={e => setTextoResena(e.target.value)} placeholder="Cuéntanos más sobre tu experiencia (opcional)..." rows={3} style={{
+                  <textarea value={textoResena} onChange={e => setTextoResena(e.target.value)} placeholder="Cuentanos mas sobre tu experiencia (opcional)..." rows={3} style={{
                     width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid var(--c-border)',
                     fontSize: 13, fontFamily: 'inherit', background: 'rgba(255,255,255,0.06)',
                     color: 'var(--c-text)', outline: 'none', boxSizing: 'border-box', resize: 'vertical', marginBottom: 12,
@@ -252,7 +264,7 @@ export default function Tracking({ pedido: pedidoInicial, onClose }) {
                     background: 'var(--c-primary)', color: '#fff', fontSize: 14, fontWeight: 800,
                     cursor: 'pointer', fontFamily: 'inherit',
                   }}>
-                    Enviar valoración
+                    Enviar valoracion
                   </button>
                 </>
               )}
