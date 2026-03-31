@@ -757,12 +757,24 @@ App del cliente PIDO. Incluye:
 9. ✅ Mapa admin
 10. ✅ Notificaciones masivas
 
-### Fase 8: Mobile (parcial)
+### Fase 8: Mobile / Builds nativos (en progreso)
 1. ✅ Configurar Capacitor (iOS + Android)
 2. ✅ Push notifications (Firebase + Capacitor)
 3. ✅ Sonido alarma pedidos (Web Audio API)
 4. ✅ Geolocalización nativa (Capacitor Geolocation)
-5. ⏳ Build iOS/Android (pendiente)
+5. ✅ **Panel Restaurante — Android build:**
+   - ✅ `@capacitor/assets generate` — iconos (todos los tamaños mipmap) + splash screens (light/dark, portrait/landscape) + PWA icons generados automáticamente
+   - ✅ Keystore creado (`pido-restaurante.jks`) para firmar APK release
+   - ✅ APK release firmado y generado
+   - ✅ Status bar nativa: fondo #0D0D0D con iconos blancos (Style.Dark)
+   - ✅ `StatusBar.setOverlaysWebView({ overlay: false })` + padding via `WindowInsetsCompat` para que el contenido no se meta detrás de la status bar
+   - ✅ Pantalla siempre encendida (`FLAG_KEEP_SCREEN_ON`)
+   - ✅ Layout responsive para tablet (eliminado `maxWidth: 420`, nav full-width)
+   - ✅ Plugins Capacitor: haptics, local-notifications, push-notifications, splash-screen, status-bar
+   - ✅ `.gitignore` actualizado: `*.jks`, `*.keystore` excluidos
+6. ⏳ Panel Socio — Android build (pendiente)
+7. ⏳ App Cliente PIDO — Android build (pendiente)
+8. ⏳ Build iOS (pendiente — requiere Mac)
 
 ---
 
@@ -782,6 +794,9 @@ App del cliente PIDO. Incluye:
 - **Deploy** — Git push a main → Dokploy detecta y despliega automáticamente. Clean cache activado en pido-app y pidogo-tienda.
 - **Dominios Dokploy**: pidoo.es (pido-app), rider.pidoo.es (pidogo-panel). La tienda del socio va dentro de pido-app (pidoo.es/{slug}).
 - **Google Maps API Key** configurada en pido-app/.env (VITE_GOOGLE_MAPS_API_KEY).
+- **Android builds** — Usar `@capacitor/assets generate` para generar iconos/splash desde carpeta `assets/` (icon-only.png 1024x1024, icon-foreground.png, icon-background.png, splash.png 2732x2732, splash-dark.png). Luego `npm run build && npx cap sync android` y generar APK firmado desde Android Studio.
+- **Keystores** — Cada app tiene su propio keystore (.jks) en `{app}/android/app/`. Panel restaurante: `pido-restaurante.jks`. No se suben a git.
+- **Status bar Android** — Configurar en `MainActivity.java` con `WindowInsetsCompat` para padding + fondo oscuro, y en `App.jsx` con `@capacitor/status-bar` (`setOverlaysWebView`, `setStyle(Style.Dark)`).
 
 ---
 

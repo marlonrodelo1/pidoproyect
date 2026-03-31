@@ -1,5 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ClipboardList, Clock, UtensilsCrossed, Users, Settings, BarChart3 } from 'lucide-react'
+import { Capacitor } from '@capacitor/core'
+import { StatusBar, Style } from '@capacitor/status-bar'
 import { RestProvider, useRest } from './context/RestContext'
 import Login from './pages/Login'
 import PedidosEnVivo from './pages/PedidosEnVivo'
@@ -15,6 +17,14 @@ const NAV_ICONS = { pedidos: ClipboardList, historial: Clock, carta: UtensilsCro
 function AppContent() {
   const { user, restaurante, loading } = useRest()
   const [seccion, setSeccion] = useState('pedidos')
+
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      StatusBar.setOverlaysWebView({ overlay: false })
+      StatusBar.setBackgroundColor({ color: '#0D0D0D' })
+      StatusBar.setStyle({ style: Style.Dark })
+    }
+  }, [])
 
   if (loading) {
     return (
@@ -73,7 +83,7 @@ function AppContent() {
       </div>
 
       {/* Bottom nav */}
-      <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 420, background: 'rgba(13,13,13,0.92)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-around', padding: '8px 0 12px', zIndex: 50 }}>
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, width: '100%', background: 'rgba(13,13,13,0.92)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-around', padding: '8px 0 12px', zIndex: 50 }}>
         {nav.map(n => (
           <button key={n.id} onClick={() => setSeccion(n.id)} style={{
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
@@ -93,7 +103,7 @@ const shell = {
   '--c-primary': '#B91C1C', '--c-primary-light': 'rgba(185,28,28,0.15)', '--c-primary-soft': 'rgba(185,28,28,0.25)',
   '--c-bg': '#0D0D0D', '--c-surface': 'rgba(255,255,255,0.08)', '--c-surface2': 'rgba(255,255,255,0.05)',
   '--c-border': 'rgba(255,255,255,0.1)', '--c-text': '#F5F5F5', '--c-muted': 'rgba(255,255,255,0.45)',
-  fontFamily: "'DM Sans', sans-serif", maxWidth: 420, margin: '0 auto',
+  fontFamily: "'DM Sans', sans-serif", width: '100%',
   background: 'var(--c-bg)', color: 'var(--c-text)',
 }
 

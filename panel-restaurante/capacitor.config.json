@@ -1,5 +1,5 @@
 {
-  "appId": "co.pidoogo.restaurante",
+  "appId": "com.pido.restaurante",
   "appName": "PIDO Restaurante",
   "webDir": "dist",
   "plugins": {

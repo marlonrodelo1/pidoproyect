@@ -222,7 +222,7 @@ export default function Ajustes() {
       {hayCambios && (
         <div style={{
           position: 'fixed', bottom: 70, left: '50%', transform: 'translateX(-50%)',
-          width: '100%', maxWidth: 420, padding: '0 20px', zIndex: 40,
+          width: '100%', padding: '0 20px', zIndex: 40,
           animation: 'fadeIn 0.3s ease',
         }}>
           <button onClick={guardarTodo} disabled={guardando} style={{

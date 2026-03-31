@@ -13,3 +13,14 @@ dist-ssr/
 *.njsproj
 *.sln
 *.sw?
+
+# Keystore files
+*.jks
+*.keystore
+Keystorepath
+
+# Android build output
+**/android/app/release/
+
+# Firebase config
+**/google-services.json
