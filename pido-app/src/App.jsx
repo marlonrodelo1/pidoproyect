@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import { Capacitor } from '@capacitor/core'
+import { StatusBar, Style } from '@capacitor/status-bar'
 import { Bell } from 'lucide-react'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { CartProvider } from './context/CartContext'
@@ -146,7 +148,6 @@ const shellStyle = {
   '--c-glass': 'rgba(255,255,255,0.06)',
   '--c-glass-border': 'rgba(255,255,255,0.12)',
   fontFamily: "'DM Sans', sans-serif",
-  maxWidth: 420,
   margin: '0 auto',
   background: 'var(--c-bg)',
   color: 'var(--c-text)',
@@ -168,6 +169,14 @@ function TiendaDetector() {
   const [checking, setChecking] = useState(true)
 
   const [paginaLegal, setPaginaLegal] = useState(null)
+
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      StatusBar.setOverlaysWebView({ overlay: false })
+      StatusBar.setBackgroundColor({ color: '#0D0D0D' })
+      StatusBar.setStyle({ style: Style.Dark })
+    }
+  }, [])
 
   useEffect(() => {
     const path = window.location.pathname.replace(/^\//, '')

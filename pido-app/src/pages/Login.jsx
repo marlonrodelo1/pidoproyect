@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { Capacitor } from '@capacitor/core'
-import { Browser } from '@capacitor/browser'
 import { Mail, Lock, User, Phone, ArrowLeft, Eye, EyeOff } from 'lucide-react'
 
 export default function Login() {
@@ -193,19 +192,22 @@ export default function Login() {
             </div>
             <button onClick={async () => {
               if (Capacitor.isNativePlatform()) {
-                // En app nativa: obtener URL de OAuth y abrir en InAppBrowser
-                const { data, error } = await supabase.auth.signInWithOAuth({
-                  provider: 'google',
-                  options: {
-                    redirectTo: 'https://rmrbxrabngdmpgpfmjbo.supabase.co/auth/v1/callback',
-                    skipBrowserRedirect: true,
-                  },
-                })
-                if (data?.url) {
-                  await Browser.open({ url: data.url, windowName: '_self' })
+                try {
+                  // Google Sign-In nativo (popup dentro de la app)
+                  const { GoogleAuth } = await import('@codetrix-studio/capacitor-google-auth')
+                  const googleUser = await GoogleAuth.signIn()
+                  // Usar el idToken para autenticar con Supabase
+                  const { error } = await supabase.auth.signInWithIdToken({
+                    provider: 'google',
+                    token: googleUser.authentication.idToken,
+                  })
+                  if (error) setError(error.message)
+                } catch (err) {
+                  if (err.message !== 'popup_closed_by_user') {
+                    setError('Error al iniciar con Google')
+                  }
                 }
               } else {
-                // En web: redirect normal
                 supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } })
               }
             }} style={{

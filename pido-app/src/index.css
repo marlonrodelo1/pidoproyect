@@ -54,7 +54,15 @@ body {
   max-width: 100%;
 }
 
-/* Solo en navegador desktop: centrar como app */
+/* Tablet: centrar contenido */
+@media (min-width: 768px) {
+  #root {
+    max-width: 540px;
+    margin: 0 auto;
+  }
+}
+
+/* Desktop: centrar como app */
 @media (min-width: 1024px) {
   #root {
     max-width: 480px;

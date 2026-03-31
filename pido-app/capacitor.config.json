@@ -12,8 +12,8 @@
       "splashImmersive": true
     },
     "StatusBar": {
-      "style": "LIGHT",
-      "backgroundColor": "#FF6B2C"
+      "style": "DARK",
+      "backgroundColor": "#0D0D0D"
     },
     "PushNotifications": {
       "presentationOptions": ["badge", "sound", "alert"]
@@ -22,6 +22,11 @@
       "smallIcon": "ic_stat_icon",
       "iconColor": "#FF6B2C",
       "sound": "alarm.wav"
+    },
+    "GoogleAuth": {
+      "scopes": ["profile", "email"],
+      "serverClientId": "797553895667-gr3vsgvcp85k0bh0b3iafkblv529g8kt.apps.googleusercontent.com",
+      "forceCodeForRefreshToken": true
     }
   },
   "server": {
