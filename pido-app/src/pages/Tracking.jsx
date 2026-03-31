@@ -4,13 +4,14 @@ import { supabase } from '../lib/supabase'
 
 const ETAPAS = [
   { label: 'Pedido recibido', desc: 'El restaurante ha recibido tu pedido', icon: '📋', estado: 'nuevo' },
-  { label: 'En preparacion', desc: 'Se esta preparando tu pedido', icon: '👨‍🍳', estado: 'preparando' },
-  { label: 'Listo', desc: 'El repartidor va al restaurante', icon: '🏪', estado: 'listo' },
+  { label: 'Aceptado', desc: 'El restaurante esta preparando tu pedido', icon: '👨‍🍳', estado: 'preparando' },
+  { label: 'Recogido', desc: 'El repartidor ha recogido tu pedido', icon: '🏪', estado: 'recogido' },
   { label: 'En camino', desc: 'Tu pedido esta en camino', icon: '🛵', estado: 'en_camino' },
   { label: 'Entregado', desc: 'Tu pedido ha llegado', icon: '✅', estado: 'entregado' },
 ]
 
-const ESTADO_MAP = { nuevo: 0, aceptado: 1, preparando: 1, listo: 2, recogido: 3, en_camino: 3, entregado: 4 }
+// listo queda en etapa 1 (igual que preparando) — solo el socio avanza el tracking del cliente
+const ESTADO_MAP = { nuevo: 0, aceptado: 1, preparando: 1, listo: 1, recogido: 2, en_camino: 3, entregado: 4 }
 
 export default function Tracking({ pedido: pedidoInicial, onClose }) {
   const [pedido, setPedido] = useState(pedidoInicial)
@@ -139,7 +140,7 @@ export default function Tracking({ pedido: pedidoInicial, onClose }) {
         {etapa < 3 && (
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: '#166534', background: 'rgba(255,255,255,0.8)', padding: '6px 14px', borderRadius: 8 }}>
-              {etapa === 0 ? 'Esperando confirmacion...' : etapa === 1 ? 'Preparando tu pedido...' : 'Buscando repartidor...'}
+              {etapa === 0 ? 'Esperando confirmacion...' : etapa === 1 ? 'Preparando tu pedido...' : 'Repartidor recogiendo...'}
             </div>
           </div>
         )}

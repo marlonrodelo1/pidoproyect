@@ -1,11 +1,22 @@
 let audioContext = null
 let alarmInterval = null
 let isPlaying = false
+let audioUnlocked = false
 
-/**
- * Alarma fuerte y constante para pedidos nuevos del socio/rider.
- * Suena cada 600ms con tono alto hasta que se detenga.
- */
+export function unlockAudio() {
+  if (audioUnlocked) return
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)()
+    const buf = ctx.createBuffer(1, 1, 22050)
+    const src = ctx.createBufferSource()
+    src.buffer = buf
+    src.connect(ctx.destination)
+    src.start(0)
+    ctx.close()
+    audioUnlocked = true
+  } catch {}
+}
+
 export async function startAlarm() {
   if (isPlaying) return
   stopAlarm()

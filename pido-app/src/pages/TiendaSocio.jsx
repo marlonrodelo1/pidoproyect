@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext'
 import { crearPagoStripe } from '../lib/stripe'
 import Stars from '../components/Stars'
 import AddressInput from '../components/AddressInput'
+import Tracking from './Tracking'
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
 
@@ -353,7 +354,7 @@ function ProductCard({ p, carrito, onOpen }) {
 
 // ===================== PAGINA: MIS PEDIDOS =====================
 
-function PaginaPedidos({ user, socioId }) {
+function PaginaPedidos({ user, socioId, pedidoTracking, onTrack, onCloseTrack }) {
   const [pedidos, setPedidos] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -367,22 +368,36 @@ function PaginaPedidos({ user, socioId }) {
 
   if (!user) return <div style={{ textAlign: 'center', padding: '60px 0', color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Inicia sesión para ver tus pedidos</div>
 
+  // Mostrar tracking si hay pedido activo
+  if (pedidoTracking) {
+    return <Tracking pedido={pedidoTracking} onClose={onCloseTrack} />
+  }
+
   return (
     <div style={{ animation: 'fadeIn 0.3s ease' }}>
       <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 16px' }}>Mis pedidos</h2>
       {loading && <div style={{ textAlign: 'center', padding: '30px 0', color: 'rgba(255,255,255,0.4)' }}>Cargando...</div>}
       {!loading && pedidos.length === 0 && <div style={{ textAlign: 'center', padding: '60px 0', color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Aún no has hecho pedidos aquí</div>}
       {pedidos.map(p => (
-        <div key={p.id} style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 12, padding: '14px 16px', border: '1px solid rgba(255,255,255,0.06)', marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-              <span style={{ fontWeight: 700, fontSize: 13 }}>{p.codigo}</span>
-              <EstadoBadge estado={p.estado} />
-              <PagoBadge pago={p.metodo_pago} />
+        <div key={p.id} style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 12, padding: '14px 16px', border: '1px solid rgba(255,255,255,0.06)', marginBottom: 10 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                <span style={{ fontWeight: 700, fontSize: 13 }}>{p.codigo}</span>
+                <EstadoBadge estado={p.estado} />
+                <PagoBadge pago={p.metodo_pago} />
+              </div>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>{p.establecimientos?.nombre}</div>
             </div>
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>{p.establecimientos?.nombre}</div>
+            <div style={{ fontWeight: 700, fontSize: 15 }}>{p.total?.toFixed(2)} €</div>
           </div>
-          <div style={{ fontWeight: 700, fontSize: 15 }}>{p.total?.toFixed(2)} €</div>
+          {['nuevo', 'aceptado', 'preparando', 'listo', 'en_camino', 'recogido'].includes(p.estado) && (
+            <button onClick={() => onTrack(p)} style={{
+              width: '100%', marginTop: 10, padding: '9px 0', borderRadius: 8,
+              border: 'none', background: '#FF6B2C', fontSize: 12, fontWeight: 700,
+              cursor: 'pointer', fontFamily: 'inherit', color: '#fff',
+            }}>Seguir pedido</button>
+          )}
         </div>
       ))}
     </div>
@@ -913,7 +928,12 @@ export default function TiendaSocio({ slug: slugProp }) {
         {seccion === 'inicio' && restOpen && (
           <PaginaRestDetalle est={restOpen} onBack={() => setRestOpen(null)} carrito={carrito} setCarrito={setCarrito} socio={socio} />
         )}
-        {seccion === 'pedidos' && <PaginaPedidos user={user} socioId={socio.id} />}
+        {seccion === 'pedidos' && (
+          <PaginaPedidos user={user} socioId={socio.id}
+            pedidoTracking={pedidoActivo}
+            onTrack={p => setPedidoActivo(p)}
+            onCloseTrack={() => setPedidoActivo(null)} />
+        )}
         {seccion === 'carrito' && (
           <PaginaCarrito carrito={carrito} setCarrito={setCarrito} socio={socio} user={user}
             onPedidoCreado={p => { setPedidoActivo(p); setSeccion('pedidos') }}

@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { LayoutGrid, ClipboardList, Store, FileText, User, Radio, MessageCircle } from 'lucide-react'
 import { SocioProvider, useSocio } from './context/SocioContext'
+import { PedidoAlertProvider, usePedidoAlert } from './context/PedidoAlertContext'
 import Login from './pages/Login'
 import EnVivo from './pages/EnVivo'
 import Dashboard from './pages/Dashboard'
@@ -9,6 +10,7 @@ import Negocios from './pages/Negocios'
 import Informes from './pages/Informes'
 import Perfil from './pages/Perfil'
 import Soporte from './pages/Soporte'
+import { unlockAudio } from './lib/alarm'
 import './index.css'
 
 const NAV_ICONS = { dashboard: LayoutGrid, pedidos: ClipboardList, negocios: Store, informes: FileText, perfil: User }
@@ -16,6 +18,11 @@ const NAV_ICONS = { dashboard: LayoutGrid, pedidos: ClipboardList, negocios: Sto
 function AppContent() {
   const { user, socio, loading } = useSocio()
   const [seccion, setSeccion] = useState('envivo')
+
+  // Auto-navegar a EnVivo cuando llega un pedido nuevo
+  const handleNuevoPedido = useCallback(() => {
+    setSeccion('envivo')
+  }, [])
 
   if (loading) {
     return (
@@ -38,7 +45,18 @@ function AppContent() {
   ]
 
   return (
-    <div style={{ ...shell, minHeight: '100vh', position: 'relative', paddingBottom: 80 }}>
+    <PedidoAlertProvider onNuevoPedido={handleNuevoPedido}>
+      <AppInner seccion={seccion} setSeccion={setSeccion} nav={nav} />
+    </PedidoAlertProvider>
+  )
+}
+
+function AppInner({ seccion, setSeccion, nav }) {
+  const { socio } = useSocio()
+  const { pedidosPendientes } = usePedidoAlert()
+
+  return (
+    <div style={{ ...shell, minHeight: '100vh', position: 'relative', paddingBottom: 80 }} onClick={() => unlockAudio()} onTouchStart={() => unlockAudio()}>
       <style>{css}</style>
 
       {/* Header */}
@@ -55,9 +73,20 @@ function AppContent() {
             background: seccion === 'envivo' ? 'var(--c-accent)' : 'var(--c-accent-light)',
             fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
             color: seccion === 'envivo' ? '#fff' : 'var(--c-accent)',
+            position: 'relative',
           }}>
             <Radio size={14} strokeWidth={2.5} />
             En vivo
+            {pedidosPendientes.length > 0 && (
+              <span style={{
+                position: 'absolute', top: -4, right: -4,
+                width: 18, height: 18, borderRadius: 9,
+                background: '#EF4444', color: '#fff',
+                fontSize: 10, fontWeight: 800,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                animation: 'pulse 1s infinite',
+              }}>{pedidosPendientes.length}</span>
+            )}
           </button>
           <button onClick={() => setSeccion('soporte')} style={{
             display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 10, border: 'none',
@@ -70,6 +99,33 @@ function AppContent() {
           </button>
         </div>
       </div>
+
+      {/* Banner flotante cuando hay pedidos pendientes y NO estamos en EnVivo */}
+      {pedidosPendientes.length > 0 && seccion !== 'envivo' && (
+        <button onClick={() => setSeccion('envivo')} style={{
+          position: 'fixed', top: 60, left: '50%', transform: 'translateX(-50%)',
+          width: 'calc(100% - 32px)', maxWidth: 390, zIndex: 100,
+          background: 'linear-gradient(135deg, #FF5733, #FF8F73)',
+          borderRadius: 14, padding: '14px 18px', border: 'none',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          cursor: 'pointer', fontFamily: 'inherit',
+          boxShadow: '0 8px 32px rgba(255,87,51,0.4)',
+          animation: 'pulse 1.5s ease-in-out infinite',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 22 }}>🔔</span>
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ color: '#fff', fontSize: 13, fontWeight: 800 }}>
+                {pedidosPendientes.length} pedido{pedidosPendientes.length > 1 ? 's' : ''} nuevo{pedidosPendientes.length > 1 ? 's' : ''}
+              </div>
+              <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11, fontWeight: 600 }}>Toca para ver</div>
+            </div>
+          </div>
+          <div style={{ color: '#fff', fontSize: 12, fontWeight: 700, background: 'rgba(255,255,255,0.25)', padding: '6px 12px', borderRadius: 8 }}>
+            Ver pedidos
+          </div>
+        </button>
+      )}
 
       {/* Contenido */}
       <div style={{ padding: 20, animation: 'fadeIn 0.3s ease' }}>

@@ -116,18 +116,36 @@ export default function PedidosEnVivo() {
     if (!relaciones || relaciones.length === 0) return null
 
     let socioIds = relaciones.map(r => r.socio_id)
-    // Excluir riders que ya rechazaron
     if (ridersRechazados.length > 0) socioIds = socioIds.filter(id => !ridersRechazados.includes(id))
-
     if (socioIds.length === 0) return null
 
+    // Obtener coordenadas del restaurante
+    const { data: est } = await supabase
+      .from('establecimientos').select('latitud, longitud')
+      .eq('id', establecimientoId).single()
+
+    // Obtener socios activos, en servicio y con ubicación
     const { data: sociosActivos } = await supabase
-      .from('socios').select('id')
-      .in('id', socioIds).eq('activo', true).eq('en_servicio', true).limit(1)
+      .from('socios').select('id, latitud_actual, longitud_actual')
+      .in('id', socioIds).eq('activo', true).eq('en_servicio', true)
 
     if (!sociosActivos || sociosActivos.length === 0) return null
 
-    const socioId = sociosActivos[0].id
+    // Ordenar por distancia al restaurante (más cercano primero)
+    let socioId
+    if (est?.latitud && est?.longitud) {
+      const conDistancia = sociosActivos
+        .filter(s => s.latitud_actual && s.longitud_actual)
+        .map(s => {
+          const dLat = (s.latitud_actual - est.latitud) * 111.32
+          const dLng = (s.longitud_actual - est.longitud) * 111.32 * Math.cos(est.latitud * Math.PI / 180)
+          return { ...s, distancia: Math.sqrt(dLat * dLat + dLng * dLng) }
+        })
+        .sort((a, b) => a.distancia - b.distancia)
+      socioId = conDistancia.length > 0 ? conDistancia[0].id : sociosActivos[0].id
+    } else {
+      socioId = sociosActivos[0].id
+    }
 
     await supabase.from('pedidos').update({
       socio_id: socioId,
@@ -182,16 +200,14 @@ export default function PedidosEnVivo() {
     await supabase.from('pedidos').update({ estado: 'listo' }).eq('id', id)
     const pedido = activos.find(p => p.id === id)
     setActivos(prev => prev.map(p => p.id === id ? { ...p, estado: 'listo' } : p))
-    // Notificar al cliente y socio
-    if (pedido?.usuario_id) sendPush({ targetType: 'cliente', targetId: pedido.usuario_id, title: 'Pedido listo', body: `Tu pedido ${pedido.codigo} está listo para recoger` })
+    // Solo notificar al socio — el cliente solo se entera por acciones del socio
     if (pedido?.socio_id) sendPush({ targetType: 'socio', targetId: pedido.socio_id, title: 'Pedido listo', body: `Pedido ${pedido.codigo} listo para recoger en el restaurante` })
   }
 
   async function marcarRecogido(id) {
     await supabase.from('pedidos').update({ estado: 'recogido', recogido_at: new Date().toISOString() }).eq('id', id)
-    const pedido = activos.find(p => p.id === id)
     setActivos(prev => prev.filter(p => p.id !== id))
-    if (pedido?.usuario_id) sendPush({ targetType: 'cliente', targetId: pedido.usuario_id, title: 'Pedido en camino', body: `Tu pedido ${pedido.codigo} va en camino` })
+    // No notificar al cliente — el socio se encarga de eso al marcar recogido/en_camino
   }
 
   const formatTimer = s => { const m = Math.floor((s || 180) / 60); const sec = (s || 180) % 60; return `${m}:${sec.toString().padStart(2, '0')}` }

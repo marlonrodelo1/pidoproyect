@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useSocio } from '../context/SocioContext'
+import { usePedidoAlert } from '../context/PedidoAlertContext'
 import { watchPosition, clearWatch } from '../lib/geolocation'
-import { startAlarm, stopAlarm } from '../lib/alarm'
+import { stopAlarm } from '../lib/alarm'
 import { sendPush } from '../lib/webPush'
 
 function PagoBadge({ pago }) {
@@ -15,7 +16,7 @@ function CanalBadge({ canal }) {
   return <span style={{ background: p ? 'rgba(96,165,250,0.15)' : 'rgba(168,85,247,0.15)', color: p ? '#60A5FA' : '#A855F7', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 6 }}>{p ? 'Tu tienda' : 'App PIDO'}</span>
 }
 
-function openGoogleMaps(lat, lng, label) {
+function openGoogleMaps(lat, lng) {
   const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`
   window.open(url, '_blank')
 }
@@ -26,7 +27,7 @@ function callPhone(phone) {
 
 export default function EnVivo() {
   const { socio } = useSocio()
-  const [pedidos, setPedidos] = useState([])
+  const { pedidosPendientes, pedidosActivos, setPedidosPendientes, setPedidosActivos, fetchPedidos } = usePedidoAlert()
   const [pedidoActivo, setPedidoActivo] = useState(null)
   const [items, setItems] = useState([])
   const [etapa, setEtapa] = useState(null)
@@ -37,64 +38,40 @@ export default function EnVivo() {
   useEffect(() => {
     if (!socio?.en_servicio) return
     let watchId = null
-    let interval = null
+    let lastPos = null
 
     watchPosition(pos => {
-      if (!interval) {
-        interval = setInterval(() => {
-          supabase.from('socios').update({
-            latitud_actual: pos.lat,
-            longitud_actual: pos.lng,
-          }).eq('id', socio.id).then(() => {})
-        }, 10000)
-      }
+      lastPos = pos
     }).then(id => { watchId = id })
+
+    const interval = setInterval(() => {
+      if (lastPos) {
+        supabase.from('socios').update({
+          latitud_actual: lastPos.lat,
+          longitud_actual: lastPos.lng,
+        }).eq('id', socio.id).then(() => {})
+      }
+    }, 10000)
 
     return () => {
       if (watchId) clearWatch(watchId)
-      if (interval) clearInterval(interval)
+      clearInterval(interval)
     }
   }, [socio?.en_servicio])
 
+  // Realtime para actualizar pedido activo en tiempo real
   useEffect(() => {
-    if (!socio) return
-    fetchPedidos()
-
-    const channel = supabase.channel('pedidos-socio')
+    if (!pedidoActivo) return
+    const channel = supabase.channel(`pedido-activo-${pedidoActivo.id}`)
       .on('postgres_changes', {
-        event: '*', schema: 'public', table: 'pedidos',
-        filter: `socio_id=eq.${socio.id}`,
+        event: 'UPDATE', schema: 'public', table: 'pedidos',
+        filter: `id=eq.${pedidoActivo.id}`,
       }, payload => {
-        if (payload.eventType === 'INSERT') {
-          setPedidos(prev => [payload.new, ...prev])
-          if (payload.new.rider_estado === 'pendiente') startAlarm()
-        } else if (payload.eventType === 'UPDATE') {
-          setPedidos(prev => prev.map(p => p.id === payload.new.id ? payload.new : p))
-          if (pedidoActivo && payload.new.id === pedidoActivo.id) {
-            setPedidoActivo(prev => ({ ...prev, ...payload.new }))
-          }
-          // Sonar alarma si un pedido pasa a pendiente (restaurante aceptó y nos asignó)
-          if (payload.new.rider_estado === 'pendiente' && payload.new.socio_id === socio.id) startAlarm()
-        }
+        setPedidoActivo(prev => prev ? { ...prev, ...payload.new } : null)
       })
       .subscribe()
-
     return () => { supabase.removeChannel(channel) }
-  }, [socio?.id])
-
-  async function fetchPedidos() {
-    const { data } = await supabase
-      .from('pedidos')
-      .select('*, establecimientos(nombre, direccion, latitud, longitud, telefono)')
-      .eq('socio_id', socio.id)
-      .in('estado', ['nuevo', 'aceptado', 'preparando', 'listo', 'recogido', 'en_camino'])
-      .order('created_at', { ascending: false })
-    setPedidos(data || [])
-    // Si hay pedidos pendientes de aceptar, sonar alarma
-    if ((data || []).some(p => p.rider_estado === 'pendiente' && p.socio_id === socio.id)) {
-      startAlarm()
-    }
-  }
+  }, [pedidoActivo?.id])
 
   async function loadCliente(usuarioId) {
     if (!usuarioId) return
@@ -104,7 +81,6 @@ export default function EnVivo() {
 
   async function aceptarPedido(pedido) {
     stopAlarm()
-    // Rider acepta el pedido
     await supabase.from('pedidos').update({
       rider_estado: 'aceptado',
     }).eq('id', pedido.id)
@@ -113,13 +89,11 @@ export default function EnVivo() {
     await loadCliente(pedido.usuario_id)
     setPedidoActivo({ ...pedido, rider_estado: 'aceptado' })
     setEtapa('ir_recoger')
-    // Notificar al cliente
     if (pedido.usuario_id) sendPush({ targetType: 'cliente', targetId: pedido.usuario_id, title: 'Repartidor asignado', body: `Un repartidor ha aceptado tu pedido ${pedido.codigo}` })
   }
 
   async function rechazarPedido(pedido) {
     stopAlarm()
-    // Rider rechaza → se quita del pedido y se añade a rechazados
     const rechazados = pedido.riders_rechazados || []
     await supabase.from('pedidos').update({
       socio_id: null,
@@ -127,7 +101,7 @@ export default function EnVivo() {
       rider_asignado_at: null,
       riders_rechazados: [...rechazados, socio.id],
     }).eq('id', pedido.id)
-    setPedidos(prev => prev.filter(p => p.id !== pedido.id))
+    setPedidosPendientes(prev => prev.filter(p => p.id !== pedido.id))
   }
 
   async function marcarFallido() {
@@ -172,17 +146,13 @@ export default function EnVivo() {
   ]
   const etapaIdx = etapa ? etapas.findIndex(e => e.id === etapa) : -1
 
-  // Pedidos pendientes de aceptar por este rider
-  const pendientes = pedidos.filter(p => p.rider_estado === 'pendiente' && p.socio_id === socio?.id)
-  const enProgreso = pedidos.filter(p => p.rider_estado === 'aceptado' && ['preparando', 'listo', 'recogido', 'en_camino'].includes(p.estado))
-
-  // Countdown para pedidos pendientes (debe estar antes de cualquier return condicional)
+  // Countdown para pedidos pendientes (2 min)
   useEffect(() => {
-    if (pendientes.length === 0) { stopAlarm(); return }
+    if (pedidosPendientes.length === 0) return
     const interval = setInterval(() => {
       const now = Date.now()
       const cd = {}
-      pendientes.forEach(p => {
+      pedidosPendientes.forEach(p => {
         const asignado = new Date(p.rider_asignado_at).getTime()
         const restante = Math.max(0, 120 - Math.floor((now - asignado) / 1000))
         cd[p.id] = restante
@@ -191,7 +161,7 @@ export default function EnVivo() {
       setCountdowns(cd)
     }, 1000)
     return () => clearInterval(interval)
-  }, [pendientes.length])
+  }, [pedidosPendientes.length])
 
   // Pedido activo
   if (pedidoActivo) {
@@ -310,7 +280,7 @@ export default function EnVivo() {
       <p style={{ fontSize: 13, color: 'var(--c-muted)', marginBottom: 24 }}>Aqui aparecen los pedidos en tiempo real.</p>
 
       {/* Pedidos pendientes de aceptar - con countdown 2 min */}
-      {pendientes.map(p => {
+      {pedidosPendientes.map(p => {
         const segs = countdowns[p.id] ?? 120
         const mins = Math.floor(segs / 60)
         const secs = segs % 60
@@ -320,7 +290,7 @@ export default function EnVivo() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <div>
                 <div style={{ color: '#fff', fontSize: 11, fontWeight: 600, opacity: 0.7, marginBottom: 2 }}>NUEVO PEDIDO</div>
-                <div style={{ color: '#fff', fontSize: 18, fontWeight: 800 }}>{p.establecimientos?.nombre}</div>
+                <div style={{ color: '#fff', fontSize: 18, fontWeight: 800 }}>{p.establecimientos?.nombre || 'Restaurante'}</div>
               </div>
               <div style={{
                 background: urgente ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.25)',
@@ -349,7 +319,7 @@ export default function EnVivo() {
       })}
 
       {/* Pedidos en progreso - retomar */}
-      {enProgreso.map(p => (
+      {pedidosActivos.map(p => (
         <div key={p.id} style={{ background: 'var(--c-surface)', borderRadius: 14, padding: '16px 18px', border: '1px solid var(--c-border)', marginBottom: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <span style={{ fontWeight: 700, fontSize: 14 }}>{p.codigo}</span>
@@ -369,7 +339,7 @@ export default function EnVivo() {
         </div>
       ))}
 
-      {pendientes.length === 0 && enProgreso.length === 0 && (
+      {pedidosPendientes.length === 0 && pedidosActivos.length === 0 && (
         <div style={{ textAlign: 'center', color: 'var(--c-muted)', fontSize: 13, padding: '40px 0' }}>Esperando nuevos pedidos...</div>
       )}
     </div>
