@@ -48,18 +48,17 @@ body {
   #root { min-height: 100dvh; }
 }
 
-/* Tablet: center content */
-@media (min-width: 768px) {
+/* Responsive: full width en móvil y tablet */
+#root {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Solo en navegador desktop: centrar como app */
+@media (min-width: 1024px) {
   #root {
     max-width: 480px;
     margin: 0 auto;
-  }
-}
-
-/* Desktop */
-@media (min-width: 1024px) {
-  #root {
-    max-width: 420px;
     box-shadow: 0 0 60px rgba(0,0,0,0.5);
     border-left: 1px solid rgba(255,255,255,0.06);
     border-right: 1px solid rgba(255,255,255,0.06);

@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
+import { Capacitor } from '@capacitor/core'
+import { Browser } from '@capacitor/browser'
 import { Mail, Lock, User, Phone, ArrowLeft, Eye, EyeOff } from 'lucide-react'
 
 export default function Login() {
@@ -189,7 +191,24 @@ export default function Login() {
               <span style={{ fontSize: 11, color: 'var(--c-muted)', fontWeight: 600 }}>o</span>
               <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.1)' }} />
             </div>
-            <button onClick={() => supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } })} style={{
+            <button onClick={async () => {
+              if (Capacitor.isNativePlatform()) {
+                // En app nativa: obtener URL de OAuth y abrir en InAppBrowser
+                const { data, error } = await supabase.auth.signInWithOAuth({
+                  provider: 'google',
+                  options: {
+                    redirectTo: 'https://rmrbxrabngdmpgpfmjbo.supabase.co/auth/v1/callback',
+                    skipBrowserRedirect: true,
+                  },
+                })
+                if (data?.url) {
+                  await Browser.open({ url: data.url, windowName: '_self' })
+                }
+              } else {
+                // En web: redirect normal
+                supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } })
+              }
+            }} style={{
               width: '100%', padding: '14px 0', borderRadius: 14, border: '1px solid rgba(255,255,255,0.15)',
               background: 'rgba(255,255,255,0.06)', color: '#F5F5F5',
               fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',

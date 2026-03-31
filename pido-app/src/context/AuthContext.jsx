@@ -1,4 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react'
+import { Capacitor } from '@capacitor/core'
+import { App as CapApp } from '@capacitor/app'
+import { Browser } from '@capacitor/browser'
 import { supabase } from '../lib/supabase'
 import { registerWebPush } from '../lib/webPush'
 import { registerPushNotifications } from '../lib/pushNotifications'
@@ -19,9 +22,31 @@ export function AuthProvider({ children }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
-      if (session?.user) fetchPerfil(session.user.id)
+      if (session?.user) {
+        fetchPerfil(session.user.id)
+        // Cerrar browser si estaba abierto (OAuth callback)
+        if (Capacitor.isNativePlatform()) {
+          Browser.close().catch(() => {})
+        }
+      }
       else { setPerfil(null); setLoading(false) }
     })
+
+    // Escuchar deep links (OAuth callback en app nativa)
+    if (Capacitor.isNativePlatform()) {
+      CapApp.addListener('appUrlOpen', async ({ url }) => {
+        if (url.includes('access_token') || url.includes('code=')) {
+          // Extraer tokens del URL y establecer sesión
+          const hashParams = new URLSearchParams(url.split('#')[1] || url.split('?')[1] || '')
+          const accessToken = hashParams.get('access_token')
+          const refreshToken = hashParams.get('refresh_token')
+          if (accessToken && refreshToken) {
+            await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+          }
+          Browser.close().catch(() => {})
+        }
+      })
+    }
 
     return () => subscription.unsubscribe()
   }, [])
