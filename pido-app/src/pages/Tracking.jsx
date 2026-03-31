@@ -11,7 +11,7 @@ const ETAPAS = [
 ]
 
 // listo queda en etapa 1 (igual que preparando) — solo el socio avanza el tracking del cliente
-const ESTADO_MAP = { nuevo: 0, aceptado: 1, preparando: 1, listo: 1, recogido: 2, en_camino: 3, entregado: 4 }
+const ESTADO_MAP = { nuevo: 0, aceptado: 1, preparando: 1, listo: 1, recogido: 2, en_camino: 3, entregado: 4, cancelado: -1, fallido: -1 }
 
 export default function Tracking({ pedido: pedidoInicial, onClose }) {
   const [pedido, setPedido] = useState(pedidoInicial)
@@ -72,14 +72,14 @@ export default function Tracking({ pedido: pedidoInicial, onClose }) {
     const pollInterval = setInterval(async () => {
       const { data } = await supabase
         .from('pedidos')
-        .select('estado, socio_id')
+        .select('estado, socio_id, motivo_cancelacion')
         .eq('id', pedido.id)
         .single()
       if (data) {
         const nuevaEtapa = ESTADO_MAP[data.estado] || 0
         if (nuevaEtapa !== etapa) {
           setEtapa(nuevaEtapa)
-          setPedido(prev => ({ ...prev, estado: data.estado, socio_id: data.socio_id }))
+          setPedido(prev => ({ ...prev, estado: data.estado, socio_id: data.socio_id, motivo_cancelacion: data.motivo_cancelacion }))
         }
         // Si se asigno socio y no lo teniamos
         if (data.socio_id && !socio) {
@@ -117,6 +117,33 @@ export default function Tracking({ pedido: pedidoInicial, onClose }) {
       setResenaEnviada(true)
       setYaValorado(true)
     }
+  }
+
+  // Pedido cancelado
+  if (pedido.estado === 'cancelado' || pedido.estado === 'fallido') {
+    return (
+      <div style={{ animation: 'fadeIn 0.3s ease' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <h2 style={{ fontSize: 20, fontWeight: 800, color: 'var(--c-text)', margin: 0 }}>Tu pedido</h2>
+          <span style={{ fontSize: 11, color: 'var(--c-muted)', fontWeight: 600 }}>{pedido.codigo}</span>
+        </div>
+        <div style={{ background: 'rgba(239,68,68,0.1)', borderRadius: 16, padding: 28, textAlign: 'center', border: '1px solid rgba(239,68,68,0.2)' }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>😔</div>
+          <div style={{ fontWeight: 800, fontSize: 18, color: '#EF4444', marginBottom: 8 }}>Pedido cancelado</div>
+          {pedido.motivo_cancelacion && (
+            <div style={{ fontSize: 14, color: 'var(--c-text)', marginBottom: 6, fontWeight: 600 }}>{pedido.motivo_cancelacion}</div>
+          )}
+          <div style={{ fontSize: 12, color: 'var(--c-muted)', marginBottom: 20 }}>
+            {pedido.metodo_pago === 'tarjeta' ? 'Si se realizó el cobro, el reembolso se procesará automáticamente.' : 'No se ha realizado ningún cobro.'}
+          </div>
+          <button onClick={onClose} style={{
+            padding: '12px 28px', borderRadius: 12, border: 'none',
+            background: 'var(--c-primary)', color: '#fff', fontSize: 14, fontWeight: 700,
+            cursor: 'pointer', fontFamily: 'inherit',
+          }}>Entendido</button>
+        </div>
+      </div>
+    )
   }
 
   return (

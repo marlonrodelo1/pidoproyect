@@ -16,12 +16,19 @@ function EstadoBadge({ estado }) {
   return <span style={{ background: c.bg, color: c.c, fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 6, textTransform: 'capitalize' }}>{estado?.replace('_', ' ')}</span>
 }
 
+const MOTIVOS_RECHAZO = [
+  { id: 'sin_personal', label: 'No tenemos personal', icon: '👤' },
+  { id: 'sin_productos', label: 'No hay productos disponibles', icon: '📦' },
+  { id: 'mucha_demanda', label: 'Mucha demanda ahora mismo', icon: '🔥' },
+]
+
 export default function PedidosEnVivo() {
   const { restaurante } = useRest()
   const [entrantes, setEntrantes] = useState([])
   const [activos, setActivos] = useState([])
   const [itemsMap, setItemsMap] = useState({})
   const [timers, setTimers] = useState({})
+  const [rechazandoId, setRechazandoId] = useState(null)
 
   // Desbloquear audio al primer click y pedir permisos de notificación
   useEffect(() => {
@@ -54,13 +61,20 @@ export default function PedidosEnVivo() {
     return () => { supabase.removeChannel(channel) }
   }, [restaurante?.id])
 
-  // Countdown
+  // Countdown + auto-cancelar al llegar a 0
   useEffect(() => {
     if (entrantes.length === 0) return
     const i = setInterval(() => {
       setTimers(prev => {
         const n = { ...prev }
-        Object.keys(n).forEach(id => { if (n[id] > 0) n[id] -= 1 })
+        Object.keys(n).forEach(id => {
+          if (n[id] > 0) {
+            n[id] -= 1
+          } else if (n[id] === 0) {
+            n[id] = -1
+            autoCancelarPedido(id)
+          }
+        })
         return n
       })
     }, 1000)
@@ -185,15 +199,36 @@ export default function PedidosEnVivo() {
     if (socioAsignado) sendPush({ targetType: 'socio', targetId: socioAsignado, title: 'Nuevo pedido', body: `Pedido ${pedido.codigo} - ${pedido.total?.toFixed(2)} € · Tienes 2 min para aceptar` })
   }
 
-  async function rechazarPedido(id) {
+  async function rechazarPedido(id, motivo) {
     const pedido = entrantes.find(p => p.id === id)
-    await supabase.from('pedidos').update({ estado: 'cancelado' }).eq('id', id)
+    const motivoTexto = MOTIVOS_RECHAZO.find(m => m.id === motivo)?.label || motivo || 'El restaurante no pudo aceptar tu pedido'
+    await supabase.from('pedidos').update({
+      estado: 'cancelado',
+      motivo_cancelacion: motivoTexto,
+      cancelado_at: new Date().toISOString(),
+    }).eq('id', id)
     setEntrantes(prev => {
       const remaining = prev.filter(p => p.id !== id)
       if (remaining.length === 0) stopAlarm()
       return remaining
     })
-    if (pedido?.usuario_id) sendPush({ targetType: 'cliente', targetId: pedido.usuario_id, title: 'Pedido cancelado', body: `Tu pedido ${pedido.codigo} ha sido cancelado por el restaurante` })
+    setRechazandoId(null)
+    if (pedido?.usuario_id) sendPush({ targetType: 'cliente', targetId: pedido.usuario_id, title: 'Pedido cancelado', body: `Tu pedido ${pedido.codigo} fue cancelado: ${motivoTexto}` })
+  }
+
+  async function autoCancelarPedido(id) {
+    const pedido = entrantes.find(p => p.id === id)
+    await supabase.from('pedidos').update({
+      estado: 'cancelado',
+      motivo_cancelacion: 'El restaurante no respondió a tiempo',
+      cancelado_at: new Date().toISOString(),
+    }).eq('id', id)
+    setEntrantes(prev => {
+      const remaining = prev.filter(p => p.id !== id)
+      if (remaining.length === 0) stopAlarm()
+      return remaining
+    })
+    if (pedido?.usuario_id) sendPush({ targetType: 'cliente', targetId: pedido.usuario_id, title: 'Pedido cancelado', body: `Tu pedido ${pedido.codigo} fue cancelado porque el restaurante no respondió a tiempo` })
   }
 
   async function marcarListo(id) {
@@ -272,7 +307,26 @@ export default function PedidosEnVivo() {
               <button key={min} onClick={() => aceptarPedido(p, min)} style={{ flex: 1, padding: '12px 0', borderRadius: 10, border: 'none', background: '#fff', color: 'var(--c-primary)', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>{min} min</button>
             ))}
           </div>
-          <button onClick={() => rechazarPedido(p.id)} style={{ width: '100%', marginTop: 8, padding: '10px 0', borderRadius: 10, border: '2px solid rgba(255,255,255,0.3)', background: 'transparent', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Rechazar</button>
+          {rechazandoId === p.id ? (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', marginBottom: 8, fontWeight: 600 }}>Motivo del rechazo:</div>
+              {MOTIVOS_RECHAZO.map(m => (
+                <button key={m.id} onClick={() => rechazarPedido(p.id, m.id)} style={{
+                  width: '100%', padding: '10px 14px', borderRadius: 10, marginBottom: 6,
+                  border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.1)',
+                  color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                  display: 'flex', alignItems: 'center', gap: 8, textAlign: 'left',
+                }}>{m.icon} {m.label}</button>
+              ))}
+              <button onClick={() => setRechazandoId(null)} style={{
+                width: '100%', padding: '8px 0', borderRadius: 10, border: 'none',
+                background: 'transparent', color: 'rgba(255,255,255,0.5)', fontSize: 11,
+                fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', marginTop: 2,
+              }}>Cancelar</button>
+            </div>
+          ) : (
+            <button onClick={() => setRechazandoId(p.id)} style={{ width: '100%', marginTop: 8, padding: '10px 0', borderRadius: 10, border: '2px solid rgba(255,255,255,0.3)', background: 'transparent', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Rechazar</button>
+          )}
         </div>
       ))}
 
