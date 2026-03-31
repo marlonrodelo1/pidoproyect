@@ -193,18 +193,21 @@ export default function Login() {
             <button onClick={async () => {
               if (Capacitor.isNativePlatform()) {
                 try {
-                  // Google Sign-In nativo (popup dentro de la app)
                   const { GoogleAuth } = await import('@codetrix-studio/capacitor-google-auth')
+                  await GoogleAuth.initialize({
+                    clientId: '797553895667-gr3vsgvcp85k0bh0b3iafkblv529g8kt.apps.googleusercontent.com',
+                    scopes: ['profile', 'email'],
+                    grantOfflineAccess: true,
+                  })
                   const googleUser = await GoogleAuth.signIn()
-                  // Usar el idToken para autenticar con Supabase
                   const { error } = await supabase.auth.signInWithIdToken({
                     provider: 'google',
                     token: googleUser.authentication.idToken,
                   })
                   if (error) setError(error.message)
                 } catch (err) {
-                  if (err.message !== 'popup_closed_by_user') {
-                    setError('Error al iniciar con Google')
+                  if (err.message !== 'popup_closed_by_user' && err.message !== 'The user canceled the sign-in flow.') {
+                    setError('Error al iniciar con Google: ' + err.message)
                   }
                 }
               } else {
