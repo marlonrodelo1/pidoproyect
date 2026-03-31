@@ -53,6 +53,7 @@ function AppContent() {
   function abrirRest(r) { setRestOpen(r); setSeccion('home') }
   function handlePedidoCreado(pedido) { setPedidoActivo(pedido); setSeccion('tracking') }
   function handleTrack(pedido) { setPedidoActivo(pedido); setSeccion('tracking') }
+  function handleTrackingClose() { setPedidoActivo(null); setSeccion('home') }
 
   const catEmoji = categoriaPadre === 'comida' ? '🍕' : categoriaPadre === 'farmacia' ? '💊' : '🛒'
   const catLabel = categoriaPadre === 'comida' ? 'Comida' : categoriaPadre === 'farmacia' ? 'Farmacia' : 'Market'
@@ -79,7 +80,7 @@ function AppContent() {
           </button>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {pedidoActivo && (
+          {pedidoActivo && !['cancelado', 'fallido', 'entregado'].includes(pedidoActivo.estado) && (
             <button onClick={() => setSeccion('tracking')} style={{
               display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px',
               borderRadius: 10, border: 'none', background: '#DCFCE7',
@@ -105,7 +106,7 @@ function AppContent() {
       {/* Contenido */}
       <div style={{ padding: 20, animation: 'fadeIn 0.3s ease' }}>
         {seccion === 'tracking' && pedidoActivo
-          ? <Tracking pedido={pedidoActivo} onClose={() => setSeccion('home')} />
+          ? <Tracking pedido={pedidoActivo} onClose={handleTrackingClose} />
           : restOpen && seccion === 'home'
           ? <RestDetalle establecimiento={restOpen} onBack={() => setRestOpen(null)} />
           : seccion === 'home'
