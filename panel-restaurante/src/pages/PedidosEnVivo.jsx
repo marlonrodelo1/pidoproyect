@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useRest } from '../context/RestContext'
-import { startAlarm, stopAlarm, unlockAudio, requestNotificationPermission } from '../lib/alarm'
+import { startAlarm, stopAlarm } from '../lib/alarm'
 import { sendPush } from '../lib/webPush'
 
 function PagoBadge({ pago }) {
@@ -30,17 +30,7 @@ export default function PedidosEnVivo() {
   const [timers, setTimers] = useState({})
   const [rechazandoId, setRechazandoId] = useState(null)
 
-  // Desbloquear audio al primer click y pedir permisos de notificación
-  useEffect(() => {
-    requestNotificationPermission()
-    const handler = () => unlockAudio()
-    document.addEventListener('click', handler, { once: true })
-    document.addEventListener('touchstart', handler, { once: true })
-    return () => {
-      document.removeEventListener('click', handler)
-      document.removeEventListener('touchstart', handler)
-    }
-  }, [])
+  // Audio unlock y notificaciones ahora se manejan en PedidoAlertContext global
 
   useEffect(() => {
     if (!restaurante) return

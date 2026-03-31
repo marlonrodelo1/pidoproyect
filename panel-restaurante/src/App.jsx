@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { ClipboardList, Clock, UtensilsCrossed, Users, Settings, BarChart3 } from 'lucide-react'
 import { Capacitor } from '@capacitor/core'
 import { StatusBar, Style } from '@capacitor/status-bar'
 import { RestProvider, useRest } from './context/RestContext'
+import { PedidoAlertProvider, usePedidoAlert } from './context/PedidoAlertContext'
 import Login from './pages/Login'
 import PedidosEnVivo from './pages/PedidosEnVivo'
 import Historial from './pages/Historial'
@@ -17,6 +18,10 @@ const NAV_ICONS = { pedidos: ClipboardList, historial: Clock, carta: UtensilsCro
 function AppContent() {
   const { user, restaurante, loading } = useRest()
   const [seccion, setSeccion] = useState('pedidos')
+
+  const handleNuevoPedido = useCallback(() => {
+    setSeccion('pedidos')
+  }, [])
 
   useEffect(() => {
     if (Capacitor.isNativePlatform()) {
@@ -47,6 +52,17 @@ function AppContent() {
   ]
 
   return (
+    <PedidoAlertProvider onNuevoPedido={handleNuevoPedido}>
+      <AppInner seccion={seccion} setSeccion={setSeccion} nav={nav} />
+    </PedidoAlertProvider>
+  )
+}
+
+function AppInner({ seccion, setSeccion, nav }) {
+  const { restaurante } = useRest()
+  const { pedidosNuevos } = usePedidoAlert()
+
+  return (
     <div style={{ ...shell, minHeight: '100vh', position: 'relative', paddingBottom: 80 }}>
       <style>{css}</style>
 
@@ -63,14 +79,53 @@ function AppContent() {
             </div>
           </div>
         </div>
-        <button onClick={() => setSeccion('metricas')} style={{
-          padding: '7px 14px', borderRadius: 10, border: 'none',
-          background: seccion === 'metricas' ? 'var(--c-primary)' : 'var(--c-surface2)',
-          fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
-          color: seccion === 'metricas' ? '#fff' : 'var(--c-muted)',
-          display: 'flex', alignItems: 'center', gap: 5,
-        }}><BarChart3 size={14} strokeWidth={2} /> Metricas</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {pedidosNuevos.length > 0 && seccion !== 'pedidos' && (
+            <button onClick={() => setSeccion('pedidos')} style={{
+              display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px',
+              borderRadius: 10, border: 'none', background: '#FEF2F2',
+              fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', color: '#991B1B',
+              animation: 'pulse 1s infinite',
+            }}>
+              🔔 {pedidosNuevos.length} nuevo{pedidosNuevos.length > 1 ? 's' : ''}
+            </button>
+          )}
+          <button onClick={() => setSeccion('metricas')} style={{
+            padding: '7px 14px', borderRadius: 10, border: 'none',
+            background: seccion === 'metricas' ? 'var(--c-primary)' : 'var(--c-surface2)',
+            fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+            color: seccion === 'metricas' ? '#fff' : 'var(--c-muted)',
+            display: 'flex', alignItems: 'center', gap: 5,
+          }}><BarChart3 size={14} strokeWidth={2} /> Metricas</button>
+        </div>
       </div>
+
+      {/* Banner flotante cuando hay pedidos nuevos y NO estamos en Pedidos */}
+      {pedidosNuevos.length > 0 && seccion !== 'pedidos' && (
+        <button onClick={() => setSeccion('pedidos')} style={{
+          position: 'fixed', top: 70, left: '50%', transform: 'translateX(-50%)',
+          width: 'calc(100% - 32px)', maxWidth: 500, zIndex: 100,
+          background: 'linear-gradient(135deg, #B91C1C, #DC2626)',
+          borderRadius: 14, padding: '14px 18px', border: 'none',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          cursor: 'pointer', fontFamily: 'inherit',
+          boxShadow: '0 8px 32px rgba(185,28,28,0.4)',
+          animation: 'pulse 1.5s ease-in-out infinite',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 22 }}>🔔</span>
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ color: '#fff', fontSize: 13, fontWeight: 800 }}>
+                {pedidosNuevos.length} pedido{pedidosNuevos.length > 1 ? 's' : ''} nuevo{pedidosNuevos.length > 1 ? 's' : ''}
+              </div>
+              <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11, fontWeight: 600 }}>Toca para ver y aceptar</div>
+            </div>
+          </div>
+          <div style={{ color: '#fff', fontSize: 12, fontWeight: 700, background: 'rgba(255,255,255,0.25)', padding: '6px 12px', borderRadius: 8 }}>
+            Ir a pedidos
+          </div>
+        </button>
+      )}
 
       {/* Contenido */}
       <div style={{ padding: 20, animation: 'fadeIn 0.3s ease' }}>
@@ -90,8 +145,20 @@ function AppContent() {
             background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
             color: seccion === n.id ? 'var(--c-primary)' : 'var(--c-muted)',
             fontSize: 10, fontWeight: 600, padding: '4px 8px', transition: 'color 0.2s',
+            position: 'relative',
           }}>
-            {(() => { const Icon = NAV_ICONS[n.id]; return Icon ? <Icon size={20} strokeWidth={seccion === n.id ? 2.5 : 1.8} /> : null })()}{n.label}
+            {(() => { const Icon = NAV_ICONS[n.id]; return Icon ? <Icon size={20} strokeWidth={seccion === n.id ? 2.5 : 1.8} /> : null })()}
+            {n.label}
+            {n.id === 'pedidos' && pedidosNuevos.length > 0 && (
+              <span style={{
+                position: 'absolute', top: -2, right: 0,
+                width: 16, height: 16, borderRadius: 8,
+                background: '#EF4444', color: '#fff',
+                fontSize: 9, fontWeight: 800,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                animation: 'pulse 1s infinite',
+              }}>{pedidosNuevos.length}</span>
+            )}
           </button>
         ))}
       </div>

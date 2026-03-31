@@ -114,6 +114,8 @@ export default function Tracking({ pedido: pedidoInicial, onClose }) {
     if (!error) {
       setResenaEnviada(true)
       setYaValorado(true)
+      // Cerrar y volver a inicio después de enviar reseña
+      setTimeout(() => onClose(), 1500)
     }
   }
 
