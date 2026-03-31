@@ -36,8 +36,34 @@ input, select, textarea, button {
   font-size: 16px !important;
 }
 
+/* Safe areas for notch/dynamic island */
+body {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
 @supports (height: 100dvh) {
   #root { min-height: 100dvh; }
+}
+
+/* Tablet: center content */
+@media (min-width: 768px) {
+  #root {
+    max-width: 480px;
+    margin: 0 auto;
+  }
+}
+
+/* Desktop */
+@media (min-width: 1024px) {
+  #root {
+    max-width: 420px;
+    box-shadow: 0 0 60px rgba(0,0,0,0.5);
+    border-left: 1px solid rgba(255,255,255,0.06);
+    border-right: 1px solid rgba(255,255,255,0.06);
+  }
 }
 
 /* Google Places Autocomplete dark theme */
