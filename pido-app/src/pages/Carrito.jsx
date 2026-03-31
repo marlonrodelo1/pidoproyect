@@ -87,11 +87,14 @@ export default function Carrito({ onPedidoCreado }) {
   const [loadingCards, setLoadingCards] = useState(false)
   const [restCerrado, setRestCerrado] = useState(false)
   const [restCerradoMsg, setRestCerradoMsg] = useState('')
+  const [promoActiva, setPromoActiva] = useState(null)
+  const [descuento, setDescuento] = useState(0)
 
-  // Verificar si restaurante está abierto al abrir carrito
+  // Verificar si restaurante está abierto + cargar promos al abrir carrito
   useEffect(() => {
     if (open && carrito.length > 0) {
-      supabase.from('establecimientos').select('activo, horario, nombre').eq('id', carrito[0].establecimiento_id).single()
+      const estId = carrito[0].establecimiento_id
+      supabase.from('establecimientos').select('activo, horario, nombre').eq('id', estId).single()
         .then(({ data }) => {
           if (data) {
             const estado = estaAbierto(data)
@@ -105,8 +108,45 @@ export default function Carrito({ onPedidoCreado }) {
             )
           }
         })
+      // Cargar mejor promo activa
+      supabase.from('promociones').select('*').eq('establecimiento_id', estId).eq('activa', true)
+        .or('fecha_fin.is.null,fecha_fin.gt.' + new Date().toISOString())
+        .then(({ data: promos }) => {
+          if (promos && promos.length > 0) {
+            // Encontrar la mejor promo aplicable
+            const aplicables = promos.filter(p => subtotal >= (p.minimo_compra || 0))
+            if (aplicables.length > 0) {
+              // Calcular descuento de cada una y elegir la mejor
+              let mejor = null, mejorDesc = 0
+              for (const p of aplicables) {
+                let d = 0
+                if (p.tipo === 'descuento_porcentaje') d = subtotal * (p.valor / 100)
+                else if (p.tipo === 'descuento_fijo') d = p.valor
+                else if (p.tipo === '2x1') {
+                  const item2x1 = carrito.find(i => i.producto_id === p.producto_id)
+                  if (item2x1 && item2x1.cantidad >= 2) d = item2x1.precio_unitario * Math.floor(item2x1.cantidad / 2)
+                }
+                else if (p.tipo === 'producto_gratis') {
+                  const itemGratis = carrito.find(i => i.producto_id === p.producto_id)
+                  if (itemGratis) d = itemGratis.precio_unitario
+                }
+                if (d > mejorDesc) { mejor = p; mejorDesc = d }
+              }
+              setPromoActiva(mejor)
+              setDescuento(Math.round(mejorDesc * 100) / 100)
+            } else {
+              // Hay promos pero no se cumple el mínimo — mostrar la de menor mínimo
+              const menorMinimo = promos.sort((a, b) => (a.minimo_compra || 0) - (b.minimo_compra || 0))[0]
+              setPromoActiva(menorMinimo)
+              setDescuento(0)
+            }
+          } else {
+            setPromoActiva(null)
+            setDescuento(0)
+          }
+        })
     }
-  }, [open, carrito.length])
+  }, [open, carrito.length, subtotal])
 
   // Calcular envío al abrir el carrito o cambiar modo de entrega
   useEffect(() => {
@@ -132,6 +172,7 @@ export default function Carrito({ onPedidoCreado }) {
   if (totalItems === 0) return null
 
   async function iniciarPago() {
+    const totalConDescuento = Math.max(0, total - descuento)
     if (metodoPago === 'tarjeta') {
       setLoading(true)
       try {
@@ -142,7 +183,7 @@ export default function Carrito({ onPedidoCreado }) {
         if (tarjetaSel && tarjetasGuardadas.length > 0) {
           const result = await pagarConTarjetaGuardada({
             paymentMethodId: tarjetaSel,
-            amount: total,
+            amount: totalConDescuento,
             pedidoCodigo: codigo,
             customerEmail: user?.email,
             userId: user?.id,
@@ -155,7 +196,7 @@ export default function Carrito({ onPedidoCreado }) {
 
         // Si no, mostrar formulario de nueva tarjeta
         const result = await crearPagoStripe({
-          amount: total,
+          amount: totalConDescuento,
           pedidoCodigo: codigo,
           customerEmail: user?.email,
           userId: user?.id,
@@ -177,11 +218,15 @@ export default function Carrito({ onPedidoCreado }) {
     try {
       const codigo = codOverride || codigoPedido || `PD-${Date.now()}`
       // El socio se asigna cuando el restaurante acepta el pedido, no al crear
+      const totalFinal = Math.max(0, total - descuento)
       const { data: pedido, error: pedidoError } = await supabase.from('pedidos').insert({
         codigo, usuario_id: user?.id || null, establecimiento_id: carrito[0].establecimiento_id,
         socio_id: null, canal: 'pido', estado: 'nuevo', metodo_pago: metodoPago,
         modo_entrega: modoEntrega,
-        stripe_payment_id: stripePaymentId, subtotal, coste_envio: envio, propina, total, notas: '',
+        stripe_payment_id: stripePaymentId, subtotal, coste_envio: envio, propina, total: totalFinal,
+        descuento: descuento > 0 ? descuento : null,
+        promo_titulo: descuento > 0 && promoActiva ? promoActiva.titulo : null,
+        notas: '',
       }).select().single()
       if (pedidoError) throw pedidoError
       const items = carrito.map(item => ({
@@ -332,9 +377,38 @@ export default function Carrito({ onPedidoCreado }) {
                   )}
                 </div>
 
+                {/* Promo banner */}
+                {promoActiva && (
+                  <div style={{
+                    marginBottom: 12, padding: '10px 14px', borderRadius: 10,
+                    background: descuento > 0 ? 'rgba(34,197,94,0.1)' : 'rgba(255,107,44,0.08)',
+                    border: descuento > 0 ? '1px solid rgba(34,197,94,0.2)' : '1px solid rgba(255,107,44,0.15)',
+                    display: 'flex', alignItems: 'center', gap: 10,
+                  }}>
+                    <span style={{ fontSize: 20 }}>{descuento > 0 ? '🎉' : '🏷️'}</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: descuento > 0 ? '#4ADE80' : 'var(--c-primary)' }}>
+                        {promoActiva.titulo}
+                      </div>
+                      {descuento > 0 ? (
+                        <div style={{ fontSize: 11, color: '#4ADE80' }}>-{descuento.toFixed(2)} € aplicado</div>
+                      ) : (
+                        <div style={{ fontSize: 11, color: 'var(--c-muted)' }}>
+                          Compra min. {promoActiva.minimo_compra}€ — te faltan {((promoActiva.minimo_compra || 0) - subtotal).toFixed(2)}€
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Desglose */}
                 <div style={{ fontSize: 13, color: 'var(--c-muted)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}><span>Subtotal</span><span>{subtotal.toFixed(2)} €</span></div>
+                  {descuento > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, color: '#4ADE80' }}>
+                      <span>Descuento</span><span>-{descuento.toFixed(2)} €</span>
+                    </div>
+                  )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                     <span>Envío {distanciaKm && modoEntrega === 'delivery' ? <span style={{ fontSize: 10, color: 'var(--c-muted)' }}>({distanciaKm} km)</span> : null}</span>
                     <span style={{ color: modoEntrega === 'recogida' ? '#22C55E' : 'inherit', fontWeight: modoEntrega === 'recogida' ? 700 : 400 }}>
@@ -345,7 +419,7 @@ export default function Carrito({ onPedidoCreado }) {
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: 17, marginTop: 10, paddingTop: 10, borderTop: '2px solid rgba(255,255,255,0.08)', color: '#F5F5F5' }}>
-                  <span>Total</span><span>{total.toFixed(2)} €</span>
+                  <span>Total</span><span>{(total - descuento).toFixed(2)} €</span>
                 </div>
 
                 {/* Alerta restaurante cerrado */}

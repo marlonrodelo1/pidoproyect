@@ -17,11 +17,17 @@ export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
   const [loading, setLoading] = useState(true)
   const [userLocation, setUserLocation] = useState(null)
   const [categoriasGenerales, setCategoriasGenerales] = useState([])
+  const [promociones, setPromociones] = useState([])
 
   useEffect(() => {
     // Cargar categorías generales desde DB
     supabase.from('categorias_generales').select('*').eq('activa', true).order('orden')
       .then(({ data }) => setCategoriasGenerales(data || []))
+    // Cargar promociones activas
+    supabase.from('promociones').select('*, establecimientos(id, nombre, logo_url, banner_url, rating, total_resenas, radio_cobertura_km, activo, horario)')
+      .eq('activa', true)
+      .or('fecha_fin.is.null,fecha_fin.gt.' + new Date().toISOString())
+      .then(({ data }) => setPromociones(data || []))
   }, [])
 
   useEffect(() => {
@@ -207,6 +213,76 @@ export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
                 </div>
               </div>
             )})}
+          </div>
+        </div>
+      )}
+
+      {/* Promociones slider */}
+      {!busqueda && !catActiva && promociones.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <h2 style={{ fontSize: 17, fontWeight: 800, color: 'var(--c-text)', marginBottom: 12 }}>Ofertas y promociones</h2>
+          <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 6 }}>
+            {promociones.map(promo => {
+              const est = promo.establecimientos
+              if (!est) return null
+              const estadoPromo = estaAbierto(est)
+              return (
+                <div key={promo.id} onClick={() => onOpenRest(est)} style={{
+                  minWidth: 260, flexShrink: 0, background: 'rgba(255,255,255,0.08)', borderRadius: 16,
+                  overflow: 'hidden', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.1)',
+                  backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+                  opacity: estadoPromo.abierto ? 1 : 0.65,
+                }}>
+                  <div style={{
+                    height: 100, background: est.banner_url ? `url(${est.banner_url}) center/cover` : 'linear-gradient(135deg, var(--c-primary-light), var(--c-primary-soft))',
+                    position: 'relative',
+                  }}>
+                    {/* Badge de la promo - rojo destacado */}
+                    <div style={{
+                      position: 'absolute', bottom: 0, left: 0, right: 0,
+                      background: 'linear-gradient(0deg, rgba(220,38,38,0.95) 0%, rgba(220,38,38,0.7) 70%, transparent 100%)',
+                      padding: '20px 12px 8px',
+                    }}>
+                      <div style={{ color: '#fff', fontSize: 13, fontWeight: 800, textShadow: '0 1px 3px rgba(0,0,0,0.3)' }}>
+                        {promo.titulo}
+                      </div>
+                      {promo.minimo_compra > 0 && (
+                        <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: 10, fontWeight: 600 }}>
+                          Compra min. {promo.minimo_compra}€
+                        </div>
+                      )}
+                    </div>
+                    {/* Badge abierto/cerrado */}
+                    <span style={{
+                      position: 'absolute', top: 8, right: 8, fontSize: 9, fontWeight: 700,
+                      padding: '3px 8px', borderRadius: 6, backdropFilter: 'blur(6px)',
+                      background: estadoPromo.abierto ? 'rgba(22,163,74,0.85)' : 'rgba(239,68,68,0.85)',
+                      color: '#fff',
+                    }}>
+                      {estadoPromo.abierto ? 'Abierto' : 'Cerrado'}
+                    </span>
+                  </div>
+                  <div style={{ position: 'relative', padding: '0 12px' }}>
+                    <div style={{
+                      width: 42, height: 42, borderRadius: 11, border: '3px solid #fff',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.12)', overflow: 'hidden',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      background: 'rgba(255,255,255,0.1)', fontSize: 18,
+                      position: 'absolute', top: -21, left: 12,
+                    }}>
+                      {est.logo_url ? <img src={est.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '🍽️'}
+                    </div>
+                  </div>
+                  <div style={{ padding: '26px 14px 10px' }}>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--c-text)', marginBottom: 2 }}>{est.nombre}</div>
+                    <div style={{ display: 'flex', gap: 6, fontSize: 11, color: 'var(--c-muted)', alignItems: 'center' }}>
+                      <Stars rating={est.rating} size={10} />
+                      <span>{est.rating?.toFixed(1)}</span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}

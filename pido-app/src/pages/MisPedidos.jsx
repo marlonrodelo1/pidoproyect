@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { useCart } from '../context/CartContext'
 
 const ESTADO_COLORS = {
   entregado: { bg: '#DCFCE7', c: '#166534' },
@@ -13,8 +14,10 @@ const ESTADO_COLORS = {
 
 export default function MisPedidos({ onTrack }) {
   const { user } = useAuth()
+  const { addItem } = useCart()
   const [pedidos, setPedidos] = useState([])
   const [loading, setLoading] = useState(true)
+  const [repetido, setRepetido] = useState(null)
 
   useEffect(() => {
     if (user) fetchPedidos()
@@ -29,6 +32,24 @@ export default function MisPedidos({ onTrack }) {
       .limit(50)
     setPedidos(data || [])
     setLoading(false)
+  }
+
+  async function repetirPedido(pedido) {
+    const { data: items } = await supabase.from('pedido_items').select('*').eq('pedido_id', pedido.id)
+    if (!items || items.length === 0) return
+    for (const item of items) {
+      addItem({
+        producto_id: item.producto_id,
+        establecimiento_id: pedido.establecimiento_id,
+        nombre: item.nombre_producto,
+        precio_unitario: item.precio_unitario,
+        cantidad: item.cantidad,
+        tamano: item.tamano || null,
+        extras: item.extras || null,
+      })
+    }
+    setRepetido(pedido.id)
+    setTimeout(() => setRepetido(null), 3000)
   }
 
   function formatFecha(f) {
@@ -72,6 +93,14 @@ export default function MisPedidos({ onTrack }) {
                 border: 'none', background: 'var(--c-primary)', fontSize: 12, fontWeight: 600,
                 cursor: 'pointer', fontFamily: 'inherit', color: '#fff',
               }}>Seguir pedido</button>
+            )}
+            {p.estado === 'entregado' && (
+              <button onClick={() => repetirPedido(p)} style={{
+                width: '100%', marginTop: 10, padding: '8px 0', borderRadius: 8,
+                border: '1px solid var(--c-border)', background: repetido === p.id ? 'rgba(34,197,94,0.12)' : 'rgba(255,255,255,0.04)',
+                fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                color: repetido === p.id ? '#4ADE80' : 'var(--c-text)',
+              }}>{repetido === p.id ? 'Añadido al carrito!' : 'Repetir pedido'}</button>
             )}
           </div>
         )

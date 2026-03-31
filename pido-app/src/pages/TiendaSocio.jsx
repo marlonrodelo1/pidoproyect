@@ -101,7 +101,7 @@ function FormularioPago({ clientSecret, total, onSuccess, onCancel }) {
 
 // ===================== PAGINA: INICIO =====================
 
-function PaginaInicio({ socio, establecimientos, categorias, catActiva, setCatActiva, busqueda, setBusqueda, onOpenRest }) {
+function PaginaInicio({ socio, establecimientos, categorias, catActiva, setCatActiva, busqueda, setBusqueda, onOpenRest, promociones = [] }) {
   const destacados = establecimientos.filter(e => e.destacado)
   const filtered = busqueda
     ? establecimientos.filter(e => e.nombre.toLowerCase().includes(busqueda.toLowerCase()))
@@ -138,6 +138,51 @@ function PaginaInicio({ socio, establecimientos, categorias, catActiva, setCatAc
           <h3 style={{ fontSize: 17, fontWeight: 800, marginBottom: 12 }}>Destacados</h3>
           <div style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 8 }}>
             {destacados.map(r => <div key={r.id} style={{ minWidth: 240, flexShrink: 0 }}><RestCard r={r} onOpen={onOpenRest} socio={socio} /></div>)}
+          </div>
+        </div>
+      )}
+
+      {/* Promociones slider */}
+      {promociones.length > 0 && !busqueda && (
+        <div style={{ marginBottom: 24 }}>
+          <h3 style={{ fontSize: 17, fontWeight: 800, marginBottom: 12 }}>Ofertas</h3>
+          <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 6 }}>
+            {promociones.map(promo => {
+              const est = promo.establecimientos
+              if (!est) return null
+              const estadoP = estaAbierto(est)
+              return (
+                <div key={promo.id} onClick={() => onOpenRest(est)} style={{
+                  minWidth: 250, flexShrink: 0, background: 'rgba(255,255,255,0.08)', borderRadius: 16,
+                  overflow: 'hidden', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.1)',
+                  opacity: estadoP.abierto ? 1 : 0.65,
+                }}>
+                  <div style={{
+                    height: 90, background: est.banner_url ? `url(${est.banner_url}) center/cover` : 'linear-gradient(135deg, rgba(255,107,44,0.15), rgba(255,107,44,0.25))',
+                    position: 'relative',
+                  }}>
+                    <div style={{
+                      position: 'absolute', bottom: 0, left: 0, right: 0,
+                      background: 'linear-gradient(0deg, rgba(220,38,38,0.95) 0%, rgba(220,38,38,0.7) 70%, transparent 100%)',
+                      padding: '18px 12px 8px',
+                    }}>
+                      <div style={{ color: '#fff', fontSize: 13, fontWeight: 800 }}>{promo.titulo}</div>
+                      {promo.minimo_compra > 0 && (
+                        <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: 10 }}>Min. {promo.minimo_compra}€</div>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ padding: '10px 12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 8, overflow: 'hidden', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>
+                        {est.logo_url ? <img src={est.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '🍽️'}
+                      </div>
+                      <span style={{ fontWeight: 700, fontSize: 12 }}>{est.nombre}</span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
@@ -436,11 +481,17 @@ function PaginaCarrito({ carrito, setCarrito, socio, user, onPedidoCreado, onLog
   const [codigoPedido, setCodigoPedido] = useState(null)
   const [restCerrado, setRestCerrado] = useState(false)
   const [restCerradoMsg, setRestCerradoMsg] = useState('')
+  const [promoActiva, setPromoActiva] = useState(null)
+  const [descuento, setDescuento] = useState(0)
 
-  // Verificar si el restaurante está abierto
+  const tieneDelivery = socio.en_servicio && socio.modo_entrega !== 'recogida'
+  const total = carrito.reduce((s, i) => s + i.precio * i.cantidad, 0)
+
+  // Verificar si el restaurante está abierto + cargar promos
   useEffect(() => {
     if (carrito.length > 0) {
-      supabase.from('establecimientos').select('activo, horario, nombre').eq('id', carrito[0].establecimiento_id).single()
+      const estId = carrito[0].establecimiento_id
+      supabase.from('establecimientos').select('activo, horario, nombre').eq('id', estId).single()
         .then(({ data }) => {
           if (data) {
             const estado = estaAbierto(data)
@@ -454,13 +505,41 @@ function PaginaCarrito({ carrito, setCarrito, socio, user, onPedidoCreado, onLog
             )
           }
         })
+      // Cargar promos
+      supabase.from('promociones').select('*').eq('establecimiento_id', estId).eq('activa', true)
+        .or('fecha_fin.is.null,fecha_fin.gt.' + new Date().toISOString())
+        .then(({ data: promos }) => {
+          if (promos && promos.length > 0) {
+            const aplicables = promos.filter(p => total >= (p.minimo_compra || 0))
+            if (aplicables.length > 0) {
+              let mejor = null, mejorDesc = 0
+              for (const p of aplicables) {
+                let d = 0
+                if (p.tipo === 'descuento_porcentaje') d = total * (p.valor / 100)
+                else if (p.tipo === 'descuento_fijo') d = p.valor
+                else if (p.tipo === '2x1') {
+                  const item = carrito.find(i => i.producto_id === p.producto_id)
+                  if (item && item.cantidad >= 2) d = item.precio * Math.floor(item.cantidad / 2)
+                }
+                else if (p.tipo === 'producto_gratis') {
+                  const item = carrito.find(i => i.producto_id === p.producto_id)
+                  if (item) d = item.precio
+                }
+                if (d > mejorDesc) { mejor = p; mejorDesc = d }
+              }
+              setPromoActiva(mejor)
+              setDescuento(Math.round(mejorDesc * 100) / 100)
+            } else {
+              const menorMinimo = promos.sort((a, b) => (a.minimo_compra || 0) - (b.minimo_compra || 0))[0]
+              setPromoActiva(menorMinimo)
+              setDescuento(0)
+            }
+          } else { setPromoActiva(null); setDescuento(0) }
+        })
     }
-  }, [carrito.length])
-
-  const tieneDelivery = socio.en_servicio && socio.modo_entrega !== 'recogida'
-  const total = carrito.reduce((s, i) => s + i.precio * i.cantidad, 0)
+  }, [carrito.length, total])
   const envioFinal = tipoEntrega === 'recogida' ? 0 : envioCalculado
-  const totalFinal = total + envioFinal
+  const totalFinal = total + envioFinal - descuento
 
   useEffect(() => {
     if (tipoEntrega === 'delivery' && carrito.length > 0 && !distanciaKm) calcularEnvio()
@@ -495,7 +574,7 @@ function PaginaCarrito({ carrito, setCarrito, socio, user, onPedidoCreado, onLog
       setLoading(true)
       try {
         const codigo = `PG-${Date.now()}`; setCodigoPedido(codigo)
-        const result = await crearPagoStripe({ amount: totalFinal, pedidoCodigo: codigo, customerEmail: user?.email, userId: user?.id })
+        const result = await crearPagoStripe({ amount: Math.max(0, totalFinal), pedidoCodigo: codigo, customerEmail: user?.email, userId: user?.id })
         setClientSecret(result.clientSecret); setPasoTarjeta(true)
       } catch (e) { alert('Error: ' + e.message) }
       finally { setLoading(false) }
@@ -511,7 +590,10 @@ function PaginaCarrito({ carrito, setCarrito, socio, user, onPedidoCreado, onLog
         codigo, establecimiento_id: carrito[0].establecimiento_id, socio_id: socio.id,
         usuario_id: user.id, canal: 'pidogo', estado: 'nuevo', metodo_pago: metodoPago,
         modo_entrega: tipoEntrega === 'recogida' ? 'recogida' : 'delivery',
-        stripe_payment_id: stripePaymentId, subtotal: total, coste_envio: envioFinal, propina: 0, total: totalFinal,
+        stripe_payment_id: stripePaymentId, subtotal: total, coste_envio: envioFinal, propina: 0,
+        total: Math.max(0, totalFinal),
+        descuento: descuento > 0 ? descuento : null,
+        promo_titulo: descuento > 0 && promoActiva ? promoActiva.titulo : null,
       }).select().single()
       if (error) throw error
       await supabase.from('pedido_items').insert(carrito.map(item => ({
@@ -568,16 +650,41 @@ function PaginaCarrito({ carrito, setCarrito, socio, user, onPedidoCreado, onLog
             </div>
           </div>
 
+          {/* Promo banner */}
+          {promoActiva && (
+            <div style={{
+              marginBottom: 12, padding: '10px 14px', borderRadius: 10,
+              background: descuento > 0 ? 'rgba(34,197,94,0.1)' : 'rgba(255,107,44,0.08)',
+              border: descuento > 0 ? '1px solid rgba(34,197,94,0.2)' : '1px solid rgba(255,107,44,0.15)',
+              display: 'flex', alignItems: 'center', gap: 10,
+            }}>
+              <span style={{ fontSize: 20 }}>{descuento > 0 ? '🎉' : '🏷️'}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: descuento > 0 ? '#4ADE80' : '#FF6B2C' }}>{promoActiva.titulo}</div>
+                {descuento > 0 ? (
+                  <div style={{ fontSize: 11, color: '#4ADE80' }}>-{descuento.toFixed(2)} € aplicado</div>
+                ) : (
+                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>Min. {promoActiva.minimo_compra}€ — te faltan {((promoActiva.minimo_compra || 0) - total).toFixed(2)}€</div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Desglose */}
           <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}><span>Subtotal</span><span>{total.toFixed(2)} €</span></div>
+            {descuento > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, color: '#4ADE80' }}>
+                <span>Descuento</span><span>-{descuento.toFixed(2)} €</span>
+              </div>
+            )}
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
               <span>Envío {distanciaKm && tipoEntrega === 'delivery' ? <span style={{ fontSize: 10 }}>({distanciaKm} km)</span> : null}</span>
               <span style={{ color: tipoEntrega === 'recogida' ? '#22C55E' : 'inherit' }}>{tipoEntrega === 'recogida' ? 'Gratis' : envioLoading ? 'Calculando...' : `${envioFinal.toFixed(2)} €`}</span>
             </div>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: 17, marginTop: 10, paddingTop: 10, borderTop: '2px solid rgba(255,255,255,0.08)' }}>
-            <span>Total</span><span>{totalFinal.toFixed(2)} €</span>
+            <span>Total</span><span>{Math.max(0, totalFinal).toFixed(2)} €</span>
           </div>
 
           {/* Alerta restaurante cerrado */}
@@ -906,6 +1013,7 @@ export default function TiendaSocio({ slug: slugProp }) {
   const [pedidoActivo, setPedidoActivo] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [promociones, setPromociones] = useState([])
 
   useEffect(() => { fetchSocio() }, [])
 
@@ -931,6 +1039,11 @@ export default function TiendaSocio({ slug: slugProp }) {
       // Solo mostrar categorías que tienen al menos un restaurante del socio
       const usedCatIds = new Set((estCats || []).map(ec => ec.categoria_id))
       setCategorias((allCatsGen || []).filter(c => usedCatIds.has(c.id)))
+      // Cargar promos activas de estos establecimientos
+      const { data: promosData } = await supabase.from('promociones').select('*, establecimientos(id, nombre, logo_url, banner_url, rating, total_resenas, radio_cobertura_km, activo, horario)')
+        .in('establecimiento_id', estIds).eq('activa', true)
+        .or('fecha_fin.is.null,fecha_fin.gt.' + new Date().toISOString())
+      setPromociones(promosData || [])
     }
     setLoading(false)
   }
@@ -978,7 +1091,7 @@ export default function TiendaSocio({ slug: slugProp }) {
       {/* Contenido */}
       <div style={{ padding: '0 20px' }}>
         {seccion === 'inicio' && !restOpen && (
-          <PaginaInicio socio={socio} establecimientos={establecimientos} categorias={categorias} catActiva={catActiva} setCatActiva={setCatActiva} busqueda={busqueda} setBusqueda={setBusqueda} onOpenRest={r => setRestOpen(r)} />
+          <PaginaInicio socio={socio} establecimientos={establecimientos} categorias={categorias} catActiva={catActiva} setCatActiva={setCatActiva} busqueda={busqueda} setBusqueda={setBusqueda} onOpenRest={r => setRestOpen(r)} promociones={promociones} />
         )}
         {seccion === 'inicio' && restOpen && (
           <PaginaRestDetalle est={restOpen} onBack={() => setRestOpen(null)} carrito={carrito} setCarrito={setCarrito} socio={socio} />

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { ClipboardList, Clock, UtensilsCrossed, Users, Settings, BarChart3 } from 'lucide-react'
+import { ClipboardList, Clock, UtensilsCrossed, Users, Settings, BarChart3, Tag } from 'lucide-react'
 import { Capacitor } from '@capacitor/core'
 import { StatusBar, Style } from '@capacitor/status-bar'
 import { RestProvider, useRest } from './context/RestContext'
@@ -11,9 +11,10 @@ import Carta from './pages/Carta'
 import Socios from './pages/Socios'
 import Metricas from './pages/Metricas'
 import Ajustes from './pages/Ajustes'
+import Promociones from './pages/Promociones'
 import './index.css'
 
-const NAV_ICONS = { pedidos: ClipboardList, historial: Clock, carta: UtensilsCrossed, socios: Users, ajustes: Settings }
+const NAV_ICONS = { pedidos: ClipboardList, historial: Clock, carta: UtensilsCrossed, promos: Tag, socios: Users, ajustes: Settings }
 
 function AppContent() {
   const { user, restaurante, loading } = useRest()
@@ -47,6 +48,7 @@ function AppContent() {
     { id: 'pedidos', label: 'Pedidos' },
     { id: 'historial', label: 'Historial' },
     { id: 'carta', label: 'Carta' },
+    { id: 'promos', label: 'Promos' },
     { id: 'socios', label: 'Socios' },
     { id: 'ajustes', label: 'Ajustes' },
   ]
@@ -132,6 +134,7 @@ function AppInner({ seccion, setSeccion, nav }) {
         {seccion === 'pedidos' && <PedidosEnVivo />}
         {seccion === 'historial' && <Historial />}
         {seccion === 'carta' && <Carta />}
+        {seccion === 'promos' && <Promociones />}
         {seccion === 'socios' && <Socios />}
         {seccion === 'metricas' && <Metricas />}
         {seccion === 'ajustes' && <Ajustes />}
