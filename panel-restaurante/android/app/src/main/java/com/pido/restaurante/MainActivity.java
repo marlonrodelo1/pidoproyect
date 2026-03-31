@@ -3,6 +3,7 @@ package com.pido.restaurante;
 import android.os.Bundle;
 import android.view.View;
 import android.view.WindowManager;
+import android.webkit.WebView;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.graphics.Insets;
@@ -20,6 +21,10 @@ public class MainActivity extends BridgeActivity {
 
         // Mantener pantalla encendida
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
+        // Permitir audio sin interacción del usuario (para alarma de pedidos)
+        WebView webView = getBridge().getWebView();
+        webView.getSettings().setMediaPlaybackRequiresUserGesture(false);
 
         // Fondo oscuro + padding para que el contenido no se meta detrás de la status bar
         View content = findViewById(android.R.id.content);
