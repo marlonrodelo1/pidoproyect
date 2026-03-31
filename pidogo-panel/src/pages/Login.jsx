@@ -106,7 +106,7 @@ export default function Login() {
             <button onClick={() => setAceptaTerminos(!aceptaTerminos)} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', padding: 0, marginBottom: 14 }}>
               <div style={{ width: 20, height: 20, borderRadius: 6, flexShrink: 0, marginTop: 1, border: aceptaTerminos ? 'none' : '2px solid rgba(255,255,255,0.2)', background: aceptaTerminos ? 'var(--c-accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#fff' }}>{aceptaTerminos && '✓'}</div>
               <span style={{ fontSize: 11, color: 'var(--c-muted)', lineHeight: 1.4 }}>
-                Acepto los <a href="https://pidoo.es/terminos" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--c-accent)', fontWeight: 600, textDecoration: 'none' }} onClick={e => e.stopPropagation()}>términos y condiciones</a> y la <a href="https://pidoo.es/privacidad" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--c-accent)', fontWeight: 600, textDecoration: 'none' }} onClick={e => e.stopPropagation()}>política de privacidad</a>
+                Acepto los <a href="https://pidoo.es/terminos-socios" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--c-accent)', fontWeight: 600, textDecoration: 'none' }} onClick={e => e.stopPropagation()}>términos y condiciones</a> y la <a href="https://pidoo.es/privacidad-socios" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--c-accent)', fontWeight: 600, textDecoration: 'none' }} onClick={e => e.stopPropagation()}>política de privacidad</a>
               </span>
             </button>
 

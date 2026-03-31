@@ -1,6 +1,6 @@
 {
   "appId": "co.pidoogo.socio",
-  "appName": "PIDOGO Panel",
+  "appName": "Pidoo Go",
   "webDir": "dist",
   "plugins": {
     "SplashScreen": {

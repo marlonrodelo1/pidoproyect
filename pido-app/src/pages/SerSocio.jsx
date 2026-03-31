@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
 const beneficios = [
-  { emoji: '💰', titulo: '10% de comision por pedido', desc: 'Ganas el 10% de cada pedido que entregues' },
+  { emoji: '💰', titulo: 'Comision por pedido', desc: 'Ganas un porcentaje de cada pedido que entregues' },
   { emoji: '🚀', titulo: '100% del envio', desc: 'Todo el coste de envio es para ti' },
   { emoji: '🎁', titulo: 'Propinas integras', desc: 'Las propinas van directamente a tu bolsillo' },
   { emoji: '🕐', titulo: 'Tu propio horario', desc: 'Tu decides cuando trabajar, sin jefe' },
@@ -40,18 +40,18 @@ export default function SerSocio({ onClose }) {
       <div style={styles.hero}>
         <div style={{ fontSize: 42, marginBottom: 8 }}>🛵</div>
         <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--c-text)', lineHeight: 1.2, marginBottom: 8 }}>
-          Gana dinero repartiendo con <span style={{ color: 'var(--c-primary)' }}>pidoo</span>
+          Gana dinero repartiendo con <span style={{ color: 'var(--c-primary)' }}>Pidoo</span>
         </h1>
         <p style={{ fontSize: 14, color: 'var(--c-muted)', lineHeight: 1.5 }}>
-          Conviertete en socio repartidor y empieza a ganar desde el primer dia
+          Se tu propio jefe. Reparte cuando quieras y gana desde el primer dia.
         </p>
       </div>
 
       {/* Ejemplo ganancias */}
       <div style={styles.earningsCard}>
         <div style={{ fontSize: 12, fontWeight: 600, color: '#16A34A', marginBottom: 4 }}>Ganancias estimadas</div>
-        <div style={{ fontSize: 32, fontWeight: 800, color: '#111', letterSpacing: -1 }}>800EUR - 1.500EUR</div>
-        <div style={{ fontSize: 12, color: 'var(--c-muted)' }}>al mes como rider activo</div>
+        <div style={{ fontSize: 32, fontWeight: 800, color: '#111', letterSpacing: -1 }}>Hasta 2.000EUR</div>
+        <div style={{ fontSize: 12, color: 'var(--c-muted)' }}>al mes como socio repartidor activo</div>
       </div>
 
       {/* Beneficios */}
@@ -94,13 +94,31 @@ export default function SerSocio({ onClose }) {
       {/* Testimonios */}
       <div style={{ ...styles.card, background: 'var(--c-primary-light)', borderColor: 'var(--c-primary-soft)', marginBottom: 28 }}>
         <div style={{ fontSize: 13, fontStyle: 'italic', color: 'var(--c-text)', lineHeight: 1.5, marginBottom: 8 }}>
-          "Llevo 3 meses como socio PIDOGO y ya gano mas de 1.200EUR al mes. Lo mejor es que yo decido mi horario."
+          "Llevo 3 meses como socio Pidoo y ya gano mas de 1.500EUR al mes. Lo mejor es que yo decido mi horario."
         </div>
-        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--c-primary)' }}>— Carlos M., Las Palmas</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--c-primary)' }}>— Carlos M., Tenerife</div>
+      </div>
+
+      {/* Como se gana */}
+      <h2 style={styles.sectionTitle}>Como ganas dinero</h2>
+      <div style={{ ...styles.card, marginBottom: 28 }}>
+        {[
+          { icon: '🛵', titulo: 'Entrega pedidos', desc: 'Recoge en el restaurante y entrega al cliente. Ganas comision + envio por cada entrega.' },
+          { icon: '🔗', titulo: 'Comparte tu tienda', desc: 'Tienes tu propia tienda online. Cada pedido que entre por tu link te genera ganancias extra.' },
+          { icon: '💸', titulo: 'Recibe propinas', desc: 'Las propinas del cliente van 100% a tu bolsillo, sin comisiones.' },
+        ].map((item, i) => (
+          <div key={i} style={{ display: 'flex', gap: 12, padding: '12px 0', borderBottom: i < 2 ? '1px solid var(--c-border)' : 'none' }}>
+            <span style={{ fontSize: 24, flexShrink: 0 }}>{item.icon}</span>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-text)', marginBottom: 2 }}>{item.titulo}</div>
+              <div style={{ fontSize: 11, color: 'var(--c-muted)', lineHeight: 1.4 }}>{item.desc}</div>
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* CTA */}
-      <button style={styles.ctaBtn}>
+      <button onClick={() => window.open('https://rider.pidoo.es', '_blank')} style={styles.ctaBtn}>
         Registrarme como socio
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginLeft: 6 }}>
           <path d="M5 12h14"/><path d="M12 5l7 7-7 7"/>

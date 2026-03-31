@@ -1,6 +1,6 @@
 {
   "appId": "com.pido.restaurante",
-  "appName": "PIDO Restaurante",
+  "appName": "Pidoo Partner",
   "webDir": "dist",
   "plugins": {
     "SplashScreen": {
