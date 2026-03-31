@@ -12,12 +12,14 @@ export default function Historial() {
 
   async function fetchPedidos() {
     setLoading(true)
+    const hace90d = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
     let query = supabase.from('pedidos')
       .select('*, socios(nombre)')
       .eq('establecimiento_id', restaurante.id)
       .in('estado', filtro === 'todos' ? ['entregado', 'cancelado', 'fallido'] : [filtro])
+      .gte('created_at', hace90d)
       .order('created_at', { ascending: false })
-      .limit(50)
+      .limit(100)
 
     const { data } = await query
     setPedidos(data || [])

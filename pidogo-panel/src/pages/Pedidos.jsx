@@ -22,12 +22,14 @@ export default function Pedidos() {
 
   async function fetchPedidos() {
     setLoading(true)
+    const hace90d = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
     let query = supabase
       .from('pedidos')
       .select('*, establecimientos(nombre), comisiones(comision_socio, envio_socio, propina_socio)')
       .eq('socio_id', socio.id)
+      .gte('created_at', hace90d)
       .order('created_at', { ascending: false })
-      .limit(50)
+      .limit(100)
 
     if (filtro !== 'todos') query = query.eq('estado', filtro)
 

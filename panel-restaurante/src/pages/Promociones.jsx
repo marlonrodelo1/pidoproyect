@@ -33,8 +33,12 @@ export default function Promociones() {
 
   async function fetchData() {
     setLoading(true)
+    // Ocultar promos vencidas hace más de 30 días
+    const hace30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
     const [promosRes, prodsRes] = await Promise.all([
-      supabase.from('promociones').select('*').eq('establecimiento_id', restaurante.id).order('created_at', { ascending: false }),
+      supabase.from('promociones').select('*').eq('establecimiento_id', restaurante.id)
+        .or(`fecha_fin.is.null,fecha_fin.gt.${hace30d}`)
+        .order('created_at', { ascending: false }),
       supabase.from('productos').select('id, nombre, precio').eq('establecimiento_id', restaurante.id).eq('disponible', true).order('nombre'),
     ])
     setPromos(promosRes.data || [])

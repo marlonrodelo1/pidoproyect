@@ -15,8 +15,9 @@ export default function Informes() {
   async function fetchTodo() {
     setLoading(true)
 
-    // 1. Total global
-    const { data: allCom } = await supabase.from('comisiones').select('comision_socio, envio_socio, propina_socio').eq('socio_id', socio.id)
+    // 1. Total global (últimos 6 meses)
+    const hace6m = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString()
+    const { data: allCom } = await supabase.from('comisiones').select('comision_socio, envio_socio, propina_socio').eq('socio_id', socio.id).gte('created_at', hace6m)
     let com = 0, env = 0, prop = 0
     for (const c of (allCom || [])) { com += c.comision_socio || 0; env += c.envio_socio || 0; prop += c.propina_socio || 0 }
     setTotalesGlobal({ comisiones: com, envios: env, propinas: prop, total: com + env + prop })

@@ -24,10 +24,12 @@ export default function MisPedidos({ onTrack }) {
   }, [user])
 
   async function fetchPedidos() {
+    const hace90d = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
     const { data } = await supabase
       .from('pedidos')
       .select('*, establecimientos(nombre)')
       .eq('usuario_id', user.id)
+      .gte('created_at', hace90d)
       .order('created_at', { ascending: false })
       .limit(50)
     setPedidos(data || [])

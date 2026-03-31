@@ -16,10 +16,13 @@ export default function Socios() {
 
   async function fetchSocios() {
     setLoading(true)
+    // Mostrar activos/pendientes + rechazados de los últimos 30 días
+    const hace30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
     const { data } = await supabase
       .from('socio_establecimiento')
       .select('*, socios(id, nombre, nombre_comercial, email, telefono, rating, total_resenas, logo_url, tarifa_base, radio_tarifa_base_km, precio_km_adicional)')
       .eq('establecimiento_id', restaurante.id)
+      .or(`estado.neq.rechazado,created_at.gte.${hace30d}`)
     setRelaciones(data || [])
     setLoading(false)
   }

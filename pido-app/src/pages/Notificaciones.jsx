@@ -12,12 +12,14 @@ export default function Notificaciones() {
   }, [user])
 
   async function fetchNotificaciones() {
+    const hace7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
     const { data } = await supabase
       .from('notificaciones')
       .select('*')
       .eq('usuario_id', user.id)
+      .gte('created_at', hace7d)
       .order('created_at', { ascending: false })
-      .limit(50)
+      .limit(30)
     setNotifs(data || [])
     setLoading(false)
   }
