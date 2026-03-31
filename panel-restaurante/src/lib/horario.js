@@ -58,10 +58,11 @@ export function estaAbierto(establecimiento) {
     return { abierto: false, razon: 'manual' }
   }
 
-  // Si no hay horario definido, usar solo el toggle activo
+  // Si no hay horario definido, el restaurante se considera cerrado
+  // (debe configurar su horario para aparecer como abierto)
   const horario = establecimiento.horario
   if (!horario || typeof horario !== 'object') {
-    return { abierto: establecimiento.activo !== false }
+    return { abierto: false, razon: 'sin_horario' }
   }
 
   const ahora = new Date()

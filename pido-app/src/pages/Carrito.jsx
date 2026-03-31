@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { crearPagoStripe, listarTarjetas, pagarConTarjetaGuardada } from '../lib/stripe'
 import { sendPush } from '../lib/webPush'
+import { estaAbierto } from '../lib/horario'
 import { CreditCard, Lock, X, ArrowLeft, Check } from 'lucide-react'
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
@@ -84,6 +85,28 @@ export default function Carrito({ onPedidoCreado }) {
   const [tarjetasGuardadas, setTarjetasGuardadas] = useState([])
   const [tarjetaSel, setTarjetaSel] = useState(null)
   const [loadingCards, setLoadingCards] = useState(false)
+  const [restCerrado, setRestCerrado] = useState(false)
+  const [restCerradoMsg, setRestCerradoMsg] = useState('')
+
+  // Verificar si restaurante está abierto al abrir carrito
+  useEffect(() => {
+    if (open && carrito.length > 0) {
+      supabase.from('establecimientos').select('activo, horario, nombre').eq('id', carrito[0].establecimiento_id).single()
+        .then(({ data }) => {
+          if (data) {
+            const estado = estaAbierto(data)
+            setRestCerrado(!estado.abierto)
+            setRestCerradoMsg(
+              estado.razon === 'sin_horario'
+                ? `${data.nombre} no tiene horario configurado y no acepta pedidos en este momento.`
+                : estado.proximaApertura
+                  ? `${data.nombre} esta cerrado. ${estado.proximaApertura}.`
+                  : `${data.nombre} esta cerrado ahora mismo.`
+            )
+          }
+        })
+    }
+  }, [open, carrito.length])
 
   // Calcular envío al abrir el carrito o cambiar modo de entrega
   useEffect(() => {
@@ -325,12 +348,28 @@ export default function Carrito({ onPedidoCreado }) {
                   <span>Total</span><span>{total.toFixed(2)} €</span>
                 </div>
 
-                <button onClick={iniciarPago} disabled={loading || envioLoading} style={{
+                {/* Alerta restaurante cerrado */}
+                {restCerrado && (
+                  <div style={{
+                    marginTop: 14, padding: '14px 16px', borderRadius: 12,
+                    background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)',
+                    display: 'flex', alignItems: 'center', gap: 10,
+                  }}>
+                    <span style={{ fontSize: 22 }}>🔒</span>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#EF4444', marginBottom: 2 }}>Restaurante cerrado</div>
+                      <div style={{ fontSize: 11, color: 'var(--c-muted)' }}>{restCerradoMsg}</div>
+                    </div>
+                  </div>
+                )}
+
+                <button onClick={iniciarPago} disabled={loading || envioLoading || restCerrado} style={{
                   width: '100%', marginTop: 16, padding: '16px 0', borderRadius: 14, border: 'none',
-                  background: (loading || envioLoading) ? 'var(--c-muted)' : 'var(--c-primary)', color: '#fff',
-                  fontSize: 16, fontWeight: 800, cursor: (loading || envioLoading) ? 'default' : 'pointer', fontFamily: 'inherit',
+                  background: (loading || envioLoading || restCerrado) ? 'var(--c-muted)' : 'var(--c-primary)', color: '#fff',
+                  fontSize: 16, fontWeight: 800, cursor: (loading || envioLoading || restCerrado) ? 'default' : 'pointer', fontFamily: 'inherit',
+                  opacity: restCerrado ? 0.5 : 1,
                 }}>
-                  {loading ? 'Procesando...' : metodoPago === 'tarjeta' && tarjetaSel ? `Pagar con •••• ${tarjetasGuardadas.find(c => c.id === tarjetaSel)?.last4} — ${total.toFixed(2)} €` : metodoPago === 'tarjeta' ? `Continuar al pago — ${total.toFixed(2)} €` : `Pedir ahora — ${total.toFixed(2)} €`}
+                  {restCerrado ? 'No disponible — restaurante cerrado' : loading ? 'Procesando...' : metodoPago === 'tarjeta' && tarjetaSel ? `Pagar con •••• ${tarjetasGuardadas.find(c => c.id === tarjetaSel)?.last4} — ${total.toFixed(2)} €` : metodoPago === 'tarjeta' ? `Continuar al pago — ${total.toFixed(2)} €` : `Pedir ahora — ${total.toFixed(2)} €`}
                 </button>
               </>
             )}

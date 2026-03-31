@@ -434,6 +434,28 @@ function PaginaCarrito({ carrito, setCarrito, socio, user, onPedidoCreado, onLog
   const [pasoTarjeta, setPasoTarjeta] = useState(false)
   const [clientSecret, setClientSecret] = useState(null)
   const [codigoPedido, setCodigoPedido] = useState(null)
+  const [restCerrado, setRestCerrado] = useState(false)
+  const [restCerradoMsg, setRestCerradoMsg] = useState('')
+
+  // Verificar si el restaurante está abierto
+  useEffect(() => {
+    if (carrito.length > 0) {
+      supabase.from('establecimientos').select('activo, horario, nombre').eq('id', carrito[0].establecimiento_id).single()
+        .then(({ data }) => {
+          if (data) {
+            const estado = estaAbierto(data)
+            setRestCerrado(!estado.abierto)
+            setRestCerradoMsg(
+              estado.razon === 'sin_horario'
+                ? `${data.nombre} no tiene horario configurado.`
+                : estado.proximaApertura
+                  ? `${data.nombre} esta cerrado. ${estado.proximaApertura}.`
+                  : `${data.nombre} esta cerrado ahora mismo.`
+            )
+          }
+        })
+    }
+  }, [carrito.length])
 
   const tieneDelivery = socio.en_servicio && socio.modo_entrega !== 'recogida'
   const total = carrito.reduce((s, i) => s + i.precio * i.cantidad, 0)
@@ -558,8 +580,23 @@ function PaginaCarrito({ carrito, setCarrito, socio, user, onPedidoCreado, onLog
             <span>Total</span><span>{totalFinal.toFixed(2)} €</span>
           </div>
 
-          <button onClick={iniciarPago} disabled={loading || envioLoading} style={{ width: '100%', marginTop: 16, padding: '16px 0', borderRadius: 14, border: 'none', background: (loading || envioLoading) ? 'rgba(255,255,255,0.2)' : '#FF6B2C', color: '#fff', fontSize: 16, fontWeight: 800, cursor: (loading || envioLoading) ? 'default' : 'pointer', fontFamily: 'inherit' }}>
-            {!user ? 'Iniciar sesión para pedir' : loading ? 'Procesando...' : metodoPago === 'tarjeta' ? `Pagar — ${totalFinal.toFixed(2)} €` : `Pedir — ${totalFinal.toFixed(2)} €`}
+          {/* Alerta restaurante cerrado */}
+          {restCerrado && (
+            <div style={{
+              marginTop: 14, padding: '14px 16px', borderRadius: 12,
+              background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)',
+              display: 'flex', alignItems: 'center', gap: 10,
+            }}>
+              <span style={{ fontSize: 22 }}>🔒</span>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#EF4444', marginBottom: 2 }}>Restaurante cerrado</div>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>{restCerradoMsg}</div>
+              </div>
+            </div>
+          )}
+
+          <button onClick={iniciarPago} disabled={loading || envioLoading || restCerrado} style={{ width: '100%', marginTop: 16, padding: '16px 0', borderRadius: 14, border: 'none', background: (loading || envioLoading || restCerrado) ? 'rgba(255,255,255,0.2)' : '#FF6B2C', color: '#fff', fontSize: 16, fontWeight: 800, cursor: (loading || envioLoading || restCerrado) ? 'default' : 'pointer', fontFamily: 'inherit', opacity: restCerrado ? 0.5 : 1 }}>
+            {restCerrado ? 'No disponible — restaurante cerrado' : !user ? 'Iniciar sesión para pedir' : loading ? 'Procesando...' : metodoPago === 'tarjeta' ? `Pagar — ${totalFinal.toFixed(2)} €` : `Pedir — ${totalFinal.toFixed(2)} €`}
           </button>
         </>
       )}
