@@ -12,6 +12,9 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // Register custom plugins
+        registerPlugin(ThermalPrinterPlugin.class);
+
         super.onCreate(savedInstanceState);
 
         // Status bar oscura con iconos blancos

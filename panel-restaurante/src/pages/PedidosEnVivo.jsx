@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase'
 import { useRest } from '../context/RestContext'
 import { startAlarm, stopAlarm } from '../lib/alarm'
 import { sendPush } from '../lib/webPush'
+import { imprimirPedido, imprimirPedidoWeb, getPrinterConfig } from '../lib/printService'
+import { Capacitor } from '@capacitor/core'
 
 function PagoBadge({ pago }) {
   const t = pago === 'tarjeta'
@@ -187,6 +189,11 @@ export default function PedidosEnVivo() {
     if (pedido.usuario_id) sendPush({ targetType: 'cliente', targetId: pedido.usuario_id, title: 'Pedido aceptado', body: `Tu pedido ${pedido.codigo} está siendo preparado (~${minutos} min)` })
     // Notificar al rider asignado
     if (socioAsignado) sendPush({ targetType: 'socio', targetId: socioAsignado, title: 'Nuevo pedido', body: `Pedido ${pedido.codigo} - ${pedido.total?.toFixed(2)} € · Tienes 2 min para aceptar` })
+
+    // Imprimir tickets automáticamente (comanda cocina + ticket cliente)
+    const pedidoConMinutos = { ...pedido, minutos_preparacion: minutos }
+    const items = itemsMap[pedido.id] || []
+    imprimirPedido(pedidoConMinutos, items, restaurante).catch(() => {})
   }
 
   async function rechazarPedido(id, motivo) {
@@ -339,7 +346,19 @@ export default function PedidosEnVivo() {
           <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>{p.total.toFixed(2)} €</div>
 
           {p.estado === 'preparando' && (
-            <button onClick={() => marcarListo(p.id)} style={{ width: '100%', padding: '11px 0', borderRadius: 10, border: 'none', background: '#16A34A', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Pedido listo para recoger</button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => {
+                const items = itemsMap[p.id] || []
+                if (Capacitor.isNativePlatform()) {
+                  imprimirPedido(p, items, restaurante).catch(() => {})
+                } else {
+                  imprimirPedidoWeb(p, items, restaurante)
+                }
+              }} style={{ padding: '11px 14px', borderRadius: 10, border: '1px solid var(--c-border)', background: 'var(--c-surface)', color: 'var(--c-muted)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                Reimprimir
+              </button>
+              <button onClick={() => marcarListo(p.id)} style={{ flex: 1, padding: '11px 0', borderRadius: 10, border: 'none', background: '#16A34A', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Pedido listo para recoger</button>
+            </div>
           )}
           {p.estado === 'listo' && (
             <div style={{ display: 'flex', gap: 8 }}>
