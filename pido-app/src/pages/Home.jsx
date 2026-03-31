@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { getCurrentPosition } from '../lib/geolocation'
 import Stars from '../components/Stars'
 import EntregaBadge from '../components/EntregaBadge'
+import { estaAbierto, horarioHoyTexto } from '../lib/horario'
 
 export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
   const { perfil, updatePerfil } = useAuth()
@@ -47,7 +48,17 @@ export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
       query = query.eq('categoria_padre', categoriaPadre)
     }
 
-    const { data } = await query.order('rating', { ascending: false })
+    let { data } = await query.order('rating', { ascending: false })
+
+    // Ordenar: abiertos primero, cerrados por horario al final
+    if (data) {
+      data = data.sort((a, b) => {
+        const aOpen = estaAbierto(a).abierto ? 0 : 1
+        const bOpen = estaAbierto(b).abierto ? 0 : 1
+        if (aOpen !== bOpen) return aOpen - bOpen
+        return (b.rating || 0) - (a.rating || 0)
+      })
+    }
 
     // Cargar categorías asignadas a cada establecimiento (nivel 2)
     if (data && data.length > 0) {
@@ -159,17 +170,22 @@ export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
         <div style={{ marginBottom: 24 }}>
           <h2 style={{ fontSize: 17, fontWeight: 800, color: 'var(--c-text)', marginBottom: 12 }}>Destacados</h2>
           <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 6 }}>
-            {destacados.map(r => (
+            {destacados.map(r => {
+              const estDest = estaAbierto(r)
+              return (
               <div key={r.id} onClick={() => onOpenRest(r)} style={{
                 minWidth: 240, flexShrink: 0, background: 'rgba(255,255,255,0.08)', borderRadius: 16,
                 overflow: 'hidden', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.1)',
                 backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+                opacity: estDest.abierto ? 1 : 0.65,
               }}>
                 <div style={{
                   height: 100, background: r.banner_url ? `url(${r.banner_url}) center/cover` : 'linear-gradient(135deg, var(--c-primary-light), var(--c-primary-soft))',
                   position: 'relative',
                 }}>
-                  <span style={{ position: 'absolute', top: 8, left: 8, background: 'var(--c-primary)', color: '#fff', fontSize: 9, fontWeight: 700, padding: '3px 7px', borderRadius: 6 }}>Destacado</span>
+                  <span style={{ position: 'absolute', top: 8, left: 8, background: estDest.abierto ? 'rgba(22,163,74,0.85)' : 'rgba(239,68,68,0.85)', color: '#fff', fontSize: 9, fontWeight: 700, padding: '3px 7px', borderRadius: 6, backdropFilter: 'blur(6px)' }}>
+                    {estDest.abierto ? 'Abierto' : 'Cerrado'}
+                  </span>
                 </div>
                 <div style={{ position: 'relative', padding: '0 12px' }}>
                   <div style={{
@@ -190,7 +206,7 @@ export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
                   </div>
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         </div>
       )}
@@ -228,18 +244,30 @@ export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
 
       {filtrados.map(r => {
         const isFav = favoritos.includes(r.id)
+        const estado = estaAbierto(r)
+        const horarioTxt = horarioHoyTexto(r.horario)
         return (
           <div key={r.id} onClick={() => onOpenRest(r)} style={{
             background: 'rgba(255,255,255,0.06)', borderRadius: 16, overflow: 'hidden',
             marginBottom: 14, cursor: 'pointer', border: '1px solid rgba(255,255,255,0.1)',
             backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+            opacity: estado.abierto ? 1 : 0.65,
           }}>
-            {/* Banner sin logo */}
+            {/* Banner */}
             <div style={{
               height: 130,
               background: r.banner_url ? `url(${r.banner_url}) center/cover` : 'linear-gradient(135deg, var(--c-primary-light), var(--c-primary-soft))',
               position: 'relative',
             }}>
+              {/* Badge abierto/cerrado */}
+              <span style={{
+                position: 'absolute', top: 8, left: 8, fontSize: 9, fontWeight: 700,
+                padding: '4px 10px', borderRadius: 8, backdropFilter: 'blur(6px)',
+                background: estado.abierto ? 'rgba(22,163,74,0.85)' : 'rgba(239,68,68,0.85)',
+                color: '#fff',
+              }}>
+                {estado.abierto ? 'Abierto' : 'Cerrado'}
+              </span>
               <div style={{ position: 'absolute', bottom: 8, right: 10, display: 'flex', gap: 6 }}>
                 <span style={{ background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '4px 8px', borderRadius: 8, backdropFilter: 'blur(4px)' }}>
                   {r.radio_cobertura_km} km
@@ -254,7 +282,7 @@ export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
                 {isFav ? '❤️' : '🤍'}
               </button>
             </div>
-            {/* Logo mitad fuera mitad dentro */}
+            {/* Logo */}
             <div style={{ position: 'relative', padding: '0 16px' }}>
               <div style={{
                 width: 52, height: 52, borderRadius: 14, border: '3px solid #fff',
@@ -276,7 +304,12 @@ export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
                 </div>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, color: 'var(--c-muted)' }}>
-                <span>{r.total_resenas} resenas</span>
+                <span>
+                  {!estado.abierto && estado.proximaApertura
+                    ? estado.proximaApertura
+                    : horarioTxt || `${r.total_resenas} resenas`
+                  }
+                </span>
                 <div style={{ display: 'flex', gap: 4 }}>
                   {ridersActivos[r.id] && (
                     <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 50, background: 'var(--c-primary-light)', color: 'var(--c-primary)', backdropFilter: 'blur(4px)' }}>Delivery</span>

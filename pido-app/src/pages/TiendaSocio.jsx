@@ -8,6 +8,7 @@ import { crearPagoStripe } from '../lib/stripe'
 import Stars from '../components/Stars'
 import AddressInput from '../components/AddressInput'
 import Tracking from './Tracking'
+import { estaAbierto, horarioHoyTexto } from '../lib/horario'
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
 
@@ -151,17 +152,29 @@ function PaginaInicio({ socio, establecimientos, categorias, catActiva, setCatAc
 
 function RestCard({ r, onOpen, socio }) {
   const tieneDelivery = socio.en_servicio && socio.modo_entrega !== 'recogida'
+  const estado = estaAbierto(r)
+  const horarioTxt = horarioHoyTexto(r.horario)
   return (
     <div onClick={() => onOpen(r)} style={{
       background: 'rgba(255,255,255,0.06)', borderRadius: 16, overflow: 'hidden',
       marginBottom: 14, cursor: 'pointer', border: '1px solid rgba(255,255,255,0.1)',
       backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+      opacity: estado.abierto ? 1 : 0.65,
     }}>
       <div style={{
         height: 130,
         background: r.banner_url ? `url(${r.banner_url}) center/cover` : 'linear-gradient(135deg, rgba(255,107,44,0.15), rgba(255,107,44,0.25))',
         position: 'relative',
       }}>
+        {/* Badge abierto/cerrado */}
+        <span style={{
+          position: 'absolute', top: 8, left: 8, fontSize: 9, fontWeight: 700,
+          padding: '4px 10px', borderRadius: 8, backdropFilter: 'blur(6px)',
+          background: estado.abierto ? 'rgba(22,163,74,0.85)' : 'rgba(239,68,68,0.85)',
+          color: '#fff',
+        }}>
+          {estado.abierto ? 'Abierto' : 'Cerrado'}
+        </span>
         <div style={{ position: 'absolute', bottom: 8, right: 10, display: 'flex', gap: 6 }}>
           <span style={{ background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '4px 8px', borderRadius: 8, backdropFilter: 'blur(4px)' }}>
             {r.radio_cobertura_km} km
@@ -188,7 +201,12 @@ function RestCard({ r, onOpen, socio }) {
           </div>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>
-          <span>{r.total_resenas} resenas</span>
+          <span>
+            {!estado.abierto && estado.proximaApertura
+              ? estado.proximaApertura
+              : horarioTxt || `${r.total_resenas} resenas`
+            }
+          </span>
           <div style={{ display: 'flex', gap: 4 }}>
             {tieneDelivery && <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 50, background: 'rgba(255,107,44,0.15)', color: '#FF6B2C' }}>Delivery</span>}
             <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 50, background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)' }}>Recogida</span>

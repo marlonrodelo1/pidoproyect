@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useRest } from '../context/RestContext'
 import { getPrinterConfig, savePrinterConfig, testPrint, scanPrinters, connectAndTestPrinter, disconnectPrinter, checkPrinterConnection } from '../lib/printService'
 import { Capacitor } from '@capacitor/core'
+import { DIAS_ORDEN, DIAS_LABEL, DIAS_CORTO, horarioVacio, horarioEstandar, estaAbierto, horarioHoyTexto } from '../lib/horario'
 
 export default function Ajustes() {
   const { restaurante, updateRestaurante, logout } = useRest()
@@ -19,6 +20,8 @@ export default function Ajustes() {
   const [catsGenerales, setCatsGenerales] = useState([]) // todas las categorias disponibles
   const [catsSeleccionadas, setCatsSeleccionadas] = useState([]) // IDs de categorias del restaurante
   const [catsOriginales, setCatsOriginales] = useState([])
+  const [horario, setHorario] = useState(null) // JSONB schedule
+  const [horarioOriginal, setHorarioOriginal] = useState(null)
   const logoRef = useRef()
   const bannerRef = useRef()
 
@@ -34,7 +37,12 @@ export default function Ajustes() {
   const [manualIp, setManualIp] = useState('')
 
   useEffect(() => {
-    if (restaurante) loadCategorias()
+    if (restaurante) {
+      loadCategorias()
+      const h = restaurante.horario || null
+      setHorario(h)
+      setHorarioOriginal(h ? JSON.stringify(h) : null)
+    }
   }, [restaurante?.id])
 
   // Load printer config from localStorage
@@ -72,7 +80,8 @@ export default function Ajustes() {
     email !== (restaurante?.email || '') ||
     telefono !== (restaurante?.telefono || '') ||
     radioCobertura !== (restaurante?.radio_cobertura_km || 10) ||
-    JSON.stringify(catsSeleccionadas.sort()) !== JSON.stringify(catsOriginales.sort())
+    JSON.stringify(catsSeleccionadas.sort()) !== JSON.stringify(catsOriginales.sort()) ||
+    JSON.stringify(horario) !== horarioOriginal
 
   async function guardarTodo() {
     setGuardando(true)
@@ -84,7 +93,9 @@ export default function Ajustes() {
       email: email.trim() || null,
       telefono: telefono.trim() || null,
       radio_cobertura_km: radioCobertura,
+      horario: horario,
     })
+    setHorarioOriginal(horario ? JSON.stringify(horario) : null)
     // Guardar categorías del establecimiento (nivel 2)
     await supabase.from('establecimiento_categorias').delete().eq('establecimiento_id', restaurante.id)
     if (catsSeleccionadas.length > 0) {
@@ -111,6 +122,60 @@ export default function Ajustes() {
     if (error) { alert('Error al subir: ' + error.message); return }
     const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(path)
     await updateRestaurante({ [field]: publicUrl })
+  }
+
+  // ---- Horario helpers ----
+  function initHorario(tipo) {
+    const h = tipo === 'estandar' ? horarioEstandar() : horarioVacio()
+    setHorario(h)
+  }
+
+  function toggleDia(dia) {
+    setHorario(prev => {
+      const h = { ...prev }
+      if (h[dia] && h[dia].length > 0) {
+        h[dia] = [] // cerrar este día
+      } else {
+        h[dia] = [{ abre: '10:00', cierra: '23:00' }] // abrir con turno default
+      }
+      return h
+    })
+  }
+
+  function updateTurno(dia, idx, field, value) {
+    setHorario(prev => {
+      const h = { ...prev }
+      h[dia] = [...h[dia]]
+      h[dia][idx] = { ...h[dia][idx], [field]: value }
+      return h
+    })
+  }
+
+  function addTurno(dia) {
+    setHorario(prev => {
+      const h = { ...prev }
+      h[dia] = [...(h[dia] || []), { abre: '18:00', cierra: '23:00' }]
+      return h
+    })
+  }
+
+  function removeTurno(dia, idx) {
+    setHorario(prev => {
+      const h = { ...prev }
+      h[dia] = h[dia].filter((_, i) => i !== idx)
+      return h
+    })
+  }
+
+  function copiarHorarioATodos(diaOrigen) {
+    setHorario(prev => {
+      const h = { ...prev }
+      const turnos = h[diaOrigen] || []
+      for (const d of DIAS_ORDEN) {
+        if (d !== diaOrigen) h[d] = turnos.map(t => ({ ...t }))
+      }
+      return h
+    })
   }
 
   async function handleScan() {
@@ -257,6 +322,165 @@ export default function Ajustes() {
           <span style={{ minWidth: 50, textAlign: 'center', fontWeight: 800, fontSize: 16, color: 'var(--c-primary)' }}>{radioCobertura} km</span>
         </div>
         <div style={{ fontSize: 11, color: 'var(--c-muted)', marginTop: 8 }}>Solo los clientes dentro de este radio verán tu restaurante.</div>
+      </div>
+
+      {/* Horario semanal */}
+      <div style={{ background: 'var(--c-surface)', borderRadius: 14, padding: 18, border: '1px solid var(--c-border)', marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+          <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>Horario de apertura</h3>
+          {horario && (() => {
+            const estado = estaAbierto({ activo, horario })
+            return (
+              <span style={{
+                fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 50,
+                background: estado.abierto ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
+                color: estado.abierto ? '#4ADE80' : '#EF4444',
+              }}>
+                {estado.abierto ? 'Abierto ahora' : 'Cerrado'}
+              </span>
+            )
+          })()}
+        </div>
+        <p style={{ fontSize: 11, color: 'var(--c-muted)', marginBottom: 14 }}>
+          Configura tus horarios por dia. Puedes tener varios turnos por dia (ej: mañana y noche). Los clientes veran si estas abierto o cerrado.
+        </p>
+
+        {/* Sin horario configurado */}
+        {!horario ? (
+          <div>
+            <div style={{ textAlign: 'center', padding: '16px 0', marginBottom: 12 }}>
+              <span style={{ fontSize: 32, display: 'block', marginBottom: 8 }}>🕐</span>
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Sin horario configurado</div>
+              <div style={{ fontSize: 11, color: 'var(--c-muted)' }}>Los clientes veran tu restaurante solo segun el toggle abierto/cerrado</div>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => initHorario('estandar')} style={{
+                flex: 1, padding: '12px 0', borderRadius: 10, border: 'none',
+                background: 'var(--c-primary)', color: '#fff',
+                fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+              }}>
+                Horario estandar
+              </button>
+              <button onClick={() => initHorario('personalizado')} style={{
+                flex: 1, padding: '12px 0', borderRadius: 10, border: '1px solid var(--c-border)',
+                background: 'transparent', color: 'var(--c-text)',
+                fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+              }}>
+                Personalizado
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* Editor de horarios */
+          <div>
+            {DIAS_ORDEN.map(dia => {
+              const turnos = horario[dia] || []
+              const abierto = turnos.length > 0
+
+              return (
+                <div key={dia} style={{
+                  marginBottom: 10, borderRadius: 10, overflow: 'hidden',
+                  border: '1px solid ' + (abierto ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.06)'),
+                  background: abierto ? 'rgba(34,197,94,0.04)' : 'rgba(255,255,255,0.02)',
+                }}>
+                  {/* Header del día */}
+                  <div
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '10px 14px', cursor: 'pointer',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <button onClick={() => toggleDia(dia)} style={{
+                        width: 40, height: 22, borderRadius: 11, border: 'none',
+                        background: abierto ? '#16A34A' : 'rgba(255,255,255,0.15)',
+                        cursor: 'pointer', position: 'relative', transition: 'background 0.2s',
+                      }}>
+                        <span style={{
+                          position: 'absolute', top: 2, left: abierto ? 20 : 2,
+                          width: 18, height: 18, borderRadius: 9, background: '#fff',
+                          transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                        }} />
+                      </button>
+                      <span style={{ fontWeight: 700, fontSize: 13, color: abierto ? 'var(--c-text)' : 'var(--c-muted)', minWidth: 75 }}>
+                        {DIAS_LABEL[dia]}
+                      </span>
+                    </div>
+                    <span style={{
+                      fontSize: 11, fontWeight: 600,
+                      color: abierto ? 'rgba(74,222,128,0.8)' : 'rgba(239,68,68,0.6)',
+                    }}>
+                      {abierto ? turnos.map(t => `${t.abre}-${t.cierra}`).join(' · ') : 'Cerrado'}
+                    </span>
+                  </div>
+
+                  {/* Turnos */}
+                  {abierto && (
+                    <div style={{ padding: '0 14px 10px' }}>
+                      {turnos.map((turno, idx) => (
+                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                          <span style={{ fontSize: 10, color: 'var(--c-muted)', fontWeight: 600, minWidth: 42 }}>
+                            Turno {idx + 1}
+                          </span>
+                          <input
+                            type="time"
+                            value={turno.abre}
+                            onChange={e => updateTurno(dia, idx, 'abre', e.target.value)}
+                            style={{
+                              padding: '6px 8px', borderRadius: 8,
+                              border: '1px solid rgba(255,255,255,0.1)',
+                              background: 'rgba(255,255,255,0.06)', color: '#F5F5F5',
+                              fontSize: 12, fontFamily: 'inherit', outline: 'none',
+                            }}
+                          />
+                          <span style={{ color: 'var(--c-muted)', fontSize: 12 }}>—</span>
+                          <input
+                            type="time"
+                            value={turno.cierra}
+                            onChange={e => updateTurno(dia, idx, 'cierra', e.target.value)}
+                            style={{
+                              padding: '6px 8px', borderRadius: 8,
+                              border: '1px solid rgba(255,255,255,0.1)',
+                              background: 'rgba(255,255,255,0.06)', color: '#F5F5F5',
+                              fontSize: 12, fontFamily: 'inherit', outline: 'none',
+                            }}
+                          />
+                          {turnos.length > 1 && (
+                            <button onClick={() => removeTurno(dia, idx)} style={{
+                              background: 'none', border: 'none', color: '#EF4444',
+                              fontSize: 14, cursor: 'pointer', padding: '2px 6px',
+                            }}>×</button>
+                          )}
+                        </div>
+                      ))}
+                      <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                        <button onClick={() => addTurno(dia)} style={{
+                          background: 'none', border: 'none', color: 'var(--c-primary)',
+                          fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+                          padding: 0,
+                        }}>+ Añadir turno</button>
+                        <button onClick={() => copiarHorarioATodos(dia)} style={{
+                          background: 'none', border: 'none', color: 'var(--c-muted)',
+                          fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                          padding: 0,
+                        }}>Copiar a todos</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+
+            {/* Quitar horario */}
+            <button onClick={() => { setHorario(null) }} style={{
+              width: '100%', marginTop: 8, padding: '10px 0', borderRadius: 10,
+              border: '1px solid rgba(239,68,68,0.2)', background: 'transparent',
+              color: '#EF4444', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+            }}>
+              Quitar horario (usar solo toggle abierto/cerrado)
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Categorías del establecimiento (nivel 2) */}
