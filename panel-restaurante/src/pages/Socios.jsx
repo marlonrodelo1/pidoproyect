@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useRest } from '../context/RestContext'
 
@@ -35,6 +35,8 @@ export default function Socios() {
     setDetalle(null)
   }
 
+  const chatScrollRef = useRef()
+
   async function abrirDetalle(rel) {
     setDetalle(rel)
     setTab('info')
@@ -50,14 +52,45 @@ export default function Socios() {
     setMensajes(msgs || [])
   }
 
+  // Realtime chat: escuchar nuevos mensajes del socio activo
+  useEffect(() => {
+    if (!detalle || tab !== 'chat') return
+    const socioId = detalle.socios.id
+    const channel = supabase.channel(`chat-rest-${socioId}-${restaurante.id}`)
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'mensajes',
+        filter: `establecimiento_id=eq.${restaurante.id}`,
+      }, payload => {
+        if (payload.new.socio_id === socioId) {
+          setMensajes(prev => {
+            if (prev.some(m => m.id === payload.new.id)) return prev
+            return [...prev, payload.new]
+          })
+        }
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [detalle?.socios?.id, tab])
+
+  // Auto-scroll al fondo en chat
+  useEffect(() => {
+    if (chatScrollRef.current) chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight
+  }, [mensajes.length])
+
   async function enviarMensaje() {
     if (!msgInput.trim() || !detalle) return
-    await supabase.from('mensajes').insert({
-      tipo: 'socio_restaurante', socio_id: detalle.socios.id,
-      establecimiento_id: restaurante.id, de: 'restaurante', texto: msgInput.trim(),
-    })
-    setMensajes(prev => [...prev, { de: 'restaurante', texto: msgInput.trim(), created_at: new Date().toISOString() }])
+    const texto = msgInput.trim()
     setMsgInput('')
+    const { data } = await supabase.from('mensajes').insert({
+      tipo: 'socio_restaurante', socio_id: detalle.socios.id,
+      establecimiento_id: restaurante.id, de: 'restaurante', texto,
+    }).select().single()
+    if (data) {
+      setMensajes(prev => {
+        if (prev.some(m => m.id === data.id)) return prev
+        return [...prev, data]
+      })
+    }
   }
 
   const pendientes = relaciones.filter(r => r.estado === 'pendiente')
@@ -132,20 +165,32 @@ export default function Socios() {
 
         {tab === 'chat' && (
           <div>
-            <div style={{ minHeight: 200, maxHeight: 300, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
-              {mensajes.length === 0 && <div style={{ textAlign: 'center', padding: '30px 0', color: 'var(--c-muted)', fontSize: 13 }}>Sin mensajes</div>}
-              {mensajes.map((m, i) => (
-                <div key={i} style={{ alignSelf: m.de === 'restaurante' ? 'flex-end' : 'flex-start', maxWidth: '80%' }}>
-                  <div style={{ background: m.de === 'restaurante' ? 'var(--c-primary)' : 'var(--c-surface)', color: m.de === 'restaurante' ? '#fff' : 'var(--c-text)', borderRadius: 14, padding: '10px 14px', fontSize: 13, border: m.de !== 'restaurante' ? '1px solid var(--c-border)' : 'none' }}>{m.texto}</div>
-                  <div style={{ fontSize: 10, color: 'var(--c-muted)', marginTop: 4, textAlign: m.de === 'restaurante' ? 'right' : 'left' }}>
+            <div ref={chatScrollRef} style={{ minHeight: 200, maxHeight: 350, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+              {mensajes.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--c-muted)' }}>
+                  <span style={{ fontSize: 28, display: 'block', marginBottom: 8 }}>💬</span>
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>Sin mensajes</div>
+                  <div style={{ fontSize: 11, marginTop: 4 }}>Los mensajes se borran cada semana</div>
+                </div>
+              )}
+              {mensajes.map(m => (
+                <div key={m.id || m.created_at} style={{ alignSelf: m.de === 'restaurante' ? 'flex-end' : 'flex-start', maxWidth: '80%' }}>
+                  <div style={{
+                    background: m.de === 'restaurante' ? 'var(--c-primary)' : 'var(--c-surface)',
+                    color: m.de === 'restaurante' ? '#fff' : 'var(--c-text)',
+                    borderRadius: m.de === 'restaurante' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+                    padding: '10px 14px', fontSize: 13,
+                    border: m.de !== 'restaurante' ? '1px solid var(--c-border)' : 'none',
+                  }}>{m.texto}</div>
+                  <div style={{ fontSize: 10, color: 'var(--c-muted)', marginTop: 3, textAlign: m.de === 'restaurante' ? 'right' : 'left' }}>
                     {new Date(m.created_at).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
                   </div>
                 </div>
               ))}
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <input value={msgInput} onChange={e => setMsgInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && enviarMensaje()} placeholder="Escribe..." style={{ flex: 1, padding: '12px 16px', borderRadius: 12, border: '1px solid var(--c-border)', fontSize: 13, fontFamily: 'inherit', background: 'var(--c-surface)', color: 'var(--c-text)', outline: 'none' }} />
-              <button onClick={enviarMensaje} style={{ width: 44, height: 44, borderRadius: 12, border: 'none', background: 'var(--c-primary)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
+              <input value={msgInput} onChange={e => setMsgInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && enviarMensaje()} placeholder="Escribe un mensaje..." style={{ flex: 1, padding: '12px 16px', borderRadius: 12, border: '1px solid var(--c-border)', fontSize: 13, fontFamily: 'inherit', background: 'var(--c-surface)', color: 'var(--c-text)', outline: 'none' }} />
+              <button onClick={enviarMensaje} disabled={!msgInput.trim()} style={{ width: 44, height: 44, borderRadius: 12, border: 'none', background: msgInput.trim() ? 'var(--c-primary)' : 'rgba(255,255,255,0.1)', color: '#fff', cursor: msgInput.trim() ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
               </button>
             </div>
