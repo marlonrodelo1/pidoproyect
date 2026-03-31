@@ -43,17 +43,8 @@ body {
   padding-right: env(safe-area-inset-right);
 }
 
-/* Tablet: center content */
-@media (min-width: 768px) {
-  #root {
-    max-width: 500px;
-    margin: 0 auto;
-  }
-}
-
-/* Desktop */
-@media (min-width: 1024px) {
-  #root {
-    max-width: 600px;
-  }
+/* Responsive: full width siempre */
+#root {
+  width: 100%;
+  max-width: 100%;
 }

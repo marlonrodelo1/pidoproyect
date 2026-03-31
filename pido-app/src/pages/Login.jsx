@@ -17,6 +17,7 @@ export default function Login() {
   const [resetEnviado, setResetEnviado] = useState(false)
   const [errores, setErrores] = useState({})
   const [aceptaTerminos, setAceptaTerminos] = useState(false)
+  const [registroExitoso, setRegistroExitoso] = useState(false)
 
   function validar() {
     const e = {}
@@ -49,6 +50,7 @@ export default function Login() {
         await login(email, password)
       } else {
         await registro(email, password, nombre.trim(), telefono.replace(/\s/g, ''))
+        setRegistroExitoso(true)
       }
     } catch (err) {
       setError(err.message)
@@ -71,6 +73,27 @@ export default function Login() {
   }
   const inputError = { ...inputStyle, borderColor: '#EF4444' }
   const errorTextStyle = { color: '#EF4444', fontSize: 11, marginTop: 2, marginLeft: 4 }
+
+  if (registroExitoso) {
+    return (
+      <div style={{ padding: '40px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', minHeight: '100vh', justifyContent: 'center' }}>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>📧</div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--c-text)', marginBottom: 8, textAlign: 'center' }}>
+          Confirma tu correo
+        </div>
+        <p style={{ fontSize: 13, color: 'var(--c-muted)', marginBottom: 28, textAlign: 'center', maxWidth: 300, lineHeight: 1.5 }}>
+          Enviamos un enlace de confirmacion a <strong style={{ color: 'var(--c-text)' }}>{email}</strong>. Revisa tu bandeja de entrada y haz clic en el enlace para activar tu cuenta.
+        </p>
+        <button onClick={() => { setModo('login'); setRegistroExitoso(false); setError(null); setErrores({}) }} style={{
+          padding: '14px 32px', borderRadius: 12, border: 'none',
+          background: 'var(--c-primary)', color: '#fff',
+          fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+        }}>
+          Ir a iniciar sesion
+        </button>
+      </div>
+    )
+  }
 
   if (modo === 'reset' && resetEnviado) {
     return (
@@ -190,29 +213,11 @@ export default function Login() {
               <span style={{ fontSize: 11, color: 'var(--c-muted)', fontWeight: 600 }}>o</span>
               <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.1)' }} />
             </div>
-            <button onClick={async () => {
-              if (Capacitor.isNativePlatform()) {
-                try {
-                  const { GoogleAuth } = await import('@codetrix-studio/capacitor-google-auth')
-                  await GoogleAuth.initialize({
-                    clientId: '797553895667-gr3vsgvcp85k0bh0b3iafkblv529g8kt.apps.googleusercontent.com',
-                    scopes: ['profile', 'email'],
-                    grantOfflineAccess: true,
-                  })
-                  const googleUser = await GoogleAuth.signIn()
-                  const { error } = await supabase.auth.signInWithIdToken({
-                    provider: 'google',
-                    token: googleUser.authentication.idToken,
-                  })
-                  if (error) setError(error.message)
-                } catch (err) {
-                  if (err.message !== 'popup_closed_by_user' && err.message !== 'The user canceled the sign-in flow.') {
-                    setError('Error al iniciar con Google: ' + err.message)
-                  }
-                }
-              } else {
-                supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } })
-              }
+            <button onClick={() => {
+              const redirectTo = Capacitor.isNativePlatform()
+                ? 'co.median.ios.bnlkxpx://login'
+                : window.location.origin
+              supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } })
             }} style={{
               width: '100%', padding: '14px 0', borderRadius: 14, border: '1px solid rgba(255,255,255,0.15)',
               background: 'rgba(255,255,255,0.06)', color: '#F5F5F5',

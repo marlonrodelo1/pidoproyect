@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react'
+import { Capacitor } from '@capacitor/core'
 import { supabase } from '../lib/supabase'
 import { registerWebPush } from '../lib/webPush'
 import { registerPushNotifications } from '../lib/pushNotifications'
@@ -56,7 +57,10 @@ export function AuthProvider({ children }) {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { nombre } },
+      options: {
+        data: { nombre },
+        emailRedirectTo: 'https://pidoo.es',
+      },
     })
     if (error) throw new Error(traducirError(error.message))
 

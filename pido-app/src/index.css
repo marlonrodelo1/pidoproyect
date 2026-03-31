@@ -48,29 +48,10 @@ body {
   #root { min-height: 100dvh; }
 }
 
-/* Responsive: full width en móvil y tablet */
+/* Responsive: full width siempre */
 #root {
   width: 100%;
   max-width: 100%;
-}
-
-/* Tablet: centrar contenido */
-@media (min-width: 768px) {
-  #root {
-    max-width: 540px;
-    margin: 0 auto;
-  }
-}
-
-/* Desktop: centrar como app */
-@media (min-width: 1024px) {
-  #root {
-    max-width: 480px;
-    margin: 0 auto;
-    box-shadow: 0 0 60px rgba(0,0,0,0.5);
-    border-left: 1px solid rgba(255,255,255,0.06);
-    border-right: 1px solid rgba(255,255,255,0.06);
-  }
 }
 
 /* Google Places Autocomplete dark theme */

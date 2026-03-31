@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Capacitor } from '@capacitor/core'
+import { App as CapApp } from '@capacitor/app'
 import { StatusBar, Style } from '@capacitor/status-bar'
+import { supabase } from './lib/supabase'
 import { Bell } from 'lucide-react'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { CartProvider } from './context/CartContext'
@@ -106,7 +108,7 @@ function AppContent() {
       </div>
 
       {/* Contenido */}
-      <div style={{ padding: 20, animation: 'fadeIn 0.3s ease' }}>
+      <div className="tablet-pad" style={{ padding: 20, animation: 'fadeIn 0.3s ease' }}>
         {seccion === 'tracking' && pedidoActivo
           ? <Tracking pedido={pedidoActivo} onClose={handleTrackingClose} />
           : restOpen && seccion === 'home'
@@ -162,12 +164,22 @@ const globalCss = `
 *{box-sizing:border-box;margin:0;padding:0}
 ::-webkit-scrollbar{display:none}
 body{background:#0D0D0D;margin:0}
+@media(min-width:768px){
+  .tablet-grid{display:grid!important;grid-template-columns:repeat(2,1fr)!important;gap:14px!important}
+  .tablet-grid>*{margin-bottom:0!important}
+  .tablet-pad{padding:24px 32px!important}
+  .tablet-slider-card{min-width:280px!important}
+}
+@media(min-width:1024px){
+  .tablet-grid{grid-template-columns:repeat(3,1fr)!important}
+  .tablet-pad{padding:28px 48px!important}
+}
 `
 
 function TiendaDetector() {
   const [slugTienda, setSlugTienda] = useState(null)
   const [checking, setChecking] = useState(true)
-
+  const [emailConfirmado, setEmailConfirmado] = useState(false)
   const [paginaLegal, setPaginaLegal] = useState(null)
 
   useEffect(() => {
@@ -175,6 +187,32 @@ function TiendaDetector() {
       StatusBar.setOverlaysWebView({ overlay: false })
       StatusBar.setBackgroundColor({ color: '#0D0D0D' })
       StatusBar.setStyle({ style: Style.Dark })
+
+      // Capturar deep link de OAuth callback
+      CapApp.addListener('appUrlOpen', ({ url }) => {
+        if (url.includes('access_token') || url.includes('refresh_token') || url.includes('code=')) {
+          // Convertir el deep link scheme a una URL que Supabase pueda parsear
+          const parsed = new URL(url)
+          const hashOrQuery = parsed.hash || parsed.search
+          if (hashOrQuery) {
+            const params = new URLSearchParams(hashOrQuery.replace('#', '?').replace('?', ''))
+            const access_token = params.get('access_token')
+            const refresh_token = params.get('refresh_token')
+            if (access_token && refresh_token) {
+              supabase.auth.setSession({ access_token, refresh_token })
+            }
+          }
+        }
+      })
+    }
+  }, [])
+
+  // Detectar confirmación de email desde Supabase
+  useEffect(() => {
+    const hash = window.location.hash
+    if (hash && hash.includes('type=signup') && !Capacitor.isNativePlatform()) {
+      setEmailConfirmado(true)
+      setChecking(false)
     }
   }, [])
 
@@ -203,6 +241,34 @@ function TiendaDetector() {
       <div style={{ ...shellStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
         <style>{globalCss}</style>
         <div style={{ fontSize: 48, fontWeight: 800, color: 'var(--c-primary)', letterSpacing: -2 }}>pidoo</div>
+      </div>
+    )
+  }
+
+  if (emailConfirmado) {
+    return (
+      <div style={{ ...shellStyle, minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+        <style>{globalCss}</style>
+        <div style={{ fontSize: 56, marginBottom: 20 }}>✅</div>
+        <div style={{ fontSize: 22, fontWeight: 800, color: '#F5F5F5', marginBottom: 8, textAlign: 'center' }}>
+          Cuenta confirmada
+        </div>
+        <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', marginBottom: 32, textAlign: 'center', maxWidth: 300, lineHeight: 1.5 }}>
+          Tu cuenta ha sido verificada correctamente. Ya puedes iniciar sesion en pidoo.
+        </p>
+        <a href="co.median.ios.bnlkxpx://login" style={{
+          display: 'inline-block', padding: '16px 40px', borderRadius: 14, border: 'none',
+          background: '#FF6B2C', color: '#fff', fontSize: 16, fontWeight: 800,
+          textDecoration: 'none', fontFamily: "'DM Sans', sans-serif",
+        }}>
+          Abrir la app
+        </a>
+        <button onClick={() => { setEmailConfirmado(false); window.location.hash = '' }} style={{
+          marginTop: 16, background: 'none', border: 'none', color: 'rgba(255,255,255,0.45)',
+          fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+        }}>
+          Continuar en la web
+        </button>
       </div>
     )
   }

@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { ClipboardList, Clock, UtensilsCrossed, Users, Settings, BarChart3, Tag } from 'lucide-react'
 import { Capacitor } from '@capacitor/core'
+import { App as CapApp } from '@capacitor/app'
 import { StatusBar, Style } from '@capacitor/status-bar'
+import { supabase } from './lib/supabase'
 import { RestProvider, useRest } from './context/RestContext'
 import { PedidoAlertProvider, usePedidoAlert } from './context/PedidoAlertContext'
 import Login from './pages/Login'
@@ -29,6 +31,21 @@ function AppContent() {
       StatusBar.setOverlaysWebView({ overlay: false })
       StatusBar.setBackgroundColor({ color: '#0D0D0D' })
       StatusBar.setStyle({ style: Style.Dark })
+
+      CapApp.addListener('appUrlOpen', ({ url }) => {
+        if (url.includes('access_token') || url.includes('refresh_token') || url.includes('code=')) {
+          const parsed = new URL(url)
+          const hashOrQuery = parsed.hash || parsed.search
+          if (hashOrQuery) {
+            const params = new URLSearchParams(hashOrQuery.replace('#', '?').replace('?', ''))
+            const access_token = params.get('access_token')
+            const refresh_token = params.get('refresh_token')
+            if (access_token && refresh_token) {
+              supabase.auth.setSession({ access_token, refresh_token })
+            }
+          }
+        }
+      })
     }
   }, [])
 

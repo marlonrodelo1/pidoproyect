@@ -179,7 +179,7 @@ export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
             {destacados.map(r => {
               const estDest = estaAbierto(r)
               return (
-              <div key={r.id} onClick={() => onOpenRest(r)} style={{
+              <div key={r.id} className="tablet-slider-card" onClick={() => onOpenRest(r)} style={{
                 minWidth: 240, flexShrink: 0, background: 'rgba(255,255,255,0.08)', borderRadius: 16,
                 overflow: 'hidden', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.1)',
                 backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
@@ -227,7 +227,7 @@ export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
               if (!est) return null
               const estadoPromo = estaAbierto(est)
               return (
-                <div key={promo.id} onClick={() => onOpenRest(est)} style={{
+                <div key={promo.id} className="tablet-slider-card" onClick={() => onOpenRest(est)} style={{
                   minWidth: 260, flexShrink: 0, background: 'rgba(255,255,255,0.08)', borderRadius: 16,
                   overflow: 'hidden', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.1)',
                   backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
@@ -318,6 +318,7 @@ export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
         </div>
       )}
 
+      <div className="tablet-grid">
       {filtrados.map(r => {
         const isFav = favoritos.includes(r.id)
         const estado = estaAbierto(r)
@@ -397,6 +398,7 @@ export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
           </div>
         )
       })}
+      </div>
     </div>
   )
 }
