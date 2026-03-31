@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { useSocio } from '../context/SocioContext'
+import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet'
+import 'leaflet/dist/leaflet.css'
 
 function StatCard({ label, value, sub, accent }) {
   return (
@@ -22,11 +24,27 @@ function EstadoBadge({ estado }) {
   return <span style={{ background: c.bg, color: c.color, fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 6, textTransform: 'capitalize' }}>{estado?.replace('_', ' ')}</span>
 }
 
+// Auto-fit map bounds to show all points
+function MapFitter({ points }) {
+  const map = useMap()
+  useEffect(() => {
+    if (points.length > 1) {
+      const bounds = points.map(p => [p.lat, p.lng])
+      map.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 })
+    } else if (points.length === 1) {
+      map.setView([points[0].lat, points[0].lng], 14)
+    }
+  }, [points, map])
+  return null
+}
+
 export default function Dashboard() {
   const { socio } = useSocio()
   const [periodo, setPeriodo] = useState('semana')
   const [stats, setStats] = useState({ pedidos: 0, comisiones: 0, envios: 0, propinas: 0, ventas: 0 })
   const [ultimosPedidos, setUltimosPedidos] = useState([])
+  const [puntosEntrega, setPuntosEntrega] = useState([])
+  const [puntosRestaurante, setPuntosRestaurante] = useState([])
 
   useEffect(() => { if (socio) fetchStats() }, [socio?.id, periodo])
 
@@ -39,13 +57,38 @@ export default function Dashboard() {
 
     const { data: pedidos } = await supabase
       .from('pedidos')
-      .select('id, total, subtotal, coste_envio, propina, estado, metodo_pago, codigo, canal, created_at, establecimientos(nombre)')
+      .select('id, total, subtotal, coste_envio, propina, estado, metodo_pago, codigo, canal, created_at, usuario_id, establecimiento_id, establecimientos(nombre, latitud, longitud)')
       .eq('socio_id', socio.id)
       .gte('created_at', desde.toISOString())
       .order('created_at', { ascending: false })
 
     const all = pedidos || []
     const entregados = all.filter(p => p.estado === 'entregado')
+
+    // Obtener coordenadas de clientes para el mapa
+    const userIds = [...new Set(entregados.map(p => p.usuario_id).filter(Boolean))]
+    let userCoords = {}
+    if (userIds.length > 0) {
+      const { data: usuarios } = await supabase.from('usuarios').select('id, latitud, longitud').in('id', userIds)
+      for (const u of usuarios || []) {
+        if (u.latitud && u.longitud) userCoords[u.id] = { lat: u.latitud, lng: u.longitud }
+      }
+    }
+
+    // Puntos de entrega (clientes)
+    const puntos = entregados
+      .filter(p => userCoords[p.usuario_id])
+      .map(p => ({ lat: userCoords[p.usuario_id].lat, lng: userCoords[p.usuario_id].lng, codigo: p.codigo, restaurante: p.establecimientos?.nombre }))
+    setPuntosEntrega(puntos)
+
+    // Puntos de restaurantes (únicos)
+    const restMap = {}
+    for (const p of entregados) {
+      if (p.establecimientos?.latitud && p.establecimientos?.longitud) {
+        restMap[p.establecimiento_id] = { lat: p.establecimientos.latitud, lng: p.establecimientos.longitud, nombre: p.establecimientos.nombre }
+      }
+    }
+    setPuntosRestaurante(Object.values(restMap))
 
     const { data: comisiones } = await supabase
       .from('comisiones')
@@ -70,6 +113,15 @@ export default function Dashboard() {
   }
 
   const totalGanado = stats.comisiones + stats.envios + stats.propinas
+
+  // Centro del mapa: promedio de puntos o default Canarias
+  const mapCenter = useMemo(() => {
+    const allPts = [...puntosEntrega, ...puntosRestaurante]
+    if (allPts.length === 0) return [28.4148, -16.5477] // Puerto de la Cruz default
+    const lat = allPts.reduce((s, p) => s + p.lat, 0) / allPts.length
+    const lng = allPts.reduce((s, p) => s + p.lng, 0) / allPts.length
+    return [lat, lng]
+  }, [puntosEntrega, puntosRestaurante])
 
   return (
     <div>
@@ -96,6 +148,53 @@ export default function Dashboard() {
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
         <StatCard label="Pedidos" value={stats.pedidos} sub={`${stats.cancelados || 0} cancelados`} />
         <StatCard label="Ventas totales" value={`${stats.ventas.toFixed(0)} €`} />
+      </div>
+
+      {/* Mapa de zona de entregas */}
+      <div style={{ background: 'var(--c-surface)', borderRadius: 16, border: '1px solid var(--c-border)', overflow: 'hidden', marginBottom: 16 }}>
+        <div style={{ padding: '14px 18px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>Zona de entregas</div>
+            <div style={{ fontSize: 11, color: 'var(--c-muted)', marginTop: 2 }}>
+              {puntosEntrega.length} entrega{puntosEntrega.length !== 1 ? 's' : ''} · {puntosRestaurante.length} restaurante{puntosRestaurante.length !== 1 ? 's' : ''}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 10, fontSize: 10, fontWeight: 600 }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 8, height: 8, borderRadius: 4, background: '#FF6B2C' }} /> Entregas
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 8, height: 8, borderRadius: 4, background: '#EF4444' }} /> Restaurantes
+            </span>
+          </div>
+        </div>
+        <div style={{ height: 220 }}>
+          {(puntosEntrega.length > 0 || puntosRestaurante.length > 0) ? (
+            <MapContainer center={mapCenter} zoom={13} style={{ height: '100%', width: '100%' }} zoomControl={false} attributionControl={false}>
+              <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+              <MapFitter points={[...puntosEntrega, ...puntosRestaurante]} />
+              {/* Puntos de entrega (naranja) */}
+              {puntosEntrega.map((p, i) => (
+                <CircleMarker key={`e-${i}`} center={[p.lat, p.lng]} radius={6} pathOptions={{ color: '#FF6B2C', fillColor: '#FF6B2C', fillOpacity: 0.7, weight: 2 }}>
+                  <Popup><span style={{ fontSize: 12, fontWeight: 600 }}>{p.codigo}<br />{p.restaurante}</span></Popup>
+                </CircleMarker>
+              ))}
+              {/* Restaurantes (rojo) */}
+              {puntosRestaurante.map((p, i) => (
+                <CircleMarker key={`r-${i}`} center={[p.lat, p.lng]} radius={9} pathOptions={{ color: '#EF4444', fillColor: '#EF4444', fillOpacity: 0.9, weight: 2 }}>
+                  <Popup><span style={{ fontSize: 12, fontWeight: 600 }}>{p.nombre}</span></Popup>
+                </CircleMarker>
+              ))}
+            </MapContainer>
+          ) : (
+            <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--c-muted)', fontSize: 13 }}>
+              <div style={{ textAlign: 'center' }}>
+                <span style={{ fontSize: 28, display: 'block', marginBottom: 6 }}>🗺️</span>
+                Sin entregas en este periodo
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Últimos pedidos */}
