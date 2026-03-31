@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { supabase } from '../lib/supabase'
 import { getCurrentPosition } from '../lib/geolocation'
 import { MapPin, CreditCard, Tag, Settings, HelpCircle, LogOut, ChevronRight, X, Check, Camera, User, Phone, Mail, Navigation } from 'lucide-react'
 import AddressInput from '../components/AddressInput'
@@ -13,11 +14,26 @@ export default function Perfil() {
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState(null)
   const [subSeccion, setSubSeccion] = useState(null)
+  const [promos, setPromos] = useState([])
+  const avatarRef = useRef()
 
   // Dirección
   const [direccion, setDireccion] = useState(perfil?.direccion || '')
   const [savingDir, setSavingDir] = useState(false)
   const [geoLoading, setGeoLoading] = useState(false)
+
+  // Subir avatar
+  async function subirAvatar(file) {
+    if (!file || !perfil?.id) return
+    const ext = file.name.split('.').pop()
+    const path = `${perfil.id}_${Date.now()}.${ext}`
+    const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
+    if (error) { setMsg('Error al subir foto'); return }
+    const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path)
+    await updatePerfil({ avatar_url: publicUrl })
+    setMsg('Foto actualizada')
+    setTimeout(() => setMsg(null), 1500)
+  }
 
   const handleGuardar = async () => {
     setSaving(true)
@@ -152,16 +168,7 @@ export default function Perfil() {
           </>
         )}
 
-        {subSeccion === 'promos' && (
-          <>
-            <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 16 }}>Promociones</h2>
-            <div style={{ ...glass, padding: 24, textAlign: 'center' }}>
-              <Tag size={32} strokeWidth={1.5} color="var(--c-muted)" style={{ marginBottom: 12 }} />
-              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>Sin promociones activas</div>
-              <div style={{ fontSize: 12, color: 'var(--c-muted)', lineHeight: 1.4 }}>Las promociones aparecerán aquí cuando estén disponibles</div>
-            </div>
-          </>
-        )}
+        {subSeccion === 'promos' && <PromosSection />}
 
         {subSeccion === 'config' && (
           <>
@@ -204,6 +211,7 @@ export default function Perfil() {
     <div style={{ animation: 'fadeIn 0.3s ease' }}>
       {/* Avatar y datos */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 24 }}>
+        <input ref={avatarRef} type="file" accept="image/*" hidden onChange={e => e.target.files[0] && subirAvatar(e.target.files[0])} />
         <div style={{ position: 'relative', marginBottom: 12 }}>
           <div style={{
             width: 80, height: 80, borderRadius: 22, background: 'var(--c-primary)',
@@ -215,10 +223,7 @@ export default function Perfil() {
               : (perfil?.nombre?.[0] || 'U').toUpperCase()
             }
           </div>
-          <button onClick={() => {
-            setNombre(perfil?.nombre || ''); setApellido(perfil?.apellido || ''); setTelefono(perfil?.telefono || '')
-            setEditando(true)
-          }} style={{
+          <button onClick={() => avatarRef.current?.click()} style={{
             position: 'absolute', bottom: -4, right: -4, width: 28, height: 28,
             borderRadius: 10, background: '#1A1A1A', border: '2px solid rgba(255,255,255,0.15)',
             cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -334,6 +339,49 @@ export default function Perfil() {
         </div>
       )}
     </div>
+  )
+}
+
+function PromosSection() {
+  const [promos, setPromos] = useState([])
+  const [loading, setLoading] = useState(true)
+  useEffect(() => {
+    supabase.from('promociones').select('*, establecimientos(nombre, logo_url)')
+      .eq('activa', true)
+      .or('fecha_fin.is.null,fecha_fin.gt.' + new Date().toISOString())
+      .then(({ data }) => { setPromos(data || []); setLoading(false) })
+  }, [])
+  return (
+    <>
+      <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 16 }}>Promociones</h2>
+      {loading && <div style={{ textAlign: 'center', padding: 30, color: 'var(--c-muted)' }}>Cargando...</div>}
+      {!loading && promos.length === 0 && (
+        <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 14, padding: 24, textAlign: 'center', border: '1px solid rgba(255,255,255,0.08)' }}>
+          <Tag size={32} strokeWidth={1.5} color="var(--c-muted)" style={{ marginBottom: 12 }} />
+          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>Sin promociones activas</div>
+          <div style={{ fontSize: 12, color: 'var(--c-muted)' }}>Las promociones aparecen aqui cuando los restaurantes las publican</div>
+        </div>
+      )}
+      {promos.map(p => (
+        <div key={p.id} style={{
+          background: 'rgba(255,255,255,0.06)', borderRadius: 14, padding: '14px 16px',
+          border: '1px solid rgba(220,38,38,0.2)', marginBottom: 10,
+          display: 'flex', alignItems: 'center', gap: 12,
+        }}>
+          <div style={{ width: 44, height: 44, borderRadius: 12, overflow: 'hidden', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
+            {p.establecimientos?.logo_url ? <img src={p.establecimientos.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '🍽️'}
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: '#EF4444' }}>{p.titulo}</div>
+            <div style={{ fontSize: 12, color: 'var(--c-muted)' }}>{p.establecimientos?.nombre}</div>
+            {p.minimo_compra > 0 && <div style={{ fontSize: 11, color: 'var(--c-muted)' }}>Min. {p.minimo_compra}€</div>}
+          </div>
+          <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 6, background: 'rgba(220,38,38,0.12)', color: '#EF4444' }}>
+            {p.tipo === 'descuento_porcentaje' ? `${p.valor}%` : p.tipo === 'descuento_fijo' ? `${p.valor}€` : p.tipo === '2x1' ? '2x1' : 'Gratis'}
+          </span>
+        </div>
+      ))}
+    </>
   )
 }
 

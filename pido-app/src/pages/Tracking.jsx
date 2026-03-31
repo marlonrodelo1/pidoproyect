@@ -160,35 +160,82 @@ export default function Tracking({ pedido: pedidoInicial, onClose }) {
         </div>
       </div>
 
-      {/* Mapa animado */}
-      <div style={{ height: 180, borderRadius: 16, background: 'linear-gradient(135deg, #E8F5E9, #C8E6C9)', marginBottom: 16, position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', top: '50%', left: '10%', width: '80%', height: 3, background: 'rgba(0,0,0,0.1)', borderRadius: 2 }} />
-        <div style={{ position: 'absolute', top: 30, left: '12%', fontSize: 24 }}>🏪</div>
-        <div style={{ position: 'absolute', top: 30, right: '12%', fontSize: 24 }}>🏠</div>
+      {/* Mapa animado - Canarias theme */}
+      <div style={{ height: 200, borderRadius: 16, marginBottom: 16, position: 'relative', overflow: 'hidden', background: 'linear-gradient(180deg, #1E90FF 0%, #87CEEB 40%, #FFD700 55%, #F4A460 60%, #2E8B57 70%, #228B22 100%)' }}>
+        {/* Sol */}
+        <div style={{ position: 'absolute', top: 12, right: 20, width: 36, height: 36, borderRadius: '50%', background: '#FFD700', boxShadow: '0 0 20px rgba(255,215,0,0.6), 0 0 40px rgba(255,215,0,0.3)', animation: 'glow 3s ease-in-out infinite' }} />
+        {/* Nubes */}
+        <div style={{ position: 'absolute', top: 18, left: '15%', fontSize: 20, opacity: 0.8, animation: 'floatCloud 8s linear infinite' }}>☁️</div>
+        <div style={{ position: 'absolute', top: 8, left: '55%', fontSize: 16, opacity: 0.6, animation: 'floatCloud 12s linear infinite 3s' }}>☁️</div>
+        {/* Teide al fondo */}
+        <div style={{ position: 'absolute', bottom: 55, left: '35%', width: 0, height: 0, borderLeft: '50px solid transparent', borderRight: '50px solid transparent', borderBottom: '70px solid #8B7355', opacity: 0.5 }} />
+        <div style={{ position: 'absolute', bottom: 115, left: '50%', transform: 'translateX(-50%)', width: 20, height: 12, background: 'rgba(255,255,255,0.6)', borderRadius: '50% 50% 0 0', filter: 'blur(2px)' }} />
+        {/* Palmeras */}
+        <div style={{ position: 'absolute', bottom: 42, left: '8%', fontSize: 28, transform: 'scaleX(-1)' }}>🌴</div>
+        <div style={{ position: 'absolute', bottom: 42, right: '10%', fontSize: 24 }}>🌴</div>
+        {/* Mar/olas */}
+        <div style={{ position: 'absolute', bottom: 38, left: 0, right: 0, height: 18, background: 'linear-gradient(180deg, rgba(30,144,255,0.4), rgba(0,105,148,0.6))', borderRadius: '50% 50% 0 0' }} />
+        {/* Carretera */}
+        <div style={{ position: 'absolute', bottom: 14, left: '8%', width: '84%', height: 22, background: '#333', borderRadius: 4 }}>
+          <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 2, background: 'repeating-linear-gradient(90deg, #FFD700 0, #FFD700 12px, transparent 12px, transparent 24px)', transform: 'translateY(-50%)' }} />
+        </div>
+        {/* Restaurante */}
+        <div style={{ position: 'absolute', bottom: 34, left: '10%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <span style={{ fontSize: 22 }}>🏪</span>
+        </div>
+        {/* Casa del cliente */}
+        <div style={{ position: 'absolute', bottom: 34, right: '10%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <span style={{ fontSize: 22 }}>🏠</span>
+        </div>
+        {/* Moto animada */}
         {etapa >= 3 && (
-          <div style={{ position: 'absolute', top: '42%', left: `${10 + riderPos * 0.8}%`, fontSize: 28, transition: 'left 0.2s', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }}>🛵</div>
+          <div style={{
+            position: 'absolute', bottom: 28, left: `${8 + riderPos * 0.84}%`,
+            transition: 'left 0.3s ease', zIndex: 10,
+          }}>
+            <div style={{ animation: 'riderBounce 0.4s ease-in-out infinite', transformOrigin: 'bottom center' }}>
+              <span style={{ fontSize: 28, filter: 'drop-shadow(0 3px 6px rgba(0,0,0,0.4))' }}>🏍️</span>
+            </div>
+            {/* Estela de humo */}
+            <div style={{ position: 'absolute', bottom: 2, left: -8, width: 8, height: 8, borderRadius: '50%', background: 'rgba(200,200,200,0.5)', animation: 'smoke 0.6s ease-out infinite', filter: 'blur(2px)' }} />
+          </div>
         )}
+        {/* Estado overlay */}
         {etapa < 3 && (
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{
-              fontSize: 11, fontWeight: 700, color: '#166534', background: 'rgba(255,255,255,0.8)',
-              padding: '6px 14px', borderRadius: 8,
+              fontSize: 12, fontWeight: 800, color: '#fff', background: 'rgba(0,0,0,0.6)',
+              padding: '8px 18px', borderRadius: 12, backdropFilter: 'blur(4px)',
               animation: etapa === 0 ? 'pulse 2s ease-in-out infinite' : 'none',
+              display: 'flex', alignItems: 'center', gap: 8,
             }}>
-              {etapa === 0 ? '⏳ Esperando al restaurante...' : etapa === 1 ? '👨‍🍳 Preparando tu pedido...' : '📦 Repartidor recogiendo...'}
+              <span style={{ fontSize: 18 }}>{etapa === 0 ? '⏳' : etapa === 1 ? '👨‍🍳' : '📦'}</span>
+              {etapa === 0 ? 'Esperando al restaurante...' : etapa === 1 ? 'Preparando tu pedido...' : 'Repartidor recogiendo...'}
             </div>
           </div>
         )}
-        {etapa === 4 ? (
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(34,197,94,0.15)' }}>
-            <div style={{ fontSize: 40 }}>✅</div>
+        {etapa === 4 && (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(34,197,94,0.2)' }}>
+            <div style={{ textAlign: 'center', animation: 'fadeIn 0.5s ease' }}>
+              <div style={{ fontSize: 48, marginBottom: 4 }}>🎉</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: '#fff', textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>Pedido entregado!</div>
+            </div>
           </div>
-        ) : (
-          <div style={{ position: 'absolute', bottom: 10, left: 12, background: 'rgba(0,0,0,0.7)', color: '#fff', borderRadius: 8, padding: '5px 10px', fontSize: 11, fontWeight: 600 }}>
-            {etapa === 0 ? 'Pendiente de aceptar' : `Estimado: ${Math.max(5, 25 - etapa * 5)} min`}
+        )}
+        {/* Tiempo estimado */}
+        {etapa < 4 && (
+          <div style={{ position: 'absolute', bottom: 42, left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.7)', color: '#fff', borderRadius: 10, padding: '4px 12px', fontSize: 10, fontWeight: 700, backdropFilter: 'blur(4px)', whiteSpace: 'nowrap' }}>
+            {etapa === 0 ? 'Pendiente de aceptar' : `~${Math.max(5, 25 - etapa * 5)} min`}
           </div>
         )}
       </div>
+      {/* Tracking CSS animations */}
+      <style>{`
+        @keyframes riderBounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-3px)} }
+        @keyframes smoke { 0%{opacity:0.6;transform:scale(1)} 100%{opacity:0;transform:scale(2) translateX(-8px)} }
+        @keyframes floatCloud { 0%{transform:translateX(0)} 100%{transform:translateX(60px)} }
+        @keyframes glow { 0%,100%{box-shadow:0 0 20px rgba(255,215,0,0.6)} 50%{box-shadow:0 0 30px rgba(255,215,0,0.9)} }
+      `}</style>
 
       {/* Info repartidor */}
       {socio && etapa >= 1 && etapa < 5 && (
