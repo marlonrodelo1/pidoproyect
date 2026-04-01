@@ -372,11 +372,13 @@ export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
               }}>
                 {estado.abierto ? 'Abierto' : 'Cerrado'}
               </span>
-              <div style={{ position: 'absolute', bottom: 8, right: 10, display: 'flex', gap: 6 }}>
-                <span style={{ background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '4px 8px', borderRadius: 8, backdropFilter: 'blur(4px)' }}>
-                  {r.radio_cobertura_km} km
-                </span>
-              </div>
+              {r.radio_cobertura_km && (
+                <div style={{ position: 'absolute', bottom: 8, right: 10, display: 'flex', gap: 6 }}>
+                  <span style={{ background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '4px 8px', borderRadius: 8, backdropFilter: 'blur(4px)' }}>
+                    {r.radio_cobertura_km} km
+                  </span>
+                </div>
+              )}
               <button onClick={e => { e.stopPropagation(); toggleFav(r.id) }} style={{
                 position: 'absolute', top: 8, right: 8,
                 width: 32, height: 32, borderRadius: 10, background: 'rgba(0,0,0,0.5)',

@@ -4,14 +4,17 @@ import { useCart } from '../context/CartContext'
 import Stars from '../components/Stars'
 import EntregaBadge from '../components/EntregaBadge'
 
-function ProductoCard({ p, onOpen, carrito }) {
+function ProductoCard({ p, onOpen, carrito, tamanos = [] }) {
   const enCarrito = carrito.find(i => i.producto_id === p.id)
+  const minPrecio = tamanos.length > 0 ? Math.min(...tamanos.map(t => t.precio)) : null
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', background: 'rgba(255,255,255,0.06)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)', marginBottom: 8 }}>
       <div style={{ flex: 1 }}>
         <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--c-text)', marginBottom: 2 }}>{p.nombre}</div>
         {p.descripcion && <div style={{ fontSize: 12, color: 'var(--c-muted)', marginBottom: 4 }}>{p.descripcion}</div>}
-        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--c-primary)' }}>{p.precio.toFixed(2)} €</div>
+        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--c-primary)' }}>
+          {minPrecio !== null ? `Desde ${minPrecio.toFixed(2)} €` : `${p.precio.toFixed(2)} €`}
+        </div>
       </div>
       {p.imagen_url && <img src={p.imagen_url} alt="" style={{ width: 50, height: 50, borderRadius: 10, objectFit: 'cover', marginRight: 10 }} />}
       <button onClick={onOpen} style={{
@@ -39,6 +42,7 @@ export default function RestDetalle({ establecimiento, onBack }) {
   const [cant, setCant] = useState(1)
   const [loading, setLoading] = useState(true)
   const [catFiltro, setCatFiltro] = useState(null)
+  const [prodTamanosMap, setProdTamanosMap] = useState({})
 
   const est = establecimiento
 
@@ -54,6 +58,17 @@ export default function RestDetalle({ establecimiento, onBack }) {
     ])
     setCategorias(catRes.data || [])
     setProductos(prodRes.data || [])
+    // Cargar tamaños de todos los productos para mostrar "Desde X€" en la lista
+    const ids = (prodRes.data || []).map(p => p.id)
+    if (ids.length > 0) {
+      const { data: tams } = await supabase.from('producto_tamanos').select('producto_id, precio').in('producto_id', ids)
+      const map = {}
+      for (const t of (tams || [])) {
+        if (!map[t.producto_id]) map[t.producto_id] = []
+        map[t.producto_id].push(t)
+      }
+      setProdTamanosMap(map)
+    }
     setLoading(false)
   }
 
@@ -162,11 +177,11 @@ export default function RestDetalle({ establecimiento, onBack }) {
             return (
               <div key={cat.id} style={{ marginBottom: 20 }}>
                 <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--c-text)', marginBottom: 10 }}>{cat.nombre}</h3>
-                {prods.map(p => <ProductoCard key={p.id} p={p} onOpen={() => abrirProducto(p)} carrito={carrito} />)}
+                {prods.map(p => <ProductoCard key={p.id} p={p} onOpen={() => abrirProducto(p)} carrito={carrito} tamanos={prodTamanosMap[p.id] || []} />)}
               </div>
             )
           })}
-          {!catFiltro && productos.filter(p => !p.categoria_id).map(p => <ProductoCard key={p.id} p={p} onOpen={() => abrirProducto(p)} carrito={carrito} />)}
+          {!catFiltro && productos.filter(p => !p.categoria_id).map(p => <ProductoCard key={p.id} p={p} onOpen={() => abrirProducto(p)} carrito={carrito} tamanos={prodTamanosMap[p.id] || []} />)}
         </>
       )}
 
