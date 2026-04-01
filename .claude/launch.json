@@ -4,7 +4,7 @@
     {
       "name": "pido-app",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "pido-app", "run", "dev"],
+      "runtimeArgs": ["--prefix", "pido-app", "run", "dev", "--", "--host"],
       "port": 5173
     },
     {

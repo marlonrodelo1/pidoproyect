@@ -7,7 +7,14 @@ import Stars from '../components/Stars'
 import EntregaBadge from '../components/EntregaBadge'
 import { estaAbierto, horarioHoyTexto } from '../lib/horario'
 
+const CTX = {
+  comida:      { placeholder: 'Buscar restaurante o plato...', titulo: 'Restaurantes', emoji: '🍽️' },
+  farmacia:    { placeholder: 'Buscar farmacia o producto...', titulo: 'Farmacias',    emoji: '💊' },
+  marketplace: { placeholder: 'Buscar tienda o producto...',  titulo: 'Tiendas',       emoji: '🛒' },
+}
+
 export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
+  const ctx = CTX[categoriaPadre] || CTX.comida
   const { perfil, updatePerfil } = useAuth()
   const [establecimientos, setEstablecimientos] = useState([])
   const [ridersActivos, setRidersActivos] = useState({})
@@ -20,15 +27,18 @@ export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
   const [promociones, setPromociones] = useState([])
 
   useEffect(() => {
-    // Cargar categorías generales desde DB
-    supabase.from('categorias_generales').select('*').eq('activa', true).order('orden')
-      .then(({ data }) => setCategoriasGenerales(data || []))
+    // Cargar categorías generales filtradas por categoria_padre
+    supabase.from('categorias_generales').select('*')
+      .eq('activa', true)
+      .eq('categoria_padre', categoriaPadre || 'comida')
+      .order('orden')
+      .then(({ data }) => { setCategoriasGenerales(data || []); setCatActiva(null) })
     // Cargar promociones activas
     supabase.from('promociones').select('*, establecimientos(id, nombre, logo_url, banner_url, rating, total_resenas, radio_cobertura_km, activo, horario)')
       .eq('activa', true)
       .or('fecha_fin.is.null,fecha_fin.gt.' + new Date().toISOString())
       .then(({ data }) => setPromociones(data || []))
-  }, [])
+  }, [categoriaPadre])
 
   useEffect(() => {
     // Pedir geolocalización al montar y guardar en perfil
@@ -147,7 +157,7 @@ export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
       {/* Buscador */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.08)', borderRadius: 14, padding: '12px 16px', border: '1px solid rgba(255,255,255,0.1)', marginBottom: 20, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
         <Search size={18} strokeWidth={1.8} color="var(--c-muted)" />
-        <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar restaurante o plato..."
+        <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder={ctx.placeholder}
           style={{ border: 'none', outline: 'none', fontSize: 14, fontFamily: 'inherit', background: 'transparent', flex: 1, color: 'var(--c-text)' }} />
         {busqueda && <button onClick={() => setBusqueda('')} style={{ background: 'var(--c-surface2)', border: 'none', borderRadius: 50, width: 22, height: 22, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={12} color="var(--c-muted)" /></button>}
       </div>
@@ -201,7 +211,7 @@ export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
                     background: 'rgba(255,255,255,0.1)', fontSize: 18,
                     position: 'absolute', top: -21, left: 12,
                   }}>
-                    {r.logo_url ? <img src={r.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '🍽️'}
+                    {r.logo_url ? <img src={r.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : ctx.emoji}
                   </div>
                 </div>
                 <div style={{ padding: '26px 14px 10px' }}>
@@ -270,7 +280,7 @@ export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
                       background: 'rgba(255,255,255,0.1)', fontSize: 18,
                       position: 'absolute', top: -21, left: 12,
                     }}>
-                      {est.logo_url ? <img src={est.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '🍽️'}
+                      {est.logo_url ? <img src={est.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : ctx.emoji}
                     </div>
                   </div>
                   <div style={{ padding: '26px 14px 10px' }}>
@@ -306,7 +316,7 @@ export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
 
       {/* Lista */}
       <h2 style={{ fontSize: 17, fontWeight: 800, color: 'var(--c-text)', marginBottom: 12 }}>
-        {busqueda ? 'Resultados' : catActiva ? 'Restaurantes' : 'Cerca de ti'}
+        {busqueda ? 'Resultados' : catActiva ? ctx.titulo : 'Cerca de ti'}
       </h2>
 
       {loading && <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--c-muted)' }}>Cargando...</div>}
@@ -368,7 +378,7 @@ export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
                 background: 'rgba(255,255,255,0.12)', fontSize: 24,
                 position: 'absolute', top: -26, left: 16,
               }}>
-                {r.logo_url ? <img src={r.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '🍽️'}
+                {r.logo_url ? <img src={r.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : ctx.emoji}
               </div>
             </div>
             {/* Info */}
