@@ -22,7 +22,7 @@ export default function Socios() {
       .from('socio_establecimiento')
       .select('*, socios(id, nombre, nombre_comercial, email, telefono, rating, total_resenas, logo_url, tarifa_base, radio_tarifa_base_km, precio_km_adicional)')
       .eq('establecimiento_id', restaurante.id)
-      .or(`estado.neq.rechazado,created_at.gte.${hace30d}`)
+      .or(`estado.neq.rechazado,solicitado_at.gte.${hace30d}`)
     setRelaciones(data || [])
     setLoading(false)
   }
