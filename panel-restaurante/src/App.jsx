@@ -7,6 +7,7 @@ import { supabase } from './lib/supabase'
 import { RestProvider, useRest } from './context/RestContext'
 import { PedidoAlertProvider, usePedidoAlert } from './context/PedidoAlertContext'
 import Login from './pages/Login'
+import CompletarRegistro from './pages/CompletarRegistro'
 import PedidosEnVivo from './pages/PedidosEnVivo'
 import Historial from './pages/Historial'
 import Carta from './pages/Carta'
@@ -57,8 +58,12 @@ function AppContent() {
     )
   }
 
-  if (!user || !restaurante) {
+  if (!user) {
     return <div style={shell}><style>{css}</style><Login /></div>
+  }
+
+  if (!restaurante) {
+    return <div style={shell}><style>{css}</style><CompletarRegistro /></div>
   }
 
   const nav = [

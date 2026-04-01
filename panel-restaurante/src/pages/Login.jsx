@@ -15,6 +15,55 @@ const TIPOS = [
   { id: 'otro', l: '🏪 Otro' },
 ]
 
+function ResetPassword({ email, setEmail, onBack, inp }) {
+  const [loading, setLoading] = useState(false)
+  const [sent, setSent] = useState(false)
+  const [error, setError] = useState(null)
+
+  const handleReset = async () => {
+    if (!email.trim()) { setError('Introduce tu email'); return }
+    setError(null); setLoading(true)
+    try {
+      const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: window.location.origin,
+      })
+      if (err) throw err
+      setSent(true)
+    } catch (err) {
+      if (err.message?.includes('rate limit')) setError('Demasiados intentos. Espera unos minutos.')
+      else setError(err.message || 'Error al enviar el email')
+    } finally { setLoading(false) }
+  }
+
+  if (sent) {
+    return (
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: 40, marginBottom: 12 }}>📧</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--c-text)', marginBottom: 8 }}>Email enviado</div>
+        <p style={{ fontSize: 12, color: 'var(--c-muted)', lineHeight: 1.5, marginBottom: 20 }}>
+          Hemos enviado un enlace a <strong style={{ color: 'var(--c-text)' }}>{email}</strong> para restablecer tu contraseña. Revisa tu bandeja de entrada y spam.
+        </p>
+        <button onClick={onBack} style={{ width: '100%', padding: '14px 0', borderRadius: 14, border: 'none', background: 'var(--c-primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+          Volver al login
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <input placeholder="Tu email" type="email" value={email} onChange={e => setEmail(e.target.value)} style={inp} onKeyDown={e => e.key === 'Enter' && handleReset()} />
+      {error && <div style={{ color: '#DC2626', fontSize: 12, marginBottom: 10, textAlign: 'center', background: 'rgba(220,38,38,0.1)', padding: '8px 12px', borderRadius: 8 }}>{error}</div>}
+      <button onClick={handleReset} disabled={loading} style={{ width: '100%', padding: '16px 0', borderRadius: 14, border: 'none', background: loading ? 'var(--c-muted)' : 'var(--c-primary)', color: '#fff', fontSize: 16, fontWeight: 800, cursor: loading ? 'default' : 'pointer', fontFamily: 'inherit' }}>
+        {loading ? 'Enviando...' : 'Enviar enlace de recuperación'}
+      </button>
+      <button onClick={onBack} style={{ width: '100%', padding: '10px 0', background: 'none', border: 'none', color: 'var(--c-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', marginTop: 8 }}>
+        Volver al login
+      </button>
+    </>
+  )
+}
+
 export default function Login() {
   const { login, registro } = useRest()
   const [modo, setModo] = useState('login')
@@ -72,20 +121,22 @@ export default function Login() {
     <div style={{ padding: '30px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', minHeight: '100vh', justifyContent: 'center' }}>
       <div style={{ fontSize: 32, marginBottom: 8 }}>🍽️</div>
       <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--c-text)', marginBottom: 4 }}>Panel Restaurante</div>
-      <p style={{ fontSize: 13, color: 'var(--c-muted)', marginBottom: 24 }}>{modo === 'login' ? 'Gestiona tus pedidos y carta' : 'Registra tu negocio en PIDOO'}</p>
+      <p style={{ fontSize: 13, color: 'var(--c-muted)', marginBottom: 24 }}>{modo === 'login' ? 'Gestiona tus pedidos y carta' : modo === 'reset' ? 'Recupera el acceso a tu cuenta' : 'Registra tu negocio en PIDOO'}</p>
 
       <div style={{ width: '100%', maxWidth: 360 }}>
         {/* Tabs */}
-        <div style={{ display: 'flex', background: 'var(--c-surface2)', borderRadius: 12, padding: 3, marginBottom: 20 }}>
-          {['login', 'registro'].map(m => (
-            <button key={m} onClick={() => { setModo(m); setError(null) }} style={{
-              flex: 1, padding: '10px 0', borderRadius: 10, border: 'none',
-              background: modo === m ? 'var(--c-primary)' : 'transparent',
-              color: modo === m ? '#fff' : 'var(--c-muted)',
-              fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
-            }}>{m === 'login' ? 'Iniciar sesión' : 'Registrarse'}</button>
-          ))}
-        </div>
+        {modo !== 'reset' && (
+          <div style={{ display: 'flex', background: 'var(--c-surface2)', borderRadius: 12, padding: 3, marginBottom: 20 }}>
+            {['login', 'registro'].map(m => (
+              <button key={m} onClick={() => { setModo(m); setError(null) }} style={{
+                flex: 1, padding: '10px 0', borderRadius: 10, border: 'none',
+                background: modo === m ? 'var(--c-primary)' : 'transparent',
+                color: modo === m ? '#fff' : 'var(--c-muted)',
+                fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+              }}>{m === 'login' ? 'Iniciar sesión' : 'Registrarse'}</button>
+            ))}
+          </div>
+        )}
 
         {modo === 'login' ? (
           <>
@@ -95,7 +146,12 @@ export default function Login() {
             <button onClick={handleLogin} disabled={loading} style={{ width: '100%', padding: '16px 0', borderRadius: 14, border: 'none', background: loading ? 'var(--c-muted)' : 'var(--c-primary)', color: '#fff', fontSize: 16, fontWeight: 800, cursor: loading ? 'default' : 'pointer', fontFamily: 'inherit' }}>
               {loading ? 'Entrando...' : 'Entrar'}
             </button>
+            <button onClick={() => { setModo('reset'); setError(null) }} style={{ width: '100%', padding: '10px 0', background: 'none', border: 'none', color: 'var(--c-primary)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', marginTop: 8 }}>
+              ¿Olvidaste tu contraseña?
+            </button>
           </>
+        ) : modo === 'reset' ? (
+          <ResetPassword email={email} setEmail={setEmail} onBack={() => { setModo('login'); setError(null) }} inp={inp} />
         ) : (
           <>
             <div style={{ marginBottom: 10 }}><label style={lbl}>Nombre del negocio *</label><input value={form.nombre} onChange={e => setForm({ ...form, nombre: e.target.value })} placeholder="Ej: La Pizzeria del Puerto" style={inp} /></div>
@@ -126,17 +182,21 @@ export default function Login() {
         )}
 
         {/* Google */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '18px 0' }}>
-          <div style={{ flex: 1, height: 1, background: 'var(--c-border)' }} />
-          <span style={{ fontSize: 11, color: 'var(--c-muted)', fontWeight: 600 }}>o</span>
-          <div style={{ flex: 1, height: 1, background: 'var(--c-border)' }} />
-        </div>
-        <button onClick={() => {
-          const redirectTo = Capacitor.isNativePlatform() ? 'com.pido.restaurante://login' : window.location.origin
-          supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } })
-        }} style={{ width: '100%', padding: '14px 0', borderRadius: 14, border: '1px solid var(--c-border)', background: 'var(--c-surface)', color: 'var(--c-text)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-          <GoogleIcon /> Continuar con Google
-        </button>
+        {modo !== 'reset' && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '18px 0' }}>
+              <div style={{ flex: 1, height: 1, background: 'var(--c-border)' }} />
+              <span style={{ fontSize: 11, color: 'var(--c-muted)', fontWeight: 600 }}>o</span>
+              <div style={{ flex: 1, height: 1, background: 'var(--c-border)' }} />
+            </div>
+            <button onClick={() => {
+              const redirectTo = Capacitor.isNativePlatform() ? 'com.pido.restaurante://login' : window.location.origin
+              supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } })
+            }} style={{ width: '100%', padding: '14px 0', borderRadius: 14, border: '1px solid var(--c-border)', background: 'var(--c-surface)', color: 'var(--c-text)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+              <GoogleIcon /> Continuar con Google
+            </button>
+          </>
+        )}
       </div>
     </div>
   )
