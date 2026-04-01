@@ -153,7 +153,8 @@ export default function Mapa({ onOpenRest }) {
               mapPaneName={OVERLAY_MOUSE_TARGET}
             >
               <div
-                onClick={() => { setSelectedEst(est); setSelectedRider(null) }}
+                onClick={(e) => { e.stopPropagation(); setSelectedEst(est); setSelectedRider(null) }}
+                onTouchEnd={(e) => { e.stopPropagation(); setSelectedEst(est); setSelectedRider(null) }}
                 style={{
                   width: 44, height: 44, borderRadius: '50%',
                   border: `2.5px solid ${selectedEst?.id === est.id ? '#fff' : '#FF6B2C'}`,
