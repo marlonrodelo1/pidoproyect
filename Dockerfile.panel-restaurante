@@ -4,9 +4,9 @@ COPY panel-restaurante/package*.json ./
 RUN npm install
 COPY panel-restaurante/ .
 
-# Secrets pasados como build args (nunca hardcodeados en la imagen)
-ARG VITE_SUPABASE_URL
-ARG VITE_SUPABASE_ANON_KEY
+# Supabase public keys (anon key es pública por diseño, se expone en el JS del cliente)
+ARG VITE_SUPABASE_URL=https://rmrbxrabngdmpgpfmjbo.supabase.co
+ARG VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtcmJ4cmFibmdkbXBncGZtamJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwMzAyNTksImV4cCI6MjA4OTYwNjI1OX0.Aj2VoA6XWcokJDJdhBwfNXnLCUEOlQfTdB0std1SNWE
 ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
 ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
 
