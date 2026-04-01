@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { GoogleMap, useJsApiLoader, MarkerF, InfoWindowF, CircleF } from '@react-google-maps/api'
+import { GoogleMap, useJsApiLoader, MarkerF, InfoWindowF, CircleF, OverlayViewF, OVERLAY_MOUSE_TARGET } from '@react-google-maps/api'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { getCurrentPosition } from '../lib/geolocation'
@@ -130,18 +130,36 @@ export default function Mapa({ onOpenRest }) {
           options={{ fillColor: '#4285F4', fillOpacity: 0.1, strokeColor: '#4285F4', strokeOpacity: 0.3, strokeWeight: 1 }}
         />
 
-        {/* Establecimientos */}
+        {/* Establecimientos — marcador con logo */}
         {establecimientos.map(est => (
           est.latitud && est.longitud && (
-            <MarkerF
+            <OverlayViewF
               key={`est-${est.id}`}
               position={{ lat: est.latitud, lng: est.longitud }}
-              onClick={() => { setSelectedEst(est); setSelectedRider(null) }}
-              icon={{
-                url: `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36"><circle cx="18" cy="18" r="16" fill="#1A1A1A" stroke="#FF6B2C" stroke-width="2.5"/><text x="18" y="23" text-anchor="middle" font-size="16">${est.tipo === 'restaurante' ? '🍽️' : '🏪'}</text></svg>`)}`,
-                scaledSize: new window.google.maps.Size(36, 36),
-              }}
-            />
+              mapPaneName={OVERLAY_MOUSE_TARGET}
+            >
+              <div
+                onClick={() => { setSelectedEst(est); setSelectedRider(null) }}
+                style={{
+                  width: 44, height: 44, borderRadius: '50%',
+                  border: `2.5px solid ${selectedEst?.id === est.id ? '#fff' : '#FF6B2C'}`,
+                  overflow: 'hidden', background: '#1A1A1A',
+                  transform: 'translate(-50%, -50%)',
+                  cursor: 'pointer',
+                  boxShadow: selectedEst?.id === est.id
+                    ? '0 0 0 3px #FF6B2C, 0 4px 12px rgba(0,0,0,0.5)'
+                    : '0 2px 8px rgba(0,0,0,0.45)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'box-shadow 0.2s ease, border-color 0.2s ease',
+                  flexShrink: 0,
+                }}
+              >
+                {est.logo_url
+                  ? <img src={est.logo_url} alt={est.nombre} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : <span style={{ fontSize: 20 }}>{est.tipo === 'restaurante' ? '🍽️' : '🏪'}</span>
+                }
+              </div>
+            </OverlayViewF>
           )
         ))}
 
