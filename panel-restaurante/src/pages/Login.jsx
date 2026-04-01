@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRest } from '../context/RestContext'
 import { supabase } from '../lib/supabase'
 import { Capacitor } from '@capacitor/core'
@@ -14,6 +14,33 @@ const TIPOS = [
   { id: 'minimarket', l: '🛒 Minimarket' }, { id: 'farmacia', l: '💊 Farmacia' },
   { id: 'otro', l: '🏪 Otro' },
 ]
+
+function LegalModal({ slug, onClose }) {
+  const [contenido, setContenido] = useState(null)
+  const [titulo, setTitulo] = useState('')
+
+  useEffect(() => {
+    supabase.from('paginas_legales').select('titulo, contenido').eq('slug', slug).single()
+      .then(({ data }) => {
+        if (data) { setTitulo(data.titulo); setContenido(data.contenido) }
+        else setContenido('Contenido no disponible.')
+      })
+  }, [slug])
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: '#1A1A1A', borderRadius: '20px 20px 0 0', width: '100%', maxWidth: 600, maxHeight: '80vh', display: 'flex', flexDirection: 'column', border: '1px solid rgba(255,255,255,0.08)', borderBottom: 'none' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 20px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+          <span style={{ fontWeight: 700, fontSize: 15, color: '#F5F5F5' }}>{titulo || '...'}</span>
+          <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.08)', border: 'none', color: '#F5F5F5', width: 30, height: 30, borderRadius: 8, cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+        </div>
+        <div style={{ overflowY: 'auto', padding: '16px 20px', fontSize: 13, color: 'rgba(255,255,255,0.65)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+          {contenido === null ? 'Cargando...' : contenido}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function ResetPassword({ email, setEmail, onBack, inp }) {
   const [loading, setLoading] = useState(false)
@@ -70,6 +97,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [aceptaTerminos, setAceptaTerminos] = useState(false)
+  const [legalSlug, setLegalSlug] = useState(null)
 
   // Login
   const [email, setEmail] = useState('')
@@ -118,6 +146,8 @@ export default function Login() {
   const lbl = { fontSize: 11, fontWeight: 600, color: 'var(--c-muted)', marginBottom: 4, display: 'block' }
 
   return (
+    <>
+    {legalSlug && <LegalModal slug={legalSlug} onClose={() => setLegalSlug(null)} />}
     <div style={{ padding: '30px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', minHeight: '100vh', justifyContent: 'center' }}>
       <div style={{ fontSize: 32, marginBottom: 8 }}>🍽️</div>
       <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--c-text)', marginBottom: 4 }}>Panel Restaurante</div>
@@ -170,7 +200,10 @@ export default function Login() {
             <button onClick={() => setAceptaTerminos(!aceptaTerminos)} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', padding: 0, marginBottom: 14 }}>
               <div style={{ width: 20, height: 20, borderRadius: 6, flexShrink: 0, marginTop: 1, border: aceptaTerminos ? 'none' : '2px solid rgba(255,255,255,0.2)', background: aceptaTerminos ? 'var(--c-primary)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#fff' }}>{aceptaTerminos && '✓'}</div>
               <span style={{ fontSize: 11, color: 'var(--c-muted)', lineHeight: 1.4 }}>
-                Acepto los <a href="https://pidoo.es/terminos-restaurantes" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--c-primary)', fontWeight: 600, textDecoration: 'none' }} onClick={e => e.stopPropagation()}>términos y condiciones</a> y la <a href="https://pidoo.es/privacidad-restaurantes" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--c-primary)', fontWeight: 600, textDecoration: 'none' }} onClick={e => e.stopPropagation()}>política de privacidad</a>
+                Acepto los{' '}
+                <button type="button" onClick={e => { e.stopPropagation(); setLegalSlug('terminos-restaurantes') }} style={{ color: 'var(--c-primary)', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, fontFamily: 'inherit', padding: 0, textDecoration: 'underline' }}>términos y condiciones</button>
+                {' '}y la{' '}
+                <button type="button" onClick={e => { e.stopPropagation(); setLegalSlug('privacidad-restaurantes') }} style={{ color: 'var(--c-primary)', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, fontFamily: 'inherit', padding: 0, textDecoration: 'underline' }}>política de privacidad</button>
               </span>
             </button>
 
@@ -199,5 +232,6 @@ export default function Login() {
         )}
       </div>
     </div>
+    </>
   )
 }
