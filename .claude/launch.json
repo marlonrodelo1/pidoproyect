@@ -1,0 +1,35 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "pido-app",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "pido-app", "run", "dev", "--", "--host"],
+      "port": 5173
+    },
+    {
+      "name": "panel-restaurante",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "panel-restaurante", "run", "dev"],
+      "port": 5174
+    },
+    {
+      "name": "pidogo-panel",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "pidogo-panel", "run", "dev"],
+      "port": 5175
+    },
+    {
+      "name": "pidogo-tienda",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "pidogo-tienda", "run", "dev"],
+      "port": 5176
+    },
+    {
+      "name": "super-admin",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "super-admin", "run", "dev"],
+      "port": 5177
+    }
+  ]
+}
