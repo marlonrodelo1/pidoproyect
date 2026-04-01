@@ -1,5 +1,8 @@
 package com.pido.restaurante;
 
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.view.WindowManager;
@@ -16,6 +19,18 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(ThermalPrinterPlugin.class);
 
         super.onCreate(savedInstanceState);
+
+        // Crear canal de notificaciones para pedidos (Android 8+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                "pedidos", "Pedidos", NotificationManager.IMPORTANCE_HIGH
+            );
+            channel.setDescription("Notificaciones de nuevos pedidos");
+            channel.enableVibration(true);
+            channel.setVibrationPattern(new long[]{300, 100, 300, 100, 300});
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            if (manager != null) manager.createNotificationChannel(channel);
+        }
 
         // Status bar oscura con iconos blancos
         getWindow().setStatusBarColor(0xFF0D0D0D);

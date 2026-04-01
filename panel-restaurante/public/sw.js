@@ -20,6 +20,7 @@ messaging.onBackgroundMessage(function(payload) {
     body: payload.notification?.body || payload.data?.body || 'Tienes un nuevo pedido',
     icon: '/favicon.png',
     badge: '/favicon.png',
+    image: '/favicon.png',
     vibrate: [300, 100, 300, 100, 300],
     data: payload.data || {},
     requireInteraction: true,

@@ -274,7 +274,7 @@ export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
                   }}>
                     {/* Badge de la promo - rojo destacado */}
                     <div style={{
-                      position: 'absolute', bottom: 0, left: 0, right: 0,
+                      position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 2,
                       background: 'linear-gradient(0deg, rgba(220,38,38,0.95) 0%, rgba(220,38,38,0.7) 70%, transparent 100%)',
                       padding: '20px 12px 8px',
                     }}>
