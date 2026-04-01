@@ -27,12 +27,19 @@ export function AuthProvider({ children }) {
     return () => subscription.unsubscribe()
   }, [])
 
-  async function fetchPerfil(userId) {
+  async function fetchPerfil(userId, intentos = 0) {
     const { data } = await supabase
       .from('usuarios')
       .select('*')
       .eq('id', userId)
       .single()
+
+    // Si no existe perfil aún (race condition con trigger), reintentar
+    if (!data && intentos < 3) {
+      setTimeout(() => fetchPerfil(userId, intentos + 1), 800)
+      return
+    }
+
     setPerfil(data)
     setLoading(false)
     // Registrar push notifications (web + nativo)
