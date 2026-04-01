@@ -3,7 +3,7 @@ import { Capacitor } from '@capacitor/core'
 import { App as CapApp } from '@capacitor/app'
 import { StatusBar, Style } from '@capacitor/status-bar'
 import { supabase } from './lib/supabase'
-import { Bell } from 'lucide-react'
+import { Bell, Share2 } from 'lucide-react'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { CartProvider } from './context/CartContext'
 import Login from './pages/Login'
@@ -116,6 +116,17 @@ function AppContent() {
             {notifsNoLeidas > 0 && (
               <span style={{ position: 'absolute', top: -2, right: -2, width: 16, height: 16, borderRadius: 8, background: 'var(--c-primary)', color: '#fff', fontSize: 9, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{notifsNoLeidas}</span>
             )}
+          </button>
+          <button onClick={async () => {
+            const shareData = { title: 'Pidoo', text: 'Descubre pidoo 🍕 Tus restaurantes, locales y farmacias más cerca. 100% canario 🌴', url: 'https://pidoo.es' }
+            if (navigator.share) { try { await navigator.share(shareData) } catch (_) {} }
+            else { try { await navigator.clipboard.writeText('https://pidoo.es') } catch (_) {} }
+          }} style={{
+            width: 34, height: 34, borderRadius: 10, background: 'var(--c-surface2)',
+            border: 'none', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Share2 size={18} strokeWidth={1.8} color="var(--c-text)" />
           </button>
         </div>
       </div>
