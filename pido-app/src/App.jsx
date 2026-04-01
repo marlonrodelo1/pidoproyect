@@ -284,7 +284,7 @@ function TiendaDetector() {
         <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', marginBottom: 32, textAlign: 'center', maxWidth: 300, lineHeight: 1.5 }}>
           Tu cuenta ha sido verificada correctamente. Ya puedes iniciar sesion en pidoo.
         </p>
-        <a href="co.median.ios.bnlkxpx://login" style={{
+        <a href="es.pidoo.app://login" style={{
           display: 'inline-block', padding: '16px 40px', borderRadius: 14, border: 'none',
           background: '#FF6B2C', color: '#fff', fontSize: 16, fontWeight: 800,
           textDecoration: 'none', fontFamily: "'DM Sans', sans-serif",

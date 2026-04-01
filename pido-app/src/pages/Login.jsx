@@ -215,7 +215,7 @@ export default function Login() {
             </div>
             <button onClick={() => {
               const redirectTo = Capacitor.isNativePlatform()
-                ? 'co.median.ios.bnlkxpx://login'
+                ? 'es.pidoo.app://login'
                 : window.location.origin
               supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } })
             }} style={{

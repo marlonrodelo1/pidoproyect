@@ -1,4 +1,4 @@
-package co.median.ios.bnlkxpx;
+package es.pidoo.app;
 
 import android.os.Bundle;
 import android.view.View;
