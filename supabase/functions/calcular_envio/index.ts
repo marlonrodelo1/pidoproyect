@@ -54,7 +54,7 @@ serve(async (req) => {
     // Obtener coordenadas del establecimiento
     const { data: est, error: estError } = await supabase
       .from('establecimientos')
-      .select('latitud, longitud')
+      .select('latitud, longitud, radio_cobertura_km, nombre')
       .eq('id', establecimiento_id)
       .single()
 
@@ -64,6 +64,19 @@ serve(async (req) => {
       est.latitud, est.longitud,
       lat_cliente, lng_cliente
     )
+
+    // Validar que el cliente está dentro del radio de cobertura
+    if (est.radio_cobertura_km && distancia > est.radio_cobertura_km) {
+      return new Response(
+        JSON.stringify({
+          error: `Tu dirección está fuera del radio de entrega de ${est.nombre} (${est.radio_cobertura_km} km). Estás a ${Math.round(distancia * 10) / 10} km.`,
+          fuera_de_radio: true,
+          distancia_km: Math.round(distancia * 100) / 100,
+          radio_km: est.radio_cobertura_km,
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     let envio: number
     let detalle: Record<string, unknown>

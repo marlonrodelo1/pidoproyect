@@ -52,12 +52,20 @@ export function CartProvider({ children }) {
           lng_cliente: lngCliente,
         },
       })
-      if (error) throw error
+      if (error) {
+        const msg = error?.context ? await error.context.json().catch(() => null) : null
+        const fuera = msg?.fuera_de_radio
+        throw { message: msg?.error || error.message, fuera_de_radio: fuera }
+      }
+      if (data?.fuera_de_radio) {
+        throw { message: data.error, fuera_de_radio: true }
+      }
       if (data?.success) {
         setEnvio(data.envio)
         setDistanciaKm(data.distancia_km)
       }
-    } catch {
+    } catch (err) {
+      if (err?.fuera_de_radio) throw err
       // Fallback: tarifa base por defecto si falla el cálculo
       setEnvio(2.50)
     } finally {
