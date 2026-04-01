@@ -22,41 +22,45 @@ export default function Metricas() {
   useEffect(() => { if (restaurante) fetchStats() }, [restaurante?.id, periodo])
 
   async function fetchStats() {
+    setLoading(true)
     const now = new Date()
     let desde
     if (periodo === 'hoy') { desde = new Date(now.getFullYear(), now.getMonth(), now.getDate()) }
     else if (periodo === 'semana') { desde = new Date(now); desde.setDate(desde.getDate() - 7) }
     else { desde = new Date(now); desde.setMonth(desde.getMonth() - 1) }
 
-    const { data: pedidos } = await supabase.from('pedidos').select('total, subtotal, metodo_pago, estado, minutos_preparacion')
-      .eq('establecimiento_id', restaurante.id).gte('created_at', desde.toISOString())
+    try {
+      const { data: pedidos, error: pedErr } = await supabase.from('pedidos').select('total, subtotal, metodo_pago, estado, minutos_preparacion')
+        .eq('establecimiento_id', restaurante.id).gte('created_at', desde.toISOString())
+      if (pedErr) throw pedErr
 
-    const all = pedidos || []
-    const entregados = all.filter(p => p.estado === 'entregado')
+      const all = pedidos || []
+      const entregados = all.filter(p => p.estado === 'entregado')
 
-    const ventasTarjeta = entregados.filter(p => p.metodo_pago === 'tarjeta').reduce((s, p) => s + (p.total || 0), 0)
-    const ventasEfectivo = entregados.filter(p => p.metodo_pago === 'efectivo').reduce((s, p) => s + (p.total || 0), 0)
-    const tiempos = entregados.filter(p => p.minutos_preparacion).map(p => p.minutos_preparacion)
-    const tiempoMedio = tiempos.length > 0 ? Math.round(tiempos.reduce((s, t) => s + t, 0) / tiempos.length) : 0
+      const ventasTarjeta = entregados.filter(p => p.metodo_pago === 'tarjeta').reduce((s, p) => s + (p.total || 0), 0)
+      const ventasEfectivo = entregados.filter(p => p.metodo_pago === 'efectivo').reduce((s, p) => s + (p.total || 0), 0)
+      const tiempos = entregados.filter(p => p.minutos_preparacion).map(p => p.minutos_preparacion)
+      const tiempoMedio = tiempos.length > 0 ? Math.round(tiempos.reduce((s, t) => s + t, 0) / tiempos.length) : 0
 
-    setStats({
-      pedidos: all.length,
-      ventas: ventasTarjeta + ventasEfectivo,
-      ventasTarjeta, ventasEfectivo,
-      pedidosTarjeta: entregados.filter(p => p.metodo_pago === 'tarjeta').length,
-      pedidosEfectivo: entregados.filter(p => p.metodo_pago === 'efectivo').length,
-      ticketMedio: entregados.length > 0 ? (entregados.reduce((s, p) => s + (p.total || 0), 0) / entregados.length) : 0,
-      tiempoMedio,
-      cancelados: all.filter(p => p.estado === 'cancelado').length,
-      entregados: entregados.length,
-    })
-    setLoading(false)
+      setStats({
+        pedidos: all.length,
+        ventas: ventasTarjeta + ventasEfectivo,
+        ventasTarjeta, ventasEfectivo,
+        pedidosTarjeta: entregados.filter(p => p.metodo_pago === 'tarjeta').length,
+        pedidosEfectivo: entregados.filter(p => p.metodo_pago === 'efectivo').length,
+        ticketMedio: entregados.length > 0 ? (entregados.reduce((s, p) => s + (p.total || 0), 0) / entregados.length) : 0,
+        tiempoMedio,
+        cancelados: all.filter(p => p.estado === 'cancelado').length,
+        entregados: entregados.length,
+      })
 
-    // Reseñas (solo una vez)
-    if (periodo === 'hoy') {
+      // Reseñas siempre (últimas 15)
       const { data: resenasData } = await supabase.from('resenas').select('*').eq('establecimiento_id', restaurante.id).order('created_at', { ascending: false }).limit(15)
       setResenas(resenasData || [])
+    } catch (err) {
+      console.error('[Metricas] Error:', err)
     }
+    setLoading(false)
   }
 
   const periodoLabel = { hoy: 'Hoy', semana: 'Esta semana', mes: 'Este mes' }
@@ -94,7 +98,7 @@ export default function Metricas() {
           </div>
 
           {/* Reseñas */}
-          <h3 style={{ fontSize: 16, fontWeight: 800, margin: '24px 0 14px' }}>Reseñas de clientes ({resenas.length})</h3>
+          <h3 style={{ fontSize: 16, fontWeight: 800, margin: '24px 0 14px' }}>Reseñas de clientes</h3>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
             <span style={{ fontSize: 24, fontWeight: 800, color: 'var(--c-text)' }}>{restaurante?.rating?.toFixed(1) || '—'}</span>
             <div style={{ display: 'flex', gap: 1 }}>{[1,2,3,4,5].map(i => <span key={i} style={{ color: i <= Math.round(restaurante?.rating || 0) ? '#FBBF24' : 'rgba(255,255,255,0.15)', fontSize: 16 }}>★</span>)}</div>

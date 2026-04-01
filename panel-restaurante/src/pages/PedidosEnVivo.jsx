@@ -31,6 +31,7 @@ export default function PedidosEnVivo() {
   const [itemsMap, setItemsMap] = useState({})
   const [timers, setTimers] = useState({})
   const [rechazandoId, setRechazandoId] = useState(null)
+  const [loadingInicial, setLoadingInicial] = useState(true)
 
   // Audio unlock y notificaciones ahora se manejan en PedidoAlertContext global
 
@@ -93,30 +94,35 @@ export default function PedidosEnVivo() {
   }, [activos.length])
 
   async function fetchPedidos() {
-    const { data: nuevos } = await supabase.from('pedidos').select('*').eq('establecimiento_id', restaurante.id).eq('estado', 'nuevo').order('created_at', { ascending: false })
-    const { data: prep } = await supabase.from('pedidos').select('*').eq('establecimiento_id', restaurante.id).in('estado', ['aceptado', 'preparando', 'listo']).order('created_at', { ascending: false })
+    try {
+      const { data: nuevos } = await supabase.from('pedidos').select('*').eq('establecimiento_id', restaurante.id).eq('estado', 'nuevo').order('created_at', { ascending: false })
+      const { data: prep } = await supabase.from('pedidos').select('*').eq('establecimiento_id', restaurante.id).in('estado', ['aceptado', 'preparando', 'listo']).order('created_at', { ascending: false })
 
-    setEntrantes(nuevos || [])
-    setActivos(prep || [])
+      setEntrantes(nuevos || [])
+      setActivos(prep || [])
 
-    // Sonar alarma si hay pedidos nuevos pendientes
-    if ((nuevos || []).length > 0) startAlarm()
+      // Sonar alarma si hay pedidos nuevos pendientes
+      if ((nuevos || []).length > 0) startAlarm()
 
-    const t = {}
-    for (const p of nuevos || []) t[p.id] = 180
-    setTimers(t)
+      const t = {}
+      for (const p of nuevos || []) t[p.id] = 180
+      setTimers(t)
 
-    // Cargar items
-    const allIds = [...(nuevos || []), ...(prep || [])].map(p => p.id)
-    if (allIds.length > 0) {
-      const { data: items } = await supabase.from('pedido_items').select('*').in('pedido_id', allIds)
-      const map = {}
-      for (const item of items || []) {
-        if (!map[item.pedido_id]) map[item.pedido_id] = []
-        map[item.pedido_id].push(item)
+      // Cargar items
+      const allIds = [...(nuevos || []), ...(prep || [])].map(p => p.id)
+      if (allIds.length > 0) {
+        const { data: items } = await supabase.from('pedido_items').select('*').in('pedido_id', allIds)
+        const map = {}
+        for (const item of items || []) {
+          if (!map[item.pedido_id]) map[item.pedido_id] = []
+          map[item.pedido_id].push(item)
+        }
+        setItemsMap(map)
       }
-      setItemsMap(map)
+    } catch (err) {
+      console.error('[Pedidos] Error al cargar:', err)
     }
+    setLoadingInicial(false)
   }
 
   async function buscarYAsignarRider(pedidoId, establecimientoId, ridersRechazados = []) {
@@ -276,6 +282,15 @@ export default function PedidosEnVivo() {
   }
 
   const formatTimer = s => { const m = Math.floor((s || 180) / 60); const sec = (s || 180) % 60; return `${m}:${sec.toString().padStart(2, '0')}` }
+
+  if (loadingInicial) {
+    return (
+      <div style={{ textAlign: 'center', padding: '50px 0', color: 'var(--c-muted)' }}>
+        <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
+        <div style={{ fontSize: 14, fontWeight: 600 }}>Cargando pedidos...</div>
+      </div>
+    )
+  }
 
   return (
     <div>

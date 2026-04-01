@@ -86,8 +86,17 @@ export default function Promociones() {
     }
   }
 
+  const [errorForm, setErrorForm] = useState(null)
+
   async function guardar() {
-    if (!titulo.trim()) return
+    setErrorForm(null)
+    if (!titulo.trim()) { setErrorForm('El título es obligatorio'); return }
+    const necesitaVal = tipo === 'descuento_porcentaje' || tipo === 'descuento_fijo'
+    if (necesitaVal && (!valor || Number(valor) <= 0)) { setErrorForm('El valor del descuento debe ser mayor a 0'); return }
+    if (tipo === 'descuento_porcentaje' && Number(valor) > 100) { setErrorForm('El porcentaje no puede ser mayor a 100'); return }
+    const necesitaProd = tipo === '2x1' || tipo === 'producto_gratis'
+    if (necesitaProd && !productoId) { setErrorForm('Selecciona un producto'); return }
+
     setSaving(true)
 
     const prod = productos.find(p => p.id === productoId)
@@ -104,26 +113,30 @@ export default function Promociones() {
       activa: true,
     }
 
-    if (editPromo) {
-      await supabase.from('promociones').update(data).eq('id', editPromo.id)
-    } else {
-      await supabase.from('promociones').insert(data)
+    try {
+      const { error } = editPromo
+        ? await supabase.from('promociones').update(data).eq('id', editPromo.id)
+        : await supabase.from('promociones').insert(data)
+      if (error) throw error
+      setShowForm(false)
+      resetForm()
+      fetchData()
+    } catch (err) {
+      setErrorForm('Error al guardar: ' + (err.message || 'Intenta de nuevo'))
     }
-
     setSaving(false)
-    setShowForm(false)
-    resetForm()
-    fetchData()
   }
 
   async function toggleActiva(id, current) {
-    await supabase.from('promociones').update({ activa: !current }).eq('id', id)
+    const { error } = await supabase.from('promociones').update({ activa: !current }).eq('id', id)
+    if (error) { alert('Error al cambiar estado'); return }
     setPromos(prev => prev.map(p => p.id === id ? { ...p, activa: !current } : p))
   }
 
   async function eliminar(id) {
     if (!confirm('¿Eliminar esta promoción?')) return
-    await supabase.from('promociones').delete().eq('id', id)
+    const { error } = await supabase.from('promociones').delete().eq('id', id)
+    if (error) { alert('Error al eliminar: ' + error.message); return }
     setPromos(prev => prev.filter(p => p.id !== id))
   }
 
@@ -241,9 +254,12 @@ export default function Promociones() {
             <input type="date" value={fechaFin} onChange={e => setFechaFin(e.target.value)} style={inp} />
           </div>
 
+          {/* Error */}
+          {errorForm && <div style={{ color: '#DC2626', fontSize: 12, marginBottom: 10, textAlign: 'center', background: 'rgba(220,38,38,0.1)', padding: '8px 12px', borderRadius: 8 }}>{errorForm}</div>}
+
           {/* Botones */}
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => { setShowForm(false); resetForm() }} style={{
+            <button onClick={() => { setShowForm(false); resetForm(); setErrorForm(null) }} style={{
               flex: 1, padding: '12px 0', borderRadius: 10, border: '1px solid var(--c-border)',
               background: 'transparent', color: 'var(--c-muted)',
               fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',

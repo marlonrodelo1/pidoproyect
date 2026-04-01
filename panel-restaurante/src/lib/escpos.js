@@ -8,7 +8,7 @@ const GS = 0x1D
 const LF = 0x0A
 
 // Encoder for text → bytes (Latin-1 / CP850 for Spanish chars)
-function textToBytes(text) {
+export function textToBytes(text) {
   const map = { 'á': 0xA0, 'é': 0x82, 'í': 0xA1, 'ó': 0xA2, 'ú': 0xA3, 'ñ': 0xA4, 'Á': 0xB5, 'É': 0x90, 'Í': 0xD6, 'Ó': 0xE0, 'Ú': 0xE9, 'Ñ': 0xA5, 'ü': 0x81, 'Ü': 0x9A, '¿': 0xA8, '¡': 0xAD, '€': 0xD5 }
   const bytes = []
   for (const ch of text) {

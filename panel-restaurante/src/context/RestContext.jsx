@@ -61,7 +61,9 @@ export function RestProvider({ children }) {
         registerWebPush('restaurante', { establecimiento_id: data.id })
         registerPushNotifications('restaurante', { establecimiento_id: data.id })
       }
-    } catch {}
+    } catch (err) {
+      console.error('[RestContext] Error cargando restaurante:', err)
+    }
     setLoading(false)
   }
 

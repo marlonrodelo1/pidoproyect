@@ -5,7 +5,7 @@
  * - On Web: fallback using window.print() with formatted receipt
  */
 import { Capacitor, registerPlugin } from '@capacitor/core'
-import { generarComandaCocina, generarTicketCliente } from './escpos'
+import { generarComandaCocina, generarTicketCliente, textToBytes as escTextToBytes } from './escpos'
 
 // Capacitor plugin bridge (registered in Android native code)
 let ThermalPrinter = null
@@ -104,13 +104,9 @@ export async function connectAndTestPrinter(ip, port = 9100) {
   // Save config
   savePrinterConfig({ ip, port, enabled: true })
 
-  // Send test ticket
+  // Send test ticket (using CP850 for proper Spanish characters)
   const ESC = 0x1B, GS = 0x1D, LF = 0x0A
-  const textBytes = (str) => {
-    const b = []
-    for (const ch of str) b.push(ch.charCodeAt(0) < 128 ? ch.charCodeAt(0) : 0x3F)
-    return b
-  }
+  const t = (str) => escTextToBytes(str)
 
   const data = new Uint8Array([
     ESC, 0x40, // Init
@@ -120,28 +116,28 @@ export async function connectAndTestPrinter(ip, port = 9100) {
     // Logo PIDO grande
     GS, 0x21, 0x11, // Double size
     ESC, 0x45, 0x01, // Bold
-    ...textBytes('PIDO'), LF,
+    ...t('PIDOO'), LF,
     GS, 0x21, 0x00, // Normal
     ESC, 0x45, 0x00,
     LF,
 
-    ...textBytes('================================'), LF,
+    ...t('================================'), LF,
     ESC, 0x45, 0x01,
-    ...textBytes('Impresora conectada!'), LF,
+    ...t('¡Impresora conectada!'), LF,
     ESC, 0x45, 0x00,
-    ...textBytes('================================'), LF,
+    ...t('================================'), LF,
     LF,
-    ...textBytes('IP: ' + ip + ':' + port), LF,
-    ...textBytes(new Date().toLocaleString('es-ES')), LF,
+    ...t('IP: ' + ip + ':' + port), LF,
+    ...t(new Date().toLocaleString('es-ES')), LF,
     LF,
-    ...textBytes('Esta impresora esta lista'), LF,
-    ...textBytes('para recibir pedidos.'), LF,
+    ...t('Esta impresora está lista'), LF,
+    ...t('para recibir pedidos.'), LF,
     LF,
-    ...textBytes('Al aceptar un pedido se'), LF,
-    ...textBytes('imprimiran 2 tickets:'), LF,
-    ...textBytes('  - Comanda para cocina'), LF,
-    ...textBytes('  - Ticket para cliente'), LF,
-    ...textBytes('================================'), LF,
+    ...t('Al aceptar un pedido se'), LF,
+    ...t('imprimirán 2 tickets:'), LF,
+    ...t('  - Comanda para cocina'), LF,
+    ...t('  - Ticket para cliente'), LF,
+    ...t('================================'), LF,
     LF, LF, LF,
     GS, 0x56, 0x01, // Partial cut
   ])

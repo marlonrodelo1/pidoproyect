@@ -24,6 +24,7 @@ export default function Ajustes() {
   const [horarioOriginal, setHorarioOriginal] = useState(null)
   const logoRef = useRef()
   const bannerRef = useRef()
+  const [subiendoImg, setSubiendoImg] = useState(null) // 'logo' | 'banner' | null
 
   // Printer config
   const [printerIp, setPrinterIp] = useState('')
@@ -116,12 +117,20 @@ export default function Ajustes() {
   }
 
   async function subirImagen(file, bucket, field) {
-    const ext = file.name.split('.').pop()
-    const path = `establecimientos/${restaurante.id}_${Date.now()}.${ext}`
-    const { error } = await supabase.storage.from(bucket).upload(path, file)
-    if (error) { alert('Error al subir: ' + error.message); return }
-    const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(path)
-    await updateRestaurante({ [field]: publicUrl })
+    const tipo = field === 'logo_url' ? 'logo' : 'banner'
+    setSubiendoImg(tipo)
+    try {
+      const ext = file.name.split('.').pop()
+      const path = `establecimientos/${restaurante.id}_${Date.now()}.${ext}`
+      const { error } = await supabase.storage.from(bucket).upload(path, file)
+      if (error) { alert('Error al subir: ' + error.message); return }
+      const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(path)
+      await updateRestaurante({ [field]: publicUrl })
+    } catch (err) {
+      alert('Error al subir imagen: ' + err.message)
+    } finally {
+      setSubiendoImg(null)
+    }
   }
 
   // ---- Horario helpers ----
@@ -142,11 +151,20 @@ export default function Ajustes() {
     })
   }
 
+  const [horarioError, setHorarioError] = useState(null)
+
   function updateTurno(dia, idx, field, value) {
     setHorario(prev => {
       const h = { ...prev }
       h[dia] = [...h[dia]]
       h[dia][idx] = { ...h[dia][idx], [field]: value }
+      // Validar que cierra > abre
+      const turno = h[dia][idx]
+      if (turno.abre && turno.cierra && turno.cierra <= turno.abre) {
+        setHorarioError(`${DIAS_LABEL[dia]}: la hora de cierre debe ser posterior a la de apertura`)
+      } else {
+        setHorarioError(null)
+      }
       return h
     })
   }
@@ -252,8 +270,8 @@ export default function Ajustes() {
       <div style={{ background: 'var(--c-surface)', borderRadius: 14, padding: 18, border: '1px solid var(--c-border)', marginBottom: 16 }}>
         <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>Logo</h3>
         <input ref={logoRef} type="file" accept="image/*" hidden onChange={e => e.target.files[0] && subirImagen(e.target.files[0], 'logos', 'logo_url')} />
-        <div onClick={() => logoRef.current?.click()} style={{ width: 100, height: 100, borderRadius: 20, background: 'var(--c-surface2)', border: '2px dashed var(--c-border)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', margin: '0 auto 12px', overflow: 'hidden' }}>
-          {restaurante?.logo_url ? <img src={restaurante.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <><span style={{ fontSize: 28, marginBottom: 4 }}>📷</span><span style={{ fontSize: 10, color: 'var(--c-muted)', fontWeight: 600 }}>Subir logo</span></>}
+        <div onClick={() => !subiendoImg && logoRef.current?.click()} style={{ width: 100, height: 100, borderRadius: 20, background: 'var(--c-surface2)', border: '2px dashed var(--c-border)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: subiendoImg ? 'default' : 'pointer', margin: '0 auto 12px', overflow: 'hidden', opacity: subiendoImg === 'logo' ? 0.5 : 1 }}>
+          {subiendoImg === 'logo' ? <span style={{ fontSize: 12, color: 'var(--c-muted)', fontWeight: 600 }}>Subiendo...</span> : restaurante?.logo_url ? <img src={restaurante.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <><span style={{ fontSize: 28, marginBottom: 4 }}>📷</span><span style={{ fontSize: 10, color: 'var(--c-muted)', fontWeight: 600 }}>Subir logo</span></>}
         </div>
         <div style={{ textAlign: 'center', fontSize: 11, color: 'var(--c-muted)' }}>200 × 200 px recomendado · PNG o JPG</div>
       </div>
@@ -262,8 +280,8 @@ export default function Ajustes() {
       <div style={{ background: 'var(--c-surface)', borderRadius: 14, padding: 18, border: '1px solid var(--c-border)', marginBottom: 16 }}>
         <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>Banner</h3>
         <input ref={bannerRef} type="file" accept="image/*" hidden onChange={e => e.target.files[0] && subirImagen(e.target.files[0], 'banners', 'banner_url')} />
-        <div onClick={() => bannerRef.current?.click()} style={{ width: '100%', height: 100, borderRadius: 14, background: 'var(--c-surface2)', border: '2px dashed var(--c-border)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', marginBottom: 12, overflow: 'hidden' }}>
-          {restaurante?.banner_url ? <img src={restaurante.banner_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <><span style={{ fontSize: 28, marginBottom: 4 }}>🖼️</span><span style={{ fontSize: 10, color: 'var(--c-muted)', fontWeight: 600 }}>Subir banner</span></>}
+        <div onClick={() => !subiendoImg && bannerRef.current?.click()} style={{ width: '100%', height: 100, borderRadius: 14, background: 'var(--c-surface2)', border: '2px dashed var(--c-border)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: subiendoImg ? 'default' : 'pointer', marginBottom: 12, overflow: 'hidden', opacity: subiendoImg === 'banner' ? 0.5 : 1 }}>
+          {subiendoImg === 'banner' ? <span style={{ fontSize: 12, color: 'var(--c-muted)', fontWeight: 600 }}>Subiendo...</span> : restaurante?.banner_url ? <img src={restaurante.banner_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <><span style={{ fontSize: 28, marginBottom: 4 }}>🖼️</span><span style={{ fontSize: 10, color: 'var(--c-muted)', fontWeight: 600 }}>Subir banner</span></>}
         </div>
         <div style={{ textAlign: 'center', fontSize: 11, color: 'var(--c-muted)' }}>800 × 300 px recomendado · PNG o JPG</div>
       </div>
@@ -471,8 +489,11 @@ export default function Ajustes() {
               )
             })}
 
+            {/* Error horario */}
+            {horarioError && <div style={{ color: '#EF4444', fontSize: 11, fontWeight: 600, padding: '8px 12px', background: 'rgba(239,68,68,0.08)', borderRadius: 8, marginTop: 8 }}>{horarioError}</div>}
+
             {/* Quitar horario */}
-            <button onClick={() => { setHorario(null) }} style={{
+            <button onClick={() => { setHorario(null); setHorarioError(null) }} style={{
               width: '100%', marginTop: 8, padding: '10px 0', borderRadius: 10,
               border: '1px solid rgba(239,68,68,0.2)', background: 'transparent',
               color: '#EF4444', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',

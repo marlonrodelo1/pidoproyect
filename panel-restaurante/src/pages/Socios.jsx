@@ -81,15 +81,22 @@ export default function Socios() {
     if (!msgInput.trim() || !detalle) return
     const texto = msgInput.trim()
     setMsgInput('')
-    const { data } = await supabase.from('mensajes').insert({
-      tipo: 'socio_restaurante', socio_id: detalle.socios.id,
-      establecimiento_id: restaurante.id, de: 'restaurante', texto,
-    }).select().single()
-    if (data) {
-      setMensajes(prev => {
-        if (prev.some(m => m.id === data.id)) return prev
-        return [...prev, data]
-      })
+    try {
+      const { data, error } = await supabase.from('mensajes').insert({
+        tipo: 'socio_restaurante', socio_id: detalle.socios.id,
+        establecimiento_id: restaurante.id, de: 'restaurante', texto,
+      }).select().single()
+      if (error) throw error
+      if (data) {
+        setMensajes(prev => {
+          if (prev.some(m => m.id === data.id)) return prev
+          return [...prev, data]
+        })
+      }
+    } catch (err) {
+      console.error('[Chat] Error al enviar:', err)
+      setMsgInput(texto) // devolver el texto al input
+      alert('No se pudo enviar el mensaje. Intenta de nuevo.')
     }
   }
 

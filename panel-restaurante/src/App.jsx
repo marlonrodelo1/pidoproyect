@@ -3,6 +3,7 @@ import { ClipboardList, Clock, UtensilsCrossed, Users, Settings, BarChart3, Tag 
 import { Capacitor } from '@capacitor/core'
 import { App as CapApp } from '@capacitor/app'
 import { StatusBar, Style } from '@capacitor/status-bar'
+import { Browser } from '@capacitor/browser'
 import { supabase } from './lib/supabase'
 import { RestProvider, useRest } from './context/RestContext'
 import { PedidoAlertProvider, usePedidoAlert } from './context/PedidoAlertContext'
@@ -33,8 +34,10 @@ function AppContent() {
       StatusBar.setBackgroundColor({ color: '#0D0D0D' })
       StatusBar.setStyle({ style: Style.Dark })
 
-      CapApp.addListener('appUrlOpen', ({ url }) => {
+      CapApp.addListener('appUrlOpen', async ({ url }) => {
         if (url.includes('access_token') || url.includes('refresh_token') || url.includes('code=')) {
+          // Cerrar el browser del OAuth
+          try { await Browser.close() } catch {}
           const parsed = new URL(url)
           const hashOrQuery = parsed.hash || parsed.search
           if (hashOrQuery) {
