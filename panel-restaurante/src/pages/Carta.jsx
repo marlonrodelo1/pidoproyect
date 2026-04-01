@@ -60,10 +60,13 @@ export default function Carta() {
     setLoading(false)
   }
 
+  const [errorCarta, setErrorCarta] = useState(null)
+
   // CRUD categorías del restaurante (nivel 3)
   async function addCatRest() {
     if (!nuevaCat.trim()) return
-    await supabase.from('categorias').insert({ establecimiento_id: restaurante.id, nombre: nuevaCat.trim(), orden: categoriasRest.length, activa: true })
+    const { error } = await supabase.from('categorias').insert({ establecimiento_id: restaurante.id, nombre: nuevaCat.trim(), orden: categoriasRest.length, activa: true })
+    if (error) { alert('Error al crear categoría: ' + error.message); return }
     setNuevaCat('')
     fetchCarta()
   }
@@ -120,6 +123,7 @@ export default function Carta() {
   async function guardarProducto() {
     if (!prodForm.nombre.trim() || !prodForm.precio) return
     setSaving(true)
+    setErrorCarta(null)
     const data = {
       nombre: prodForm.nombre.trim(),
       descripcion: prodForm.descripcion.trim() || null,
@@ -132,10 +136,12 @@ export default function Carta() {
     }
     let productoId
     if (editProd) {
-      await supabase.from('productos').update(data).eq('id', editProd.id)
+      const { error } = await supabase.from('productos').update(data).eq('id', editProd.id)
+      if (error) { setErrorCarta('Error al guardar: ' + error.message); setSaving(false); return }
       productoId = editProd.id
     } else {
-      const { data: nuevo } = await supabase.from('productos').insert(data).select().single()
+      const { data: nuevo, error } = await supabase.from('productos').insert(data).select().single()
+      if (error) { setErrorCarta('Error al crear producto: ' + error.message); setSaving(false); return }
       productoId = nuevo?.id
     }
     // Guardar extras asignados
@@ -567,6 +573,7 @@ export default function Carta() {
               </button>
             </div>
 
+            {errorCarta && <div style={{ color: '#DC2626', fontSize: 12, marginBottom: 10, textAlign: 'center', background: 'rgba(220,38,38,0.1)', padding: '8px 12px', borderRadius: 8 }}>{errorCarta}</div>}
             <button onClick={guardarProducto} disabled={saving || !prodForm.nombre.trim() || !prodForm.precio} style={{
               width: '100%', padding: '14px 0', borderRadius: 12, border: 'none',
               background: saving ? 'var(--c-muted)' : 'var(--c-primary)', color: '#fff',
