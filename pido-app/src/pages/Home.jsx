@@ -34,10 +34,12 @@ export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
       .order('orden')
       .then(({ data }) => { setCategoriasGenerales(data || []); setCatActiva(null) })
     // Cargar promociones activas
-    supabase.from('promociones').select('*, establecimientos(id, nombre, logo_url, banner_url, rating, total_resenas, radio_cobertura_km, activo, horario)')
+    supabase.from('promociones').select('*, establecimientos(id, nombre, logo_url, banner_url, rating, total_resenas, radio_cobertura_km, activo, horario, categoria_padre)')
       .eq('activa', true)
       .or('fecha_fin.is.null,fecha_fin.gt.' + new Date().toISOString())
-      .then(({ data }) => setPromociones(data || []))
+      .then(({ data }) => setPromociones(
+        (data || []).filter(p => p.establecimientos?.categoria_padre === (categoriaPadre || 'comida'))
+      ))
   }, [categoriaPadre])
 
   useEffect(() => {
