@@ -44,10 +44,10 @@ serve(async (req) => {
 
     const socioIds = relaciones.map(r => r.socio_id)
 
-    // Obtener socios en servicio
+    // Obtener socios en servicio con su radio configurado
     const { data: socios } = await supabase
       .from('socios')
-      .select('id, latitud_actual, longitud_actual')
+      .select('id, latitud_actual, longitud_actual, radio_km')
       .in('id', socioIds)
       .eq('activo', true)
       .eq('en_servicio', true)
@@ -56,14 +56,23 @@ serve(async (req) => {
 
     if (!socios || socios.length === 0) throw new Error('No hay socios disponibles en servicio')
 
-    // Calcular distancia euclidiana y ordenar por el mas cercano al establecimiento
+    // Calcular distancia Haversine a cada socio
     const conDistancia = socios.map(s => {
-      const dLat = (s.latitud_actual! - estLat) * 111.32 // km aprox
-      const dLng = (s.longitud_actual! - estLng) * 111.32 * Math.cos(estLat * Math.PI / 180)
-      return { ...s, distancia: Math.sqrt(dLat * dLat + dLng * dLng) }
+      const R = 6371
+      const dLat = (s.latitud_actual! - estLat) * Math.PI / 180
+      const dLng = (s.longitud_actual! - estLng) * Math.PI / 180
+      const a = Math.sin(dLat / 2) ** 2 +
+        Math.cos(estLat * Math.PI / 180) * Math.cos(s.latitud_actual! * Math.PI / 180) *
+        Math.sin(dLng / 2) ** 2
+      const distancia = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+      return { ...s, distancia }
     }).sort((a, b) => a.distancia - b.distancia)
 
-    const socioAsignado = conDistancia[0]
+    // Filtrar por radio_km del socio — solo los que tienen el pedido dentro de su zona
+    const dentroDeRadio = conDistancia.filter(s => !s.radio_km || s.distancia <= s.radio_km)
+
+    // Si hay candidatos dentro del radio, usar el más cercano. Si no, fallback al más cercano de todos
+    const socioAsignado = dentroDeRadio.length > 0 ? dentroDeRadio[0] : conDistancia[0]
 
     // Asignar socio al pedido
     const { error: updateError } = await supabase

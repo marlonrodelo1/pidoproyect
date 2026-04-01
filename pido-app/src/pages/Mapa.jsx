@@ -112,6 +112,20 @@ export default function Mapa({ onOpenRest }) {
         }}
         onClick={() => { setSelectedEst(null); setSelectedRider(null) }}
       >
+        {/* Círculo de radio del restaurante seleccionado */}
+        {selectedEst?.radio_cobertura_km && selectedEst.latitud && selectedEst.longitud && (
+          <CircleF
+            center={{ lat: selectedEst.latitud, lng: selectedEst.longitud }}
+            radius={selectedEst.radio_cobertura_km * 1000}
+            options={{
+              fillColor: '#FF6B2C',
+              fillOpacity: 0.08,
+              strokeColor: '#FF6B2C',
+              strokeOpacity: 0.5,
+              strokeWeight: 1.5,
+            }}
+          />
+        )}
         {/* Ubicación del usuario */}
         <MarkerF
           position={center}
@@ -195,13 +209,18 @@ export default function Mapa({ onOpenRest }) {
                 )}
                 <div style={{ fontWeight: 800, fontSize: 13, color: '#1A1A1A' }}>{selectedEst.nombre}</div>
               </div>
-              <div style={{ fontSize: 11, color: '#666', display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ color: '#FBBF24' }}>★</span> {selectedEst.rating || '—'}
+              <div style={{ fontSize: 11, color: '#666', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+                <span style={{ color: '#FBBF24' }}>★</span> {selectedEst.rating?.toFixed(1) || '—'}
                 <span style={{ margin: '0 4px' }}>·</span>
                 <span style={{ textTransform: 'capitalize' }}>{selectedEst.tipo}</span>
               </div>
+              {selectedEst.radio_cobertura_km && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#FF6B2C', fontWeight: 700, marginBottom: 4 }}>
+                  <span>📍</span> Reparte hasta {selectedEst.radio_cobertura_km} km
+                </div>
+              )}
               {onOpenRest && (
-                <div style={{ marginTop: 6, fontSize: 11, color: '#FF6B2C', fontWeight: 700, cursor: 'pointer' }}>
+                <div style={{ marginTop: 4, fontSize: 11, color: '#FF6B2C', fontWeight: 700, cursor: 'pointer', borderTop: '1px solid #f0f0f0', paddingTop: 6 }}>
                   Ver carta →
                 </div>
               )}
