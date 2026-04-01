@@ -6,7 +6,7 @@ import { MapPin, CreditCard, Tag, Settings, HelpCircle, LogOut, ChevronRight, X,
 import AddressInput from '../components/AddressInput'
 
 export default function Perfil() {
-  const { perfil, logout, updatePerfil } = useAuth()
+  const { user, perfil, logout, updatePerfil, fetchPerfil } = useAuth()
   const [editando, setEditando] = useState(false)
   const [nombre, setNombre] = useState('')
   const [apellido, setApellido] = useState('')
@@ -39,7 +39,21 @@ export default function Perfil() {
     setSaving(true)
     setMsg(null)
     try {
-      await updatePerfil({ nombre: nombre.trim(), apellido: apellido.trim(), telefono: telefono.trim() })
+      const email = user?.email || perfil?.email
+      const { data, error } = await supabase
+        .from('usuarios')
+        .upsert({
+          id: user.id,
+          email,
+          rol: 'cliente',
+          nombre: nombre.trim() || perfil?.nombre || '',
+          apellido: apellido.trim() || null,
+          telefono: telefono.trim() || null,
+        }, { onConflict: 'id' })
+        .select()
+        .single()
+      if (error) throw error
+      fetchPerfil(user.id)  // Refresh perfil state
       setMsg('Perfil actualizado')
       setTimeout(() => { setEditando(false); setMsg(null) }, 1200)
     } catch { setMsg('Error al guardar') }
@@ -234,7 +248,7 @@ export default function Perfil() {
         <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--c-text)' }}>
           {perfil?.nombre} {perfil?.apellido || ''}
         </div>
-        <div style={{ fontSize: 12, color: 'var(--c-muted)', marginTop: 2 }}>{perfil?.email}</div>
+        <div style={{ fontSize: 12, color: 'var(--c-muted)', marginTop: 2 }}>{user?.email || perfil?.email}</div>
         {perfil?.telefono && <div style={{ fontSize: 12, color: 'var(--c-muted)', marginTop: 2 }}>{perfil.telefono}</div>}
         <button onClick={() => {
           setNombre(perfil?.nombre || ''); setApellido(perfil?.apellido || ''); setTelefono(perfil?.telefono || '')
@@ -315,7 +329,7 @@ export default function Perfil() {
             </div>
             <div style={{ marginBottom: 20 }}>
               <label style={labelStyle}>Email</label>
-              <input value={perfil?.email || ''} disabled style={{ ...inputDark, opacity: 0.4, cursor: 'not-allowed' }} />
+              <input value={user?.email || perfil?.email || ''} disabled style={{ ...inputDark, opacity: 0.5, cursor: 'not-allowed', background: 'rgba(255,255,255,0.04)' }} />
             </div>
 
             {msg && (
