@@ -19,6 +19,8 @@ export default function Carta() {
   const [prodForm, setProdForm] = useState({ nombre: '', descripcion: '', precio: '', categoria_id: '', imagen_url: '' })
   const [saving, setSaving] = useState(false)
   const [extrasAsignados, setExtrasAsignados] = useState([])
+  const [tamanos, setTamanos] = useState([]) // [{id?, nombre, precio}] para el formulario
+  const [prodTamanosMap, setProdTamanosMap] = useState({}) // {producto_id: [{id, nombre, precio}]}
   const [busqueda, setBusqueda] = useState('') // IDs de grupos asignados al producto
   const imgRef = useRef()
 
@@ -42,6 +44,19 @@ export default function Carta() {
       map[pe.producto_id] = (map[pe.producto_id] || 0) + 1
     }
     setProdExtrasMap(map)
+    // Cargar tamaños de todos los productos
+    const productIds = (prodRes.data || []).map(p => p.id)
+    if (productIds.length > 0) {
+      const { data: tamData } = await supabase.from('producto_tamanos').select('id, producto_id, nombre, precio, orden').in('producto_id', productIds).order('orden')
+      const tamMap = {}
+      for (const t of (tamData || [])) {
+        if (!tamMap[t.producto_id]) tamMap[t.producto_id] = []
+        tamMap[t.producto_id].push(t)
+      }
+      setProdTamanosMap(tamMap)
+    } else {
+      setProdTamanosMap({})
+    }
     setLoading(false)
   }
 
@@ -82,15 +97,17 @@ export default function Carta() {
     setProdForm({ nombre: '', descripcion: '', precio: '', categoria_id: catFiltro || categoriasRest[0]?.id || '', imagen_url: '' })
     setEditProd(null)
     setExtrasAsignados([])
+    setTamanos([])
     setShowAddProd(true)
   }
 
   async function abrirEditarProducto(p) {
     setProdForm({ nombre: p.nombre, descripcion: p.descripcion || '', precio: p.precio, categoria_id: p.categoria_id || '', imagen_url: p.imagen_url || '' })
     setEditProd(p)
-    // Cargar extras asignados a este producto
+    // Cargar extras y tamaños asignados a este producto
     const { data } = await supabase.from('producto_extras').select('grupo_id').eq('producto_id', p.id)
     setExtrasAsignados((data || []).map(d => d.grupo_id))
+    setTamanos((prodTamanosMap[p.id] || []).map(t => ({ id: t.id, nombre: t.nombre, precio: t.precio })))
     setShowAddProd(true)
   }
 
@@ -127,6 +144,14 @@ export default function Carta() {
       if (extrasAsignados.length > 0) {
         await supabase.from('producto_extras').insert(
           extrasAsignados.map(grupoId => ({ producto_id: productoId, grupo_id: grupoId }))
+        )
+      }
+      // Guardar tamaños
+      await supabase.from('producto_tamanos').delete().eq('producto_id', productoId)
+      const tamanosValidos = tamanos.filter(t => t.nombre.trim() && t.precio !== '' && Number(t.precio) >= 0)
+      if (tamanosValidos.length > 0) {
+        await supabase.from('producto_tamanos').insert(
+          tamanosValidos.map((t, i) => ({ producto_id: productoId, nombre: t.nombre.trim(), precio: Number(t.precio), orden: i }))
         )
       }
     }
@@ -411,7 +436,10 @@ export default function Carta() {
               {p.descripcion && <div style={{ fontSize: 11, color: 'var(--c-muted)', marginBottom: 4 }}>{p.descripcion}</div>}
               {prodExtrasMap[p.id] > 0 && <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--c-primary)', marginBottom: 4 }}>Grupos de extras: {prodExtrasMap[p.id]}</div>}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--c-primary)' }}>{p.precio.toFixed(2)} €</span>
+                {prodTamanosMap[p.id]?.length > 0
+                  ? <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--c-primary)' }}>Desde {Math.min(...(prodTamanosMap[p.id] || []).map(t => t.precio)).toFixed(2)} €</span>
+                  : <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--c-primary)' }}>{p.precio.toFixed(2)} €</span>
+                }
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button onClick={() => abrirEditarProducto(p)} style={s.miniBtn}>Editar</button>
                   <button onClick={() => eliminarProducto(p.id)} style={{ ...s.miniBtn, color: '#EF4444' }}>Eliminar</button>
@@ -503,6 +531,41 @@ export default function Carta() {
                 })}
               </div>
             )}
+
+            {/* Tamaños */}
+            <div style={{ marginBottom: 20 }}>
+              <label style={s.label}>Tamaños</label>
+              <p style={{ fontSize: 11, color: 'var(--c-muted)', margin: '0 0 10px' }}>
+                Si añades tamaños, el cliente <strong style={{ color: 'rgba(255,255,255,0.6)' }}>debe elegir uno</strong> obligatoriamente al pedir este producto.
+              </p>
+              {tamanos.map((t, i) => (
+                <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center' }}>
+                  <input
+                    value={t.nombre}
+                    onChange={e => { const n = [...tamanos]; n[i] = { ...n[i], nombre: e.target.value }; setTamanos(n) }}
+                    placeholder="Ej: Mediano"
+                    style={{ ...s.formInput, flex: 2 }}
+                  />
+                  <input
+                    type="number" step="0.01" min="0"
+                    value={t.precio}
+                    onChange={e => { const n = [...tamanos]; n[i] = { ...n[i], precio: e.target.value }; setTamanos(n) }}
+                    placeholder="€"
+                    style={{ ...s.formInput, flex: 1 }}
+                  />
+                  <button
+                    onClick={() => setTamanos(prev => prev.filter((_, idx) => idx !== i))}
+                    style={{ width: 32, height: 38, borderRadius: 8, border: 'none', background: 'rgba(239,68,68,0.12)', color: '#EF4444', fontSize: 18, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >×</button>
+                </div>
+              ))}
+              <button
+                onClick={() => setTamanos(prev => [...prev, { nombre: '', precio: '' }])}
+                style={{ width: '100%', padding: '10px 0', borderRadius: 10, border: '1px dashed rgba(255,255,255,0.18)', background: 'transparent', color: 'var(--c-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                + Añadir tamaño
+              </button>
+            </div>
 
             <button onClick={guardarProducto} disabled={saving || !prodForm.nombre.trim() || !prodForm.precio} style={{
               width: '100%', padding: '14px 0', borderRadius: 12, border: 'none',
