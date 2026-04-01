@@ -32,10 +32,23 @@ export default function Login() {
     email: '', password: '', telefono: '', direccion: '', descripcion: '',
   })
 
+  function traducirError(msg) {
+    if (!msg) return 'Error desconocido'
+    if (msg.includes('Invalid login credentials')) return 'Email o contraseña incorrectos'
+    if (msg.includes('Email not confirmed')) return 'Debes confirmar tu email antes de iniciar sesión'
+    if (msg.includes('User already registered')) return 'Este email ya está registrado. Intenta iniciar sesión.'
+    if (msg.includes('Password should be')) return 'La contraseña debe tener al menos 6 caracteres'
+    if (msg.includes('Unable to validate email')) return 'El formato del email no es válido'
+    if (msg.includes('Email rate limit exceeded')) return 'Demasiados intentos. Espera unos minutos.'
+    if (msg.includes('For security purposes')) return 'Demasiados intentos. Espera unos segundos.'
+    if (msg.includes('Network')) return 'Error de conexión. Verifica tu internet.'
+    return msg
+  }
+
   const handleLogin = async () => {
     setError(null); setLoading(true)
     try { await login(email, password) }
-    catch (err) { setError(err.message) }
+    catch (err) { setError(traducirError(err.message)) }
     finally { setLoading(false) }
   }
 
@@ -47,7 +60,7 @@ export default function Login() {
     if (!aceptaTerminos) { setError('Debes aceptar los términos y condiciones'); return }
     setLoading(true)
     try { await registro(form) }
-    catch (err) { setError(err.message) }
+    catch (err) { setError(traducirError(err.message)) }
     finally { setLoading(false) }
   }
 

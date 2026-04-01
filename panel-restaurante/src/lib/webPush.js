@@ -68,7 +68,7 @@ export async function registerWebPush(userType, ids = {}) {
     onMessage(msg, (payload) => {
       const title = payload.notification?.title || 'Nuevo pedido'
       const body = payload.notification?.body || ''
-      new Notification(title, { body, icon: '/favicon.svg', requireInteraction: true })
+      new Notification(title, { body, icon: '/favicon.png', requireInteraction: true })
     })
 
     return true

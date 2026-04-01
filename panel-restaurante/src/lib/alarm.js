@@ -157,7 +157,7 @@ function showNotification() {
   if ('Notification' in window && Notification.permission === 'granted') {
     new Notification('Nuevo pedido en pidoo', {
       body: 'Tienes un pedido nuevo esperando',
-      icon: '/favicon.ico',
+      icon: '/favicon.png',
       requireInteraction: true,
     })
   }

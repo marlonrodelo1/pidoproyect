@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useRest } from '../context/RestContext'
-import { startAlarm, stopAlarm } from '../lib/alarm'
+import { startAlarm, stopAlarm, unlockAudio } from '../lib/alarm'
 import { sendPush } from '../lib/webPush'
 import { imprimirPedido, imprimirPedidoWeb, getPrinterConfig } from '../lib/printService'
 import { Capacitor } from '@capacitor/core'
