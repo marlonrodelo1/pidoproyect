@@ -4,36 +4,42 @@ import { useAuth } from '../context/AuthContext'
 import Stars from '../components/Stars'
 
 export default function Favoritos({ onOpenRest }) {
-  const { perfil, updatePerfil } = useAuth()
+  const { user } = useAuth()
   const [restaurantes, setRestaurantes] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
 
-  // Usamos JSON.stringify para comparar el array por VALOR, no por referencia
-  // así el efecto se dispara siempre que cambien los ids, no solo cuando cambia el objeto
+  // Leer directo de BD al montar — no dependemos del contexto perfil
   useEffect(() => {
-    if (perfil?.id) fetchFavoritos()
-  }, [JSON.stringify(perfil?.favoritos), perfil?.id])
+    if (user?.id) fetchFavoritos()
+  }, [user?.id])
 
   async function fetchFavoritos() {
     setLoading(true)
-    if (!perfil?.favoritos || perfil.favoritos.length === 0) {
+    try {
+      // Obtener los IDs de favoritos frescos desde la BD
+      const { data: favIds, error: rpcError } = await supabase.rpc('get_favoritos')
+      if (rpcError || !favIds || favIds.length === 0) {
+        setRestaurantes([])
+        return
+      }
+      // Cargar los establecimientos
+      const { data } = await supabase
+        .from('establecimientos')
+        .select('*')
+        .in('id', favIds)
+      setRestaurantes(data || [])
+    } catch (e) {
       setRestaurantes([])
+    } finally {
       setLoading(false)
-      return
     }
-    const { data } = await supabase
-      .from('establecimientos')
-      .select('*')
-      .in('id', perfil.favoritos)
-    setRestaurantes(data || [])
-    setLoading(false)
   }
 
   async function removeFav(id) {
-    const newFavs = (perfil?.favoritos || []).filter(x => x !== id)
-    // Usamos updatePerfil para mantener el contexto sincronizado
-    await updatePerfil({ favoritos: newFavs })
+    // Quitar visualmente de inmediato
     setRestaurantes(prev => prev.filter(r => r.id !== id))
+    // Eliminar en BD via RPC
+    await supabase.rpc('toggle_favorito', { p_establecimiento_id: id })
   }
 
   return (
