@@ -40,6 +40,21 @@ export function AuthProvider({ children }) {
       return
     }
 
+    // Validar que el rol sea 'cliente' (Google OAuth crea con 'cliente' por defecto)
+    if (data && data.rol && data.rol !== 'cliente') {
+      await supabase.auth.signOut()
+      setUser(null)
+      setPerfil(null)
+      setLoading(false)
+      return
+    }
+
+    // Si viene de Google OAuth y no tiene rol asignado, asegurar que sea 'cliente'
+    if (data && !data.rol) {
+      await supabase.from('usuarios').update({ rol: 'cliente' }).eq('id', userId)
+      data.rol = 'cliente'
+    }
+
     setPerfil(data)
     setLoading(false)
     // Registrar push notifications (web + nativo)
@@ -65,7 +80,7 @@ export function AuthProvider({ children }) {
       email,
       password,
       options: {
-        data: { nombre },
+        data: { nombre, rol: 'cliente' },
         emailRedirectTo: 'https://pidoo.es',
       },
     })

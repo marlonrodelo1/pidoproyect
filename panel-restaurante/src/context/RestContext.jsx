@@ -28,15 +28,38 @@ export function RestProvider({ children }) {
 
   async function fetchRestaurante(userId) {
     try {
-      const { data: userData } = await supabase.auth.getUser()
-      const email = userData?.user?.email
-      if (email) {
-        const { data } = await supabase.from('establecimientos').select('*').eq('email', email).single()
-        setRestaurante(data)
-        if (data) {
-          registerWebPush('restaurante', { establecimiento_id: data.id })
-          registerPushNotifications('restaurante', { establecimiento_id: data.id })
+      // Verificar/asignar rol 'restaurante' en tabla usuarios
+      const { data: perfil } = await supabase.from('usuarios').select('id, rol, created_at').eq('id', userId).single()
+      if (perfil) {
+        if (perfil.rol !== 'restaurante') {
+          const createdAt = new Date(perfil.created_at)
+          const now = new Date()
+          if ((now - createdAt) < 120000) {
+            await supabase.from('usuarios').update({ rol: 'restaurante' }).eq('id', userId)
+          } else {
+            await supabase.auth.signOut()
+            setUser(null)
+            setRestaurante(null)
+            setLoading(false)
+            return
+          }
         }
+      }
+
+      // First try by user_id (new system), fallback to email (legacy)
+      let { data } = await supabase.from('establecimientos').select('*').eq('user_id', userId).single()
+      if (!data) {
+        const { data: userData } = await supabase.auth.getUser()
+        const email = userData?.user?.email
+        if (email) {
+          const res = await supabase.from('establecimientos').select('*').eq('email', email).single()
+          data = res.data
+        }
+      }
+      setRestaurante(data)
+      if (data) {
+        registerWebPush('restaurante', { establecimiento_id: data.id })
+        registerPushNotifications('restaurante', { establecimiento_id: data.id })
       }
     } catch {}
     setLoading(false)
@@ -66,11 +89,12 @@ export function RestProvider({ children }) {
     if (roleCheck?.exists) throw new Error(`Este email ya está registrado como ${roleCheck.role}. Usa otro email.`)
 
     // Crear auth user
-    const { data, error } = await supabase.auth.signUp({ email: formData.email, password: formData.password, options: { data: { nombre: formData.nombre } } })
+    const { data, error } = await supabase.auth.signUp({ email: formData.email, password: formData.password, options: { data: { nombre: formData.nombre, rol: 'restaurante' } } })
     if (error) throw error
 
-    // Crear establecimiento
+    // Crear establecimiento con user_id
     const { error: estError } = await supabase.from('establecimientos').insert({
+      user_id: data.user?.id,
       nombre: formData.nombre,
       tipo: formData.tipo || 'restaurante',
       categoria_padre: formData.categoria_padre || 'comida',

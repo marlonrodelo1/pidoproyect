@@ -27,6 +27,26 @@ export function SocioProvider({ children }) {
   }, [])
 
   async function fetchSocio(userId) {
+    // Verificar/asignar rol 'socio' en tabla usuarios (Google OAuth crea con 'cliente' por defecto)
+    const { data: perfil } = await supabase.from('usuarios').select('id, rol, created_at').eq('id', userId).single()
+    if (perfil) {
+      if (perfil.rol !== 'socio') {
+        // Si fue creado hace menos de 2 min (nuevo usuario Google OAuth), actualizar rol
+        const createdAt = new Date(perfil.created_at)
+        const now = new Date()
+        if ((now - createdAt) < 120000) {
+          await supabase.from('usuarios').update({ rol: 'socio' }).eq('id', userId)
+        } else {
+          // Usuario existente con otro rol — no puede acceder como socio
+          await supabase.auth.signOut()
+          setUser(null)
+          setSocio(null)
+          setLoading(false)
+          return
+        }
+      }
+    }
+
     const { data } = await supabase
       .from('socios')
       .select('*')
@@ -62,7 +82,7 @@ export function SocioProvider({ children }) {
     const { data: roleCheck } = await supabase.rpc('check_email_role', { check_email: formData.email })
     if (roleCheck?.exists) throw new Error(`Este email ya está registrado como ${roleCheck.role}. Usa otro email.`)
 
-    const { data, error } = await supabase.auth.signUp({ email: formData.email, password: formData.password, options: { data: { nombre: formData.nombre } } })
+    const { data, error } = await supabase.auth.signUp({ email: formData.email, password: formData.password, options: { data: { nombre: formData.nombre, rol: 'socio' } } })
     if (error) throw error
 
     // Generar slug
