@@ -7,6 +7,16 @@ import Stars from '../components/Stars'
 import EntregaBadge from '../components/EntregaBadge'
 import { estaAbierto, horarioHoyTexto } from '../lib/horario'
 
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const R = 6371
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLng = (lng2 - lng1) * Math.PI / 180
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
 const CTX = {
   comida:      { placeholder: 'Buscar restaurante o plato...', titulo: 'Restaurantes', emoji: '🍽️' },
   farmacia:    { placeholder: 'Buscar farmacia o producto...', titulo: 'Farmacias',    emoji: '💊' },
@@ -139,6 +149,11 @@ export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
     if (catActiva) {
       const cat = categoriasGenerales.find(c => c.nombre === catActiva)
       if (cat && !(r._catIds || []).includes(cat.id)) return false
+    }
+    // Filtrar por radio de cobertura del restaurante
+    if (userLocation && r.radio_cobertura_km && r.latitud && r.longitud) {
+      const dist = haversineKm(userLocation.lat, userLocation.lng, r.latitud, r.longitud)
+      if (dist > r.radio_cobertura_km) return false
     }
     return true
   })
