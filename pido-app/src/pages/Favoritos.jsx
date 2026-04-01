@@ -4,15 +4,18 @@ import { useAuth } from '../context/AuthContext'
 import Stars from '../components/Stars'
 
 export default function Favoritos({ onOpenRest }) {
-  const { perfil } = useAuth()
+  const { perfil, updatePerfil } = useAuth()
   const [restaurantes, setRestaurantes] = useState([])
   const [loading, setLoading] = useState(true)
 
+  // Usamos JSON.stringify para comparar el array por VALOR, no por referencia
+  // así el efecto se dispara siempre que cambien los ids, no solo cuando cambia el objeto
   useEffect(() => {
-    fetchFavoritos()
-  }, [perfil?.favoritos])
+    if (perfil?.id) fetchFavoritos()
+  }, [JSON.stringify(perfil?.favoritos), perfil?.id])
 
   async function fetchFavoritos() {
+    setLoading(true)
     if (!perfil?.favoritos || perfil.favoritos.length === 0) {
       setRestaurantes([])
       setLoading(false)
@@ -28,7 +31,8 @@ export default function Favoritos({ onOpenRest }) {
 
   async function removeFav(id) {
     const newFavs = (perfil?.favoritos || []).filter(x => x !== id)
-    await supabase.from('usuarios').update({ favoritos: newFavs }).eq('id', perfil.id)
+    // Usamos updatePerfil para mantener el contexto sincronizado
+    await updatePerfil({ favoritos: newFavs })
     setRestaurantes(prev => prev.filter(r => r.id !== id))
   }
 

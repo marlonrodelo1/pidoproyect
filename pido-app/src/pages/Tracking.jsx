@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Phone } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
 
 const ETAPAS = [
   { label: 'Pendiente', desc: 'Esperando que el restaurante acepte', icon: '⏳', estado: 'nuevo' },
@@ -17,6 +18,7 @@ function getEtapa(estado) {
 }
 
 export default function Tracking({ pedido: pedidoInicial, onClose }) {
+  const { user } = useAuth()
   const [pedido, setPedido] = useState(pedidoInicial)
   const [etapa, setEtapa] = useState(getEtapa(pedidoInicial.estado))
   const [riderPos, setRiderPos] = useState(0)
@@ -25,6 +27,7 @@ export default function Tracking({ pedido: pedidoInicial, onClose }) {
   const [textoResena, setTextoResena] = useState('')
   const [resenaEnviada, setResenaEnviada] = useState(false)
   const [yaValorado, setYaValorado] = useState(false)
+  const [errorResena, setErrorResena] = useState(null)
 
   // Fetch estado actual al montar
   useEffect(() => {
@@ -47,11 +50,12 @@ export default function Tracking({ pedido: pedidoInicial, onClose }) {
 
   // Comprobar si ya valoro
   useEffect(() => {
-    if (pedido.id && pedido.usuario_id) {
-      supabase.from('resenas').select('id').eq('pedido_id', pedido.id).eq('usuario_id', pedido.usuario_id).single()
+    const uid = user?.id || pedido.usuario_id
+    if (pedido.id && uid) {
+      supabase.from('resenas').select('id').eq('pedido_id', pedido.id).eq('usuario_id', uid).single()
         .then(({ data }) => { if (data) setYaValorado(true) })
     }
-  }, [pedido.id])
+  }, [pedido.id, user?.id])
 
   // Realtime + polling
   useEffect(() => {
@@ -103,8 +107,14 @@ export default function Tracking({ pedido: pedidoInicial, onClose }) {
 
   async function enviarValoracion() {
     if (!valoracion || yaValorado || resenaEnviada) return
+    const uid = user?.id || pedido.usuario_id
+    if (!uid) {
+      setErrorResena('No se pudo identificar al usuario. Inicia sesion de nuevo.')
+      return
+    }
+    setErrorResena(null)
     const { error } = await supabase.from('resenas').insert({
-      usuario_id: pedido.usuario_id,
+      usuario_id: uid,
       establecimiento_id: pedido.establecimiento_id,
       socio_id: pedido.socio_id,
       pedido_id: pedido.id,
@@ -114,8 +124,9 @@ export default function Tracking({ pedido: pedidoInicial, onClose }) {
     if (!error) {
       setResenaEnviada(true)
       setYaValorado(true)
-      // Cerrar y volver a inicio después de enviar reseña
       setTimeout(() => onClose(), 1500)
+    } else {
+      setErrorResena('No se pudo enviar la valoracion. Intentalo de nuevo.')
     }
   }
 
@@ -435,6 +446,11 @@ export default function Tracking({ pedido: pedidoInicial, onClose }) {
                     fontSize: 13, fontFamily: 'inherit', background: 'rgba(255,255,255,0.06)',
                     color: 'var(--c-text)', outline: 'none', boxSizing: 'border-box', resize: 'vertical', marginBottom: 12,
                   }} />
+                  {errorResena && (
+                    <div style={{ fontSize: 12, color: '#EF4444', textAlign: 'center', marginBottom: 10, fontWeight: 600 }}>
+                      {errorResena}
+                    </div>
+                  )}
                   <button onClick={enviarValoracion} style={{
                     width: '100%', padding: '14px 0', borderRadius: 12, border: 'none',
                     background: 'var(--c-primary)', color: '#fff', fontSize: 14, fontWeight: 800,
