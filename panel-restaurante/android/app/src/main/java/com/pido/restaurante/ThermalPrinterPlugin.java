@@ -184,7 +184,7 @@ public class ThermalPrinterPlugin extends Plugin {
                 for (InetAddress addr : addresses) {
                     if (addr instanceof Inet4Address && !addr.isLoopbackAddress()) {
                         String ip = addr.getHostAddress();
-                        if (ip != null && ip.startsWith("192.168.") || ip.startsWith("10.") || ip.startsWith("172.")) {
+                        if (ip != null && (ip.startsWith("192.168.") || ip.startsWith("10.") || ip.startsWith("172."))) {
                             int lastDot = ip.lastIndexOf('.');
                             return ip.substring(0, lastDot);
                         }

@@ -198,7 +198,9 @@ export default function PedidosEnVivo() {
     // Imprimir tickets automáticamente (comanda cocina + ticket cliente)
     const pedidoConMinutos = { ...pedido, minutos_preparacion: minutos }
     const items = itemsMap[pedido.id] || []
-    imprimirPedido(pedidoConMinutos, items, restaurante).catch(() => {})
+    imprimirPedido(pedidoConMinutos, items, restaurante)
+      .then(r => { if (r && !r.ok) console.warn('[Print] Fallo al imprimir pedido:', pedido.codigo, r) })
+      .catch(err => console.error('[Print] Error al imprimir:', err))
   }
 
   async function rechazarPedido(id, motivo) {
@@ -416,7 +418,9 @@ export default function PedidosEnVivo() {
               <button onClick={() => {
                 const items = itemsMap[p.id] || []
                 if (Capacitor.isNativePlatform()) {
-                  imprimirPedido(p, items, restaurante).catch(() => {})
+                  imprimirPedido(p, items, restaurante)
+                    .then(r => { if (!r?.ok) alert('No se pudo imprimir. Verifica la IP de la impresora en Ajustes.') })
+                    .catch(() => alert('Error de conexión con la impresora.'))
                 } else {
                   imprimirPedidoWeb(p, items, restaurante)
                 }
