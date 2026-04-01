@@ -134,13 +134,21 @@ export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
   }
 
   async function toggleFav(id) {
+    // Optimistic update local
     const newFavs = favoritos.includes(id)
       ? favoritos.filter(x => x !== id)
       : [...favoritos, id]
     setFavoritos(newFavs)
 
-    if (perfil) {
-      await updatePerfil({ favoritos: newFavs })
+    // Usamos RPC para evitar problemas de coerción uuid[] via PostgREST
+    const { data, error } = await supabase.rpc('toggle_favorito', { p_establecimiento_id: id })
+    if (error) {
+      // Revertir si falla
+      setFavoritos(favoritos)
+      console.error('Error al guardar favorito:', error)
+    } else if (data && perfil) {
+      // Sincronizar contexto con el array real devuelto por la BD
+      updatePerfil({ favoritos: data }).catch(() => {})
     }
   }
 
