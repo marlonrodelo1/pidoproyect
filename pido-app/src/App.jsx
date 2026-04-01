@@ -29,7 +29,20 @@ function AppContent() {
   const [seccion, setSeccion] = useState('home')
   const [restOpen, setRestOpen] = useState(null)
   const [pedidoActivo, setPedidoActivo] = useState(null)
-  const [notifsNoLeidas] = useState(0)
+  const [notifsNoLeidas, setNotifsNoLeidas] = useState(0)
+
+  // Cargar y escuchar notificaciones no leídas en tiempo real
+  useEffect(() => {
+    if (!user) return
+    supabase.from('notificaciones').select('id', { count: 'exact', head: true })
+      .eq('usuario_id', user.id).eq('leida', false)
+      .then(({ count }) => setNotifsNoLeidas(count || 0))
+    const ch = supabase.channel('notifs-badge')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notificaciones', filter: `usuario_id=eq.${user.id}` },
+        () => setNotifsNoLeidas(prev => prev + 1))
+      .subscribe()
+    return () => supabase.removeChannel(ch)
+  }, [user?.id])
 
   if (loading) {
     return (
@@ -94,7 +107,7 @@ function AppContent() {
               En curso
             </button>
           )}
-          <button onClick={() => setSeccion('notificaciones')} style={{
+          <button onClick={() => { setSeccion('notificaciones'); setNotifsNoLeidas(0) }} style={{
             width: 34, height: 34, borderRadius: 10, background: 'var(--c-surface2)',
             border: 'none', cursor: 'pointer', position: 'relative',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -132,7 +145,11 @@ function AppContent() {
       </div>
 
       <Carrito onPedidoCreado={handlePedidoCreado} />
-      <BottomNav active={seccion} onChange={s => { setSeccion(s); setRestOpen(null) }} />
+      <BottomNav active={seccion} onChange={s => {
+        setSeccion(s)
+        setRestOpen(null)
+        if (s === 'notificaciones') setNotifsNoLeidas(0)
+      }} />
     </div>
   )
 }
