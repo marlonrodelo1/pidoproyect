@@ -9,7 +9,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:797553895667:android:ebf7a059562102416daf86",
         "android_client_info": {
-          "package_name": "co.median.ios.bnlkxpx"
+          "package_name": "es.pidoo.app"
         }
       },
       "oauth_client": [
@@ -17,7 +17,7 @@
           "client_id": "797553895667-qu350dk8lh3ah37v065r19m923l5s0j9.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "co.median.ios.bnlkxpx",
+            "package_name": "es.pidoo.app",
             "certificate_hash": "c01c05515d3dce61e6c9e529c1be59c914eb886d"
           }
         },
@@ -42,8 +42,8 @@
               "client_id": "797553895667-u5tqm68599bggj1rieu3mi9s2ad2c6v4.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
-                "bundle_id": "co.median.ios.bnlkxpx",
-                "app_store_id": "6759052572"
+                "bundle_id": "es.pidoo.app",
+                "app_store_id": ""
               }
             }
           ]
