@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useRest } from './RestContext'
-import { startAlarm, stopAlarm, unlockAudio, requestNotificationPermission } from '../lib/alarm'
+import { startAlarm, stopAlarm, unlockAudio, requestNotificationPermission, notificarNuevoPedido } from '../lib/alarm'
 
 const PedidoAlertContext = createContext({})
 
@@ -34,6 +34,7 @@ export function PedidoAlertProvider({ children, onNuevoPedido }) {
       }, payload => {
         setPedidosNuevos(prev => [payload.new, ...prev])
         startAlarm()
+        notificarNuevoPedido(payload.new.codigo)
         if (onNuevoPedido) onNuevoPedido(payload.new)
       })
       .on('postgres_changes', {

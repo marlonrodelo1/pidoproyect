@@ -1,7 +1,11 @@
+import { Capacitor } from '@capacitor/core'
+import { LocalNotifications } from '@capacitor/local-notifications'
+
 let audioContext = null
 let alarmInterval = null
 let isPlaying = false
 let audioElement = null
+let alarmDataUrl = null
 
 // Generar un wav de alarma en base64 (sirena corta) para no depender de archivos externos
 function generateAlarmDataUrl() {
@@ -39,6 +43,43 @@ function generateAlarmDataUrl() {
   return URL.createObjectURL(blob)
 }
 
+// Pre-crear el audio element al cargar el módulo
+function ensureAudioElement() {
+  if (!alarmDataUrl) alarmDataUrl = generateAlarmDataUrl()
+  if (!audioElement) {
+    audioElement = new Audio(alarmDataUrl)
+    audioElement.loop = true
+    audioElement.volume = 1.0
+  }
+}
+
+// Intentar pre-crear al cargar el módulo
+try { ensureAudioElement() } catch {}
+
+/**
+ * Dispara una notificación local nativa con vibración.
+ * Funciona sin gesto del usuario en Android.
+ */
+export async function notificarNuevoPedido(codigo) {
+  if (!Capacitor.isNativePlatform()) return
+  try {
+    const perm = await LocalNotifications.requestPermissions()
+    if (perm.display !== 'granted') return
+    await LocalNotifications.schedule({
+      notifications: [{
+        id: Math.floor(Math.random() * 100000),
+        title: '🔔 Nuevo pedido',
+        body: codigo ? `Pedido ${codigo} esperando aceptación` : 'Tienes un nuevo pedido esperando',
+        schedule: { at: new Date(Date.now() + 100) },
+        sound: 'default',
+        extra: { type: 'nuevo_pedido' },
+      }],
+    })
+  } catch (err) {
+    console.warn('[Alarm] Error notificación local:', err)
+  }
+}
+
 /**
  * Inicia la alarma. Usa HTML5 Audio (funciona sin gesto en Capacitor Android)
  * con fallback a Web Audio API.
@@ -50,11 +91,7 @@ export async function startAlarm() {
 
   // Método 1: HTML5 Audio element (funciona sin gesto en Android WebView)
   try {
-    if (!audioElement) {
-      audioElement = new Audio(generateAlarmDataUrl())
-      audioElement.loop = true
-      audioElement.volume = 1.0
-    }
+    ensureAudioElement()
     const playPromise = audioElement.play()
     if (playPromise) {
       playPromise.catch(() => {
@@ -119,12 +156,7 @@ export function unlockAudio() {
     ctx.close()
   } catch {}
 
-  // También preparar el audio element
-  if (!audioElement) {
-    audioElement = new Audio(generateAlarmDataUrl())
-    audioElement.loop = true
-    audioElement.volume = 1.0
-  }
+  ensureAudioElement()
 }
 
 function playAlarmTone(ctx) {
@@ -166,5 +198,9 @@ function showNotification() {
 export function requestNotificationPermission() {
   if ('Notification' in window && Notification.permission === 'default') {
     Notification.requestPermission()
+  }
+  // También pedir permiso para notificaciones locales en nativo
+  if (Capacitor.isNativePlatform()) {
+    LocalNotifications.requestPermissions().catch(() => {})
   }
 }

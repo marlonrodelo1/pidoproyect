@@ -54,6 +54,22 @@ export default function PedidosEnVivo() {
         // Alarma sonora
         startAlarm()
       })
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'pedidos',
+        filter: `establecimiento_id=eq.${restaurante.id}`,
+      }, payload => {
+        const p = payload.new
+        if (['entregado', 'cancelado'].includes(p.estado)) {
+          setActivos(prev => prev.filter(x => x.id !== p.id))
+          setEntrantes(prev => {
+            const remaining = prev.filter(x => x.id !== p.id)
+            if (remaining.length === 0 && prev.length > 0) stopAlarm()
+            return remaining
+          })
+        } else if (['aceptado', 'preparando', 'listo', 'recogido', 'en_camino'].includes(p.estado)) {
+          setActivos(prev => prev.map(x => x.id === p.id ? { ...x, ...p } : x))
+        }
+      })
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
@@ -96,7 +112,7 @@ export default function PedidosEnVivo() {
   async function fetchPedidos() {
     try {
       const { data: nuevos } = await supabase.from('pedidos').select('*').eq('establecimiento_id', restaurante.id).eq('estado', 'nuevo').order('created_at', { ascending: false })
-      const { data: prep } = await supabase.from('pedidos').select('*').eq('establecimiento_id', restaurante.id).in('estado', ['aceptado', 'preparando', 'listo']).order('created_at', { ascending: false })
+      const { data: prep } = await supabase.from('pedidos').select('*').eq('establecimiento_id', restaurante.id).in('estado', ['aceptado', 'preparando', 'listo', 'recogido', 'en_camino']).order('created_at', { ascending: false })
 
       setEntrantes(nuevos || [])
       setActivos(prep || [])
@@ -256,6 +272,23 @@ export default function PedidosEnVivo() {
     if (pedido.usuario_id) sendPush({ targetType: 'cliente', targetId: pedido.usuario_id, title: 'Buscando repartidor', body: `Estamos buscando un repartidor para tu pedido ${pedido.codigo}` })
   }
 
+  async function cancelarPedidoActivo(pedido) {
+    await supabase.from('pedidos').update({
+      estado: 'cancelado',
+      motivo_cancelacion: 'Cancelado por el restaurante (sin repartidor disponible)',
+      cancelado_at: new Date().toISOString(),
+    }).eq('id', pedido.id)
+    setActivos(prev => prev.filter(p => p.id !== pedido.id))
+    if (pedido.usuario_id) sendPush({ targetType: 'cliente', targetId: pedido.usuario_id, title: 'Pedido cancelado', body: `Tu pedido ${pedido.codigo} ha sido cancelado porque no hay repartidores disponibles` })
+  }
+
+  async function marcarEntregado(id) {
+    const pedido = activos.find(p => p.id === id)
+    await supabase.from('pedidos').update({ estado: 'entregado', entregado_at: new Date().toISOString() }).eq('id', id)
+    setActivos(prev => prev.filter(p => p.id !== id))
+    if (pedido?.usuario_id) sendPush({ targetType: 'cliente', targetId: pedido.usuario_id, title: 'Pedido entregado', body: `Tu pedido ${pedido.codigo} ha sido entregado. ¡Gracias!` })
+  }
+
   async function cambiarARecogida(pedido) {
     await supabase.from('pedidos').update({
       modo_entrega: 'recogida',
@@ -412,17 +445,22 @@ export default function PedidosEnVivo() {
                 </div>
               </div>
               {p.rider_estado === 'sin_rider' && (
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <button onClick={() => reintentarBuscarRider(p)} style={{
-                    flex: 1, padding: '10px 0', borderRadius: 10, border: 'none',
+                    flex: 1, minWidth: '30%', padding: '10px 0', borderRadius: 10, border: 'none',
                     background: 'var(--c-primary)', color: '#fff',
                     fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
                   }}>Reintentar rider</button>
                   <button onClick={() => cambiarARecogida(p)} style={{
-                    flex: 1, padding: '10px 0', borderRadius: 10,
+                    flex: 1, minWidth: '30%', padding: '10px 0', borderRadius: 10,
                     border: '1px solid rgba(251,191,36,0.3)', background: 'rgba(251,191,36,0.08)',
                     color: '#FBBF24', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
                   }}>Solo recogida</button>
+                  <button onClick={() => { if (confirm('¿Cancelar este pedido? Se notificará al cliente.')) cancelarPedidoActivo(p) }} style={{
+                    flex: 1, minWidth: '30%', padding: '10px 0', borderRadius: 10,
+                    border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.08)',
+                    color: '#EF4444', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+                  }}>Cancelar pedido</button>
                 </div>
               )}
             </div>
@@ -445,10 +483,27 @@ export default function PedidosEnVivo() {
               <button onClick={() => marcarListo(p.id)} style={{ flex: 1, padding: '11px 0', borderRadius: 10, border: 'none', background: '#16A34A', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Pedido listo para recoger</button>
             </div>
           )}
-          {p.estado === 'listo' && (
+          {p.estado === 'listo' && p.modo_entrega === 'recogida' && (
             <div style={{ display: 'flex', gap: 8 }}>
-              <div style={{ flex: 1, padding: '10px 0', borderRadius: 10, background: '#DCFCE7', textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#166534' }}>Esperando repartidor</div>
-              <button onClick={() => marcarRecogido(p.id)} style={{ padding: '10px 16px', borderRadius: 10, border: 'none', background: 'var(--c-primary)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Recogido</button>
+              <div style={{ flex: 1, padding: '10px 0', borderRadius: 10, background: '#DCFCE7', textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#166534' }}>🏪 Esperando al cliente</div>
+              <button onClick={() => marcarEntregado(p.id)} style={{ padding: '10px 16px', borderRadius: 10, border: 'none', background: '#16A34A', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Entregado</button>
+            </div>
+          )}
+          {p.estado === 'listo' && p.modo_entrega !== 'recogida' && (
+            <div style={{ padding: '10px 14px', borderRadius: 10, background: '#DCFCE7', textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#166534' }}>
+              {p.rider_estado === 'aceptado' && '🛵 Repartidor en camino al restaurante'}
+              {p.rider_estado === 'pendiente' && '⏳ Esperando que el repartidor acepte'}
+              {(p.rider_estado === 'sin_rider' || p.rider_estado === 'buscando' || !p.rider_estado) && '🔍 Buscando repartidor...'}
+            </div>
+          )}
+          {p.estado === 'recogido' && (
+            <div style={{ padding: '10px 14px', borderRadius: 10, background: '#DBEAFE', textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#1E40AF' }}>
+              🛵 Repartidor recogió el pedido — en camino al cliente
+            </div>
+          )}
+          {p.estado === 'en_camino' && (
+            <div style={{ padding: '10px 14px', borderRadius: 10, background: '#F3E8FF', textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#6B21A8' }}>
+              📍 Repartidor en camino al cliente
             </div>
           )}
         </div>
