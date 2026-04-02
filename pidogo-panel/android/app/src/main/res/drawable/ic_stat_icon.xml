@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Notification small icon: Lightning bolt (PIDOGO Rider) -->
+<!-- Notification small icon: Stylized "P" (Pidoo go brand) -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
-    android:viewportWidth="48"
-    android:viewportHeight="46">
-    <!-- Lightning bolt shape (simplified from PIDOGO logo) -->
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Rounded "P" lettermark matching Pidoo go bubbly font style -->
     <path
-        android:pathData="M25.95,44.94c-0.66,0.84 -2.02,0.38 -2.02,-0.7V33.94c0,-1.25 -1.01,-2.26 -2.26,-2.26H10.29c-0.92,0 -1.46,-1.04 -0.92,-1.79l7.48,-10.47c1.07,-1.5 0,-3.58 -1.84,-3.58H1.24c-0.92,0 -1.46,-1.04 -0.92,-1.79L10.01,0.47C10.22,0.18 10.57,0 10.93,0h28.89c0.92,0 1.46,1.04 0.92,1.79l-7.48,10.47c-1.07,1.5 0,3.58 1.84,3.58h11.38c0.94,0 1.47,1.09 0.89,1.83L25.95,44.94z"
+        android:pathData="M7,3C5.9,3 5,3.9 5,5v14c0,1.1 0.9,2 2,2h0c1.1,0 2,-0.9 2,-2v-5h4c3.31,0 6,-2.69 6,-6v0c0,-3.31 -2.69,-6 -6,-6H7zM9,7h4c1.1,0 2,0.9 2,2v0c0,1.1 -0.9,2 -2,2H9V7z"
         android:fillColor="#FFFFFF"/>
 </vector>

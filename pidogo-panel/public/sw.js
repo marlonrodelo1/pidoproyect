@@ -18,8 +18,8 @@ messaging.onBackgroundMessage(function(payload) {
   const title = payload.notification?.title || payload.data?.title || 'Nuevo pedido'
   const options = {
     body: payload.notification?.body || payload.data?.body || 'Tienes un nuevo pedido',
-    icon: '/favicon.svg',
-    badge: '/favicon.svg',
+    icon: '/favicon.png',
+    badge: '/favicon.png',
     vibrate: [300, 100, 300, 100, 300],
     data: payload.data || {},
     requireInteraction: true,
