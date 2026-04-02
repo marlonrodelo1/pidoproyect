@@ -269,46 +269,46 @@ export default function Home({ onOpenRest, categoriaPadre, onSerSocio }) {
                   opacity: estadoPromo.abierto ? 1 : 0.65,
                 }}>
                   <div style={{
-                    height: 100, background: est.banner_url ? `url(${est.banner_url}) center/cover` : 'linear-gradient(135deg, var(--c-primary-light), var(--c-primary-soft))',
+                    height: 110, background: est.banner_url ? `url(${est.banner_url}) center/cover` : 'linear-gradient(135deg, var(--c-primary-light), var(--c-primary-soft))',
                     position: 'relative',
                   }}>
-                    {/* Badge de la promo - rojo destacado */}
+                    {/* Logo del restaurante - arriba izquierda */}
                     <div style={{
-                      position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 2,
-                      background: 'linear-gradient(0deg, rgba(220,38,38,0.95) 0%, rgba(220,38,38,0.7) 70%, transparent 100%)',
-                      padding: '20px 12px 8px',
+                      position: 'absolute', top: 8, left: 8, zIndex: 3,
+                      width: 40, height: 40, borderRadius: 10, border: '2px solid #fff',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.25)', overflow: 'hidden',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      background: '#fff', fontSize: 18,
                     }}>
-                      <div style={{ color: '#fff', fontSize: 13, fontWeight: 800, textShadow: '0 1px 3px rgba(0,0,0,0.3)' }}>
-                        {promo.titulo}
-                      </div>
-                      {promo.minimo_compra > 0 && (
-                        <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: 10, fontWeight: 600 }}>
-                          Compra min. {promo.minimo_compra}€
-                        </div>
-                      )}
+                      {est.logo_url ? <img src={est.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : ctx.emoji}
                     </div>
                     {/* Badge abierto/cerrado */}
                     <span style={{
                       position: 'absolute', top: 8, right: 8, fontSize: 9, fontWeight: 700,
-                      padding: '3px 8px', borderRadius: 6, backdropFilter: 'blur(6px)',
+                      padding: '3px 8px', borderRadius: 6, backdropFilter: 'blur(6px)', zIndex: 3,
                       background: estadoPromo.abierto ? 'rgba(22,163,74,0.85)' : 'rgba(239,68,68,0.85)',
                       color: '#fff',
                     }}>
                       {estadoPromo.abierto ? 'Abierto' : 'Cerrado'}
                     </span>
-                  </div>
-                  <div style={{ position: 'relative', padding: '0 12px' }}>
+                    {/* Texto de la promo - abajo derecha */}
                     <div style={{
-                      width: 42, height: 42, borderRadius: 11, border: '3px solid #fff',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.12)', overflow: 'hidden',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      background: 'rgba(255,255,255,0.1)', fontSize: 18,
-                      position: 'absolute', top: -21, left: 12,
+                      position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 2,
+                      background: 'linear-gradient(0deg, rgba(220,38,38,0.95) 0%, rgba(220,38,38,0.6) 60%, transparent 100%)',
+                      padding: '18px 12px 8px',
+                      textAlign: 'right',
                     }}>
-                      {est.logo_url ? <img src={est.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : ctx.emoji}
+                      <div style={{ color: '#fff', fontSize: 14, fontWeight: 800, textShadow: '0 1px 3px rgba(0,0,0,0.3)' }}>
+                        {promo.titulo}
+                      </div>
+                      {promo.minimo_compra > 0 && (
+                        <div style={{ color: 'rgba(255,255,255,0.85)', fontSize: 10, fontWeight: 600 }}>
+                          Compra min. {promo.minimo_compra}€
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <div style={{ padding: '26px 14px 10px' }}>
+                  <div style={{ padding: '10px 14px' }}>
                     <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--c-text)', marginBottom: 2 }}>{est.nombre}</div>
                     <div style={{ display: 'flex', gap: 6, fontSize: 11, color: 'var(--c-muted)', alignItems: 'center' }}>
                       <Stars rating={est.rating} size={10} />
