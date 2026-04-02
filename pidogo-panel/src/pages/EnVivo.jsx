@@ -89,7 +89,10 @@ export default function EnVivo() {
     await loadCliente(pedido.usuario_id)
     setPedidoActivo({ ...pedido, rider_estado: 'aceptado' })
     setEtapa('ir_recoger')
+    // Notificar al cliente
     if (pedido.usuario_id) sendPush({ targetType: 'cliente', targetId: pedido.usuario_id, title: 'Repartidor asignado', body: `Un repartidor ha aceptado tu pedido ${pedido.codigo}` })
+    // Notificar al restaurante
+    if (pedido.establecimiento_id) sendPush({ targetType: 'restaurante', targetId: pedido.establecimiento_id, title: 'Repartidor en camino', body: `${socio.nombre_comercial || socio.nombre} va de camino a recoger el pedido ${pedido.codigo}` })
   }
 
   async function rechazarPedido(pedido) {
@@ -102,10 +105,15 @@ export default function EnVivo() {
       riders_rechazados: [...rechazados, socio.id],
     }).eq('id', pedido.id)
     setPedidosPendientes(prev => prev.filter(p => p.id !== pedido.id))
+    // Notificar al restaurante que el rider rechazó
+    if (pedido.establecimiento_id) sendPush({ targetType: 'restaurante', targetId: pedido.establecimiento_id, title: 'Repartidor no disponible', body: `${socio.nombre_comercial || socio.nombre} no pudo aceptar el pedido ${pedido.codigo}. Buscando otro repartidor...` })
   }
 
   async function marcarFallido() {
     await supabase.from('pedidos').update({ estado: 'fallido' }).eq('id', pedidoActivo.id)
+    // Notificar al cliente y restaurante
+    if (pedidoActivo.usuario_id) sendPush({ targetType: 'cliente', targetId: pedidoActivo.usuario_id, title: 'Pedido no entregado', body: `Hubo un problema con la entrega de tu pedido ${pedidoActivo.codigo}. Contacta con soporte.` })
+    if (pedidoActivo.establecimiento_id) sendPush({ targetType: 'restaurante', targetId: pedidoActivo.establecimiento_id, title: 'Pedido fallido', body: `El pedido ${pedidoActivo.codigo} no pudo ser entregado por ${socio.nombre_comercial || socio.nombre}` })
     setPedidoActivo(null)
     setEtapa(null)
     setCliente(null)
@@ -128,10 +136,13 @@ export default function EnVivo() {
     if (next.estado === 'entregado') {
       supabase.functions.invoke('calcular_comisiones', { body: { pedido_id: pedidoActivo.id } })
       if (pedidoActivo.usuario_id) sendPush({ targetType: 'cliente', targetId: pedidoActivo.usuario_id, title: 'Pedido entregado', body: `Tu pedido ${pedidoActivo.codigo} ha sido entregado. ¡Buen provecho!` })
+      if (pedidoActivo.establecimiento_id) sendPush({ targetType: 'restaurante', targetId: pedidoActivo.establecimiento_id, title: 'Pedido entregado', body: `El pedido ${pedidoActivo.codigo} ha sido entregado al cliente` })
     } else if (next.estado === 'en_camino') {
       if (pedidoActivo.usuario_id) sendPush({ targetType: 'cliente', targetId: pedidoActivo.usuario_id, title: 'Pedido en camino', body: `Tu pedido ${pedidoActivo.codigo} va en camino` })
+      if (pedidoActivo.establecimiento_id) sendPush({ targetType: 'restaurante', targetId: pedidoActivo.establecimiento_id, title: 'Pedido en camino', body: `${socio.nombre_comercial || socio.nombre} va de camino al cliente con el pedido ${pedidoActivo.codigo}` })
     } else if (next.estado === 'recogido') {
       if (pedidoActivo.usuario_id) sendPush({ targetType: 'cliente', targetId: pedidoActivo.usuario_id, title: 'Pedido recogido', body: `Tu repartidor ha recogido tu pedido ${pedidoActivo.codigo}` })
+      if (pedidoActivo.establecimiento_id) sendPush({ targetType: 'restaurante', targetId: pedidoActivo.establecimiento_id, title: 'Pedido recogido', body: `${socio.nombre_comercial || socio.nombre} ha recogido el pedido ${pedidoActivo.codigo}` })
     }
 
     setPedidoActivo(prev => ({ ...prev, ...update }))

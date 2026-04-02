@@ -431,6 +431,24 @@ function PaginaPedidos({ user, socioId, pedidoTracking, onTrack, onCloseTrack })
     setLoading(false)
   }
 
+  // Realtime: actualizar pedidos en vivo cuando cambian de estado
+  useEffect(() => {
+    if (!user) return
+    const channel = supabase.channel(`tienda-pedidos-${user.id}`)
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'pedidos',
+        filter: `usuario_id=eq.${user.id}`,
+      }, payload => {
+        setPedidos(prev => prev.map(p => p.id === payload.new.id ? { ...p, ...payload.new } : p))
+      })
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'pedidos',
+        filter: `usuario_id=eq.${user.id}`,
+      }, () => { fetchPedidos() })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [user?.id])
+
   if (!user) return <div style={{ textAlign: 'center', padding: '60px 0', color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Inicia sesión para ver tus pedidos</div>
 
   // Mostrar tracking si hay pedido activo
@@ -453,6 +471,9 @@ function PaginaPedidos({ user, socioId, pedidoTracking, onTrack, onCloseTrack })
                 <PagoBadge pago={p.metodo_pago} />
               </div>
               <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>{p.establecimientos?.nombre}</div>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginTop: 2 }}>
+                {new Date(p.created_at).toLocaleDateString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+              </div>
             </div>
             <div style={{ fontWeight: 700, fontSize: 15 }}>{p.total?.toFixed(2)} €</div>
           </div>
@@ -485,6 +506,8 @@ function PaginaCarrito({ carrito, setCarrito, socio, user, onPedidoCreado, onLog
   const [restCerradoMsg, setRestCerradoMsg] = useState('')
   const [promoActiva, setPromoActiva] = useState(null)
   const [descuento, setDescuento] = useState(0)
+  const [notas, setNotas] = useState('')
+  const [propina, setPropina] = useState(0)
 
   const tieneDelivery = socio.en_servicio && socio.modo_entrega !== 'recogida'
   const total = carrito.reduce((s, i) => s + i.precio * i.cantidad, 0)
@@ -541,7 +564,7 @@ function PaginaCarrito({ carrito, setCarrito, socio, user, onPedidoCreado, onLog
     }
   }, [carrito.length, total])
   const envioFinal = tipoEntrega === 'recogida' ? 0 : envioCalculado
-  const totalFinal = total + envioFinal - descuento
+  const totalFinal = total + envioFinal - descuento + propina
 
   useEffect(() => {
     if (tipoEntrega === 'delivery' && carrito.length > 0 && !distanciaKm) calcularEnvio()
@@ -592,8 +615,9 @@ function PaginaCarrito({ carrito, setCarrito, socio, user, onPedidoCreado, onLog
         codigo, establecimiento_id: carrito[0].establecimiento_id, socio_id: socio.id,
         usuario_id: user.id, canal: 'pidogo', estado: 'nuevo', metodo_pago: metodoPago,
         modo_entrega: tipoEntrega === 'recogida' ? 'recogida' : 'delivery',
-        stripe_payment_id: stripePaymentId, subtotal: total, coste_envio: envioFinal, propina: 0,
+        stripe_payment_id: stripePaymentId, subtotal: total, coste_envio: envioFinal, propina,
         total: Math.max(0, totalFinal),
+        notas: notas.trim() || null,
         descuento: descuento > 0 ? descuento : null,
         promo_titulo: descuento > 0 && promoActiva ? promoActiva.titulo : null,
       }).select().single()
@@ -602,7 +626,20 @@ function PaginaCarrito({ carrito, setCarrito, socio, user, onPedidoCreado, onLog
         pedido_id: pedido.id, producto_id: item.producto_id, nombre_producto: item.nombre,
         tamano: item.tamano, extras: item.extras, precio_unitario: item.precio, cantidad: item.cantidad,
       })))
-      setCarrito([]); setPasoTarjeta(false); setClientSecret(null)
+      // Notificar al restaurante y al socio del nuevo pedido
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
+      const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
+      const pushFn = (targetType, targetId, title, body) =>
+        fetch(`${SUPABASE_URL}/functions/v1/enviar_push`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'apikey': SUPABASE_ANON_KEY },
+          body: JSON.stringify({ target_type: targetType, target_id: targetId, title, body }),
+        }).catch(() => {})
+      pushFn('restaurante', carrito[0].establecimiento_id, 'Nuevo pedido', `Nuevo pedido ${codigo} desde la tienda de ${socio.nombre_comercial} — ${Math.max(0, totalFinal).toFixed(2)} €`)
+      if (tipoEntrega === 'delivery') {
+        pushFn('socio', socio.id, 'Nuevo pedido para entregar', `Pedido ${codigo} — ${Math.max(0, totalFinal).toFixed(2)} €`)
+      }
+      setCarrito([]); setPasoTarjeta(false); setClientSecret(null); setNotas(''); setPropina(0)
       onPedidoCreado(pedido)
     } catch (err) { alert('Error: ' + err.message) }
     finally { setLoading(false) }
@@ -652,6 +689,32 @@ function PaginaCarrito({ carrito, setCarrito, socio, user, onPedidoCreado, onLog
             </div>
           </div>
 
+          {/* Notas del pedido */}
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Notas del pedido</div>
+            <textarea value={notas} onChange={e => setNotas(e.target.value)} placeholder="Instrucciones especiales, alergias, piso/puerta..." rows={2} style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', fontSize: 13, fontFamily: 'inherit', background: 'rgba(255,255,255,0.04)', color: '#F5F5F5', outline: 'none', boxSizing: 'border-box', resize: 'none' }} />
+          </div>
+
+          {/* Propina */}
+          {tipoEntrega === 'delivery' && (
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Propina para el repartidor</div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {[0, 1, 2, 3].map(p => (
+                  <button key={p} onClick={() => setPropina(p)} style={{
+                    flex: 1, padding: '10px 0', borderRadius: 10,
+                    border: propina === p ? '2px solid #FF6B2C' : '1px solid rgba(255,255,255,0.1)',
+                    background: propina === p ? 'rgba(255,107,44,0.12)' : 'rgba(255,255,255,0.04)',
+                    fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+                    color: propina === p ? '#FF6B2C' : '#F5F5F5',
+                  }}>
+                    {p === 0 ? 'Sin' : `${p} €`}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Promo banner */}
           {promoActiva && (
             <div style={{
@@ -684,6 +747,11 @@ function PaginaCarrito({ carrito, setCarrito, socio, user, onPedidoCreado, onLog
               <span>Envío {distanciaKm && tipoEntrega === 'delivery' ? <span style={{ fontSize: 10 }}>({distanciaKm} km)</span> : null}</span>
               <span style={{ color: tipoEntrega === 'recogida' ? '#22C55E' : 'inherit' }}>{tipoEntrega === 'recogida' ? 'Gratis' : envioLoading ? 'Calculando...' : `${envioFinal.toFixed(2)} €`}</span>
             </div>
+            {propina > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, color: '#FF6B2C' }}>
+                <span>Propina</span><span>{propina.toFixed(2)} €</span>
+              </div>
+            )}
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: 17, marginTop: 10, paddingTop: 10, borderTop: '2px solid rgba(255,255,255,0.08)' }}>
             <span>Total</span><span>{Math.max(0, totalFinal).toFixed(2)} €</span>
@@ -1086,6 +1154,31 @@ export default function TiendaSocio({ slug: slugProp }) {
                 </div>
               </div>
             </div>
+            {/* Redes sociales del socio */}
+            {(socio.redes?.whatsapp || socio.redes?.instagram || socio.redes?.tiktok || socio.telefono) && (
+              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                {socio.redes?.whatsapp && (
+                  <a href={`https://wa.me/${socio.redes.whatsapp.replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer" style={{ padding: '6px 12px', borderRadius: 8, background: 'rgba(37,211,102,0.15)', color: '#25D366', fontSize: 11, fontWeight: 700, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    💬 WhatsApp
+                  </a>
+                )}
+                {socio.telefono && !socio.redes?.whatsapp && (
+                  <a href={`https://wa.me/${socio.telefono.replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer" style={{ padding: '6px 12px', borderRadius: 8, background: 'rgba(37,211,102,0.15)', color: '#25D366', fontSize: 11, fontWeight: 700, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    💬 WhatsApp
+                  </a>
+                )}
+                {socio.redes?.instagram && (
+                  <a href={`https://instagram.com/${socio.redes.instagram}`} target="_blank" rel="noopener noreferrer" style={{ padding: '6px 12px', borderRadius: 8, background: 'rgba(225,48,108,0.15)', color: '#E1306C', fontSize: 11, fontWeight: 700, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    📸 @{socio.redes.instagram}
+                  </a>
+                )}
+                {socio.redes?.tiktok && (
+                  <a href={`https://tiktok.com/@${socio.redes.tiktok}`} target="_blank" rel="noopener noreferrer" style={{ padding: '6px 12px', borderRadius: 8, background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)', fontSize: 11, fontWeight: 700, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    🎵 @{socio.redes.tiktok}
+                  </a>
+                )}
+              </div>
+            )}
           </div>
         </>
       )}

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useSocio } from '../context/SocioContext'
+import { sendPush } from '../lib/webPush'
 
 function EstadoBadge({ estado }) {
   const c = { aceptado: { bg: 'rgba(74,222,128,0.12)', c: '#4ADE80', l: 'Aceptado' }, pendiente: { bg: 'rgba(251,191,36,0.12)', c: '#FBBF24', l: 'Pendiente' }, rechazado: { bg: 'rgba(239,68,68,0.12)', c: '#EF4444', l: 'Rechazado' } }[estado] || { bg: 'rgba(255,255,255,0.06)', c: 'rgba(255,255,255,0.4)', l: 'Nuevo' }
@@ -170,6 +171,13 @@ function ChatView({ rel, socio, onBack }) {
       setMensajes(prev => {
         if (prev.some(m => m.id === data.id)) return prev
         return [...prev, data]
+      })
+      // Notificar al restaurante del nuevo mensaje
+      sendPush({
+        targetType: 'restaurante',
+        targetId: estId,
+        title: `Mensaje de ${socio.nombre_comercial || socio.nombre}`,
+        body: texto.length > 80 ? texto.substring(0, 80) + '...' : texto,
       })
     }
   }

@@ -47,11 +47,38 @@ export function SocioProvider({ children }) {
       }
     }
 
-    const { data } = await supabase
+    let { data } = await supabase
       .from('socios')
       .select('*')
       .eq('user_id', userId)
       .single()
+
+    // Si no existe perfil de socio (ej: Google OAuth primer login), crearlo automáticamente
+    if (!data) {
+      const { data: { user } } = await supabase.auth.getUser()
+      const nombre = user?.user_metadata?.full_name || user?.user_metadata?.nombre || user?.email?.split('@')[0] || 'Socio'
+      const nombreComercial = `${nombre} Delivery`
+      const slug = await generarSlugUnico(nombreComercial)
+
+      const { data: newSocio, error: createErr } = await supabase.from('socios').insert({
+        user_id: userId,
+        nombre,
+        nombre_comercial: nombreComercial,
+        slug,
+        email: user?.email || '',
+        modo_entrega: 'ambos',
+        radio_km: 10,
+        tarifa_base: 3,
+        radio_tarifa_base_km: 3,
+        precio_km_adicional: 0.50,
+        activo: false,
+        en_servicio: false,
+      }).select().single()
+
+      if (createErr) { console.error('Error creando perfil socio:', createErr); setLoading(false); return }
+      data = newSocio
+    }
+
     setSocio(data)
     setLoading(false)
     if (data) {
@@ -78,6 +105,27 @@ export function SocioProvider({ children }) {
     return data
   }
 
+  // Genera un slug único a partir del nombre comercial, añadiendo sufijo numérico si ya existe
+  async function generarSlugUnico(nombreComercial) {
+    const base = nombreComercial.toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // quitar acentos
+      .replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+
+    if (!base) return `socio-${Date.now()}`
+
+    // Verificar si el slug base ya existe
+    const { data: existente } = await supabase.from('socios').select('slug').eq('slug', base).maybeSingle()
+    if (!existente) return base
+
+    // Si existe, buscar todos los que empiecen con el slug base y añadir sufijo
+    const { data: similares } = await supabase.from('socios').select('slug').like('slug', `${base}%`)
+    const sufijos = (similares || [])
+      .map(s => { const match = s.slug.match(new RegExp(`^${base}-(\\d+)$`)); return match ? parseInt(match[1]) : 0 })
+      .filter(n => n > 0)
+    const siguiente = sufijos.length > 0 ? Math.max(...sufijos) + 1 : 2
+    return `${base}-${siguiente}`
+  }
+
   async function registro(formData) {
     const { data: roleCheck } = await supabase.rpc('check_email_role', { check_email: formData.email })
     if (roleCheck?.exists) throw new Error(`Este email ya está registrado como ${roleCheck.role}. Usa otro email.`)
@@ -85,8 +133,8 @@ export function SocioProvider({ children }) {
     const { data, error } = await supabase.auth.signUp({ email: formData.email, password: formData.password, options: { data: { nombre: formData.nombre, rol: 'socio' } } })
     if (error) throw error
 
-    // Generar slug
-    const slug = formData.nombre_comercial.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+    // Generar slug único (evita colisiones)
+    const slug = await generarSlugUnico(formData.nombre_comercial)
 
     const { error: socioError } = await supabase.from('socios').insert({
       user_id: data.user?.id,

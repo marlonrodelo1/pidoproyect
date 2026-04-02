@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useRest } from '../context/RestContext'
+import { sendPush } from '../lib/webPush'
 
 export default function Socios() {
   const { restaurante } = useRest()
@@ -31,6 +32,15 @@ export default function Socios() {
     const update = { estado }
     if (estado === 'aceptado') update.aceptado_at = new Date().toISOString()
     await supabase.from('socio_establecimiento').update(update).eq('id', relId)
+    // Notificar al socio
+    const rel = relaciones.find(r => r.id === relId)
+    if (rel?.socios?.id) {
+      if (estado === 'aceptado') {
+        sendPush({ targetType: 'socio', targetId: rel.socios.id, title: '¡Solicitud aceptada!', body: `${restaurante.nombre} ha aceptado tu solicitud. Ya puedes repartir sus pedidos.` })
+      } else if (estado === 'rechazado') {
+        sendPush({ targetType: 'socio', targetId: rel.socios.id, title: 'Solicitud rechazada', body: `${restaurante.nombre} ha rechazado tu solicitud de vinculación.` })
+      }
+    }
     fetchSocios()
     setDetalle(null)
   }
@@ -91,6 +101,13 @@ export default function Socios() {
         setMensajes(prev => {
           if (prev.some(m => m.id === data.id)) return prev
           return [...prev, data]
+        })
+        // Notificar al socio del nuevo mensaje
+        sendPush({
+          targetType: 'socio',
+          targetId: detalle.socios.id,
+          title: `Mensaje de ${restaurante.nombre}`,
+          body: texto.length > 80 ? texto.substring(0, 80) + '...' : texto,
         })
       }
     } catch (err) {
