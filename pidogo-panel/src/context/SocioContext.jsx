@@ -27,24 +27,18 @@ export function SocioProvider({ children }) {
   }, [])
 
   async function fetchSocio(userId) {
-    // Verificar/asignar rol 'socio' en tabla usuarios (Google OAuth crea con 'cliente' por defecto)
+    // Verificar rol en tabla usuarios
     const { data: perfil } = await supabase.from('usuarios').select('id, rol, created_at').eq('id', userId).single()
     if (perfil) {
-      if (perfil.rol !== 'socio') {
-        // Si fue creado hace menos de 2 min (nuevo usuario Google OAuth), actualizar rol
-        const createdAt = new Date(perfil.created_at)
-        const now = new Date()
-        if ((now - createdAt) < 120000) {
-          await supabase.from('usuarios').update({ rol: 'socio' }).eq('id', userId)
-        } else {
-          // Usuario existente con otro rol — no puede acceder como socio
-          await supabase.auth.signOut()
-          setUser(null)
-          setSocio(null)
-          setLoading(false)
-          return
-        }
+      // Bloquear solo restaurantes — tienen su propio panel
+      if (perfil.rol === 'restaurante') {
+        await supabase.auth.signOut()
+        setUser(null)
+        setSocio(null)
+        setLoading(false)
+        return
       }
+      // 'socio' y 'cliente' pueden entrar — un cliente puede registrarse como repartidor
     }
 
     let { data } = await supabase
@@ -53,30 +47,12 @@ export function SocioProvider({ children }) {
       .eq('user_id', userId)
       .single()
 
-    // Si no existe perfil de socio (ej: Google OAuth primer login), crearlo automáticamente
     if (!data) {
-      const { data: { user } } = await supabase.auth.getUser()
-      const nombre = user?.user_metadata?.full_name || user?.user_metadata?.nombre || user?.email?.split('@')[0] || 'Socio'
-      const nombreComercial = `${nombre} Delivery`
-      const slug = await generarSlugUnico(nombreComercial)
-
-      const { data: newSocio, error: createErr } = await supabase.from('socios').insert({
-        user_id: userId,
-        nombre,
-        nombre_comercial: nombreComercial,
-        slug,
-        email: user?.email || '',
-        modo_entrega: 'ambos',
-        radio_km: 10,
-        tarifa_base: 3,
-        radio_tarifa_base_km: 3,
-        precio_km_adicional: 0.50,
-        activo: false,
-        en_servicio: false,
-      }).select().single()
-
-      if (createErr) { console.error('Error creando perfil socio:', createErr); setLoading(false); return }
-      data = newSocio
+      // No tiene perfil de socio — necesita completar registro de repartidor
+      // (aplica tanto para clientes de pido-app como nuevos usuarios Google OAuth)
+      setSocio(null)
+      setLoading(false)
+      return
     }
 
     setSocio(data)
@@ -126,9 +102,40 @@ export function SocioProvider({ children }) {
     return `${base}-${siguiente}`
   }
 
+  // Registro como socio para usuarios que ya tienen cuenta (clientes de pido-app o Google OAuth)
+  async function registroComoSocio(formData) {
+    if (!user) throw new Error('Debes iniciar sesión primero')
+    const slug = await generarSlugUnico(formData.nombre_comercial)
+    const { data: newSocio, error } = await supabase.from('socios').insert({
+      user_id: user.id,
+      nombre: formData.nombre,
+      nombre_comercial: formData.nombre_comercial,
+      slug,
+      email: user.email || '',
+      telefono: formData.telefono || null,
+      modo_entrega: 'ambos',
+      radio_km: 10,
+      tarifa_base: 3,
+      radio_tarifa_base_km: 3,
+      precio_km_adicional: 0.50,
+      activo: false,
+      en_servicio: false,
+    }).select().single()
+    if (error) throw new Error('Error al crear el perfil de socio')
+    setSocio(newSocio)
+    registerWebPush('socio', { socio_id: newSocio.id })
+    registerPushNotifications('socio', { socio_id: newSocio.id })
+    return newSocio
+  }
+
   async function registro(formData) {
     const { data: roleCheck } = await supabase.rpc('check_email_role', { check_email: formData.email })
-    if (roleCheck?.exists) throw new Error(`Este email ya está registrado como ${roleCheck.role}. Usa otro email.`)
+    if (roleCheck?.exists) {
+      if (roleCheck.role === 'cliente') {
+        throw new Error('Ya tienes cuenta en Pidoo. Usa "Iniciar sesión" con tu email y contraseña para registrarte como repartidor.')
+      }
+      throw new Error(`Este email ya está registrado como ${roleCheck.role}. Usa otro email.`)
+    }
 
     const { data, error } = await supabase.auth.signUp({ email: formData.email, password: formData.password, options: { data: { nombre: formData.nombre, rol: 'socio' } } })
     if (error) throw error
@@ -160,7 +167,7 @@ export function SocioProvider({ children }) {
   }
 
   return (
-    <SocioContext.Provider value={{ user, socio, loading, login, registro, logout, updateSocio, fetchSocio: () => fetchSocio(user?.id) }}>
+    <SocioContext.Provider value={{ user, socio, loading, login, registro, registroComoSocio, logout, updateSocio, fetchSocio: () => fetchSocio(user?.id) }}>
       {children}
     </SocioContext.Provider>
   )

@@ -7,7 +7,7 @@ const GoogleIcon = () => (
 )
 
 export default function Login() {
-  const { login, registro } = useSocio()
+  const { login, registro, registroComoSocio, user, logout } = useSocio()
   const [modo, setModo] = useState('login')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -20,6 +20,28 @@ export default function Login() {
   const [form, setForm] = useState({
     nombre: '', nombre_comercial: '', email: '', password: '', telefono: '',
   })
+
+  // Usuario autenticado pero sin perfil de socio (ej: cliente de pido-app)
+  const needsRiderProfile = !!user
+
+  const [riderForm, setRiderForm] = useState({
+    nombre: user?.user_metadata?.full_name || user?.user_metadata?.nombre || '',
+    nombre_comercial: '',
+    telefono: '',
+  })
+
+  const handleRegistroRider = async () => {
+    setError(null)
+    if (!riderForm.nombre.trim()) { setError('Tu nombre es obligatorio'); return }
+    if (!riderForm.nombre_comercial.trim()) { setError('El nombre comercial es obligatorio'); return }
+    if (!aceptaTerminos) { setError('Debes aceptar los términos y condiciones'); return }
+    setLoading(true)
+    try {
+      await registroComoSocio(riderForm)
+      // registroComoSocio hace setSocio() → App.jsx detecta socio y muestra el panel
+    } catch (err) { setError(err.message) }
+    finally { setLoading(false) }
+  }
 
   const handleLogin = async () => {
     setError(null); setLoading(true)
@@ -46,6 +68,57 @@ export default function Login() {
 
   const inp = { width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid var(--c-border)', fontSize: 14, fontFamily: 'inherit', marginBottom: 10, background: 'var(--c-surface)', color: 'var(--c-text)', outline: 'none', boxSizing: 'border-box' }
   const lbl = { fontSize: 11, fontWeight: 600, color: 'var(--c-muted)', marginBottom: 4, display: 'block' }
+
+  // Vista: usuario autenticado pero sin perfil de socio → completar registro
+  if (needsRiderProfile) {
+    return (
+      <div style={{ padding: '30px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', minHeight: '100vh', justifyContent: 'center' }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--c-accent)', marginBottom: 4, letterSpacing: 1 }}>PIDOGO</div>
+        <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--c-text)', marginBottom: 4 }}>Completa tu registro</div>
+        <p style={{ fontSize: 13, color: 'var(--c-muted)', marginBottom: 6, textAlign: 'center' }}>
+          ¡Hola, {user.user_metadata?.full_name || user.user_metadata?.nombre || user.email}!
+        </p>
+        <p style={{ fontSize: 12, color: 'var(--c-muted)', marginBottom: 24, textAlign: 'center', maxWidth: 320 }}>
+          Para empezar a repartir necesitamos algunos datos adicionales.
+        </p>
+
+        <div style={{ width: '100%', maxWidth: 360 }}>
+          <div style={{ marginBottom: 10 }}><label style={lbl}>Tu nombre completo *</label><input value={riderForm.nombre} onChange={e => setRiderForm({ ...riderForm, nombre: e.target.value })} placeholder="Ej: Carlos Martínez" style={inp} /></div>
+          <div style={{ marginBottom: 10 }}><label style={lbl}>Nombre comercial * (será tu URL)</label><input value={riderForm.nombre_comercial} onChange={e => setRiderForm({ ...riderForm, nombre_comercial: e.target.value })} placeholder="Ej: Carlos Delivery" style={inp} /></div>
+          <div style={{ marginBottom: 10 }}><label style={lbl}>Teléfono</label><input type="tel" value={riderForm.telefono} onChange={e => setRiderForm({ ...riderForm, telefono: e.target.value })} placeholder="+34 600 000 000" style={inp} /></div>
+
+          {riderForm.nombre_comercial && (
+            <div style={{ fontSize: 11, color: 'var(--c-accent)', fontWeight: 600, marginBottom: 12 }}>
+              Tu tienda: pidoo.es/{riderForm.nombre_comercial.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}
+            </div>
+          )}
+
+          <div style={{ background: 'var(--c-surface)', borderRadius: 10, padding: '10px 14px', marginBottom: 14, border: '1px solid var(--c-border)' }}>
+            <div style={{ fontSize: 11, color: 'var(--c-muted)' }}>Conectado como</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-text)', marginTop: 2 }}>{user.email}</div>
+          </div>
+
+          <button onClick={() => setAceptaTerminos(!aceptaTerminos)} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', padding: 0, marginBottom: 14 }}>
+            <div style={{ width: 20, height: 20, borderRadius: 6, flexShrink: 0, marginTop: 1, border: aceptaTerminos ? 'none' : '2px solid rgba(255,255,255,0.2)', background: aceptaTerminos ? 'var(--c-accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#fff' }}>{aceptaTerminos && '✓'}</div>
+            <span style={{ fontSize: 11, color: 'var(--c-muted)', lineHeight: 1.4 }}>
+              Acepto los <a href="https://pidoo.es/terminos-socios" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--c-accent)', fontWeight: 600, textDecoration: 'none' }} onClick={e => e.stopPropagation()}>términos y condiciones</a> y la <a href="https://pidoo.es/privacidad-socios" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--c-accent)', fontWeight: 600, textDecoration: 'none' }} onClick={e => e.stopPropagation()}>política de privacidad</a>
+            </span>
+          </button>
+
+          {error && <div style={{ color: '#EF4444', fontSize: 12, marginBottom: 10, textAlign: 'center', background: 'rgba(239,68,68,0.1)', padding: '8px 12px', borderRadius: 8 }}>{error}</div>}
+
+          <button onClick={handleRegistroRider} disabled={loading} style={{ width: '100%', padding: '16px 0', borderRadius: 14, border: 'none', background: loading ? 'var(--c-muted)' : 'var(--c-accent)', color: '#fff', fontSize: 16, fontWeight: 800, cursor: loading ? 'default' : 'pointer', fontFamily: 'inherit' }}>
+            {loading ? 'Enviando...' : 'Solicitar ser repartidor'}
+          </button>
+          <div style={{ fontSize: 10, color: 'var(--c-muted)', textAlign: 'center', marginTop: 8 }}>Tu cuenta será revisada y aprobada por el equipo PIDOO</div>
+
+          <button onClick={logout} style={{ width: '100%', marginTop: 16, padding: '12px 0', borderRadius: 12, border: '1px solid var(--c-border)', background: 'transparent', color: 'var(--c-muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+            Cerrar sesión
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   if (success) {
     return (
