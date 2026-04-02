@@ -1,16 +1,14 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { ds } from '../lib/darkStyles'
-import { Trash2 } from 'lucide-react'
+import { Trash2, Truck, DollarSign, MapPin } from 'lucide-react'
 
 export default function Configuracion() {
-  const [comisionPlataforma, setComisionPlataforma] = useState(10)
-  const [comisionSocioReparto, setComisionSocioReparto] = useState(10)
-  const [comisionSocioRecogida, setComisionSocioRecogida] = useState(5)
-  const [radioDefault, setRadioDefault] = useState(10)
-  const [categorias, setCategorias] = useState(['comida', 'farmacia', 'marketplace'])
-  const [nuevaCat, setNuevaCat] = useState('')
-  const [guardado, setGuardado] = useState(false)
+  // Configuración de plataforma (desde DB)
+  const [config, setConfig] = useState({})
+  const [configLoading, setConfigLoading] = useState(true)
+  const [configSaving, setConfigSaving] = useState(false)
+  const [configMsg, setConfigMsg] = useState(null)
 
   // Categorías generales
   const [catsGenerales, setCatsGenerales] = useState([])
@@ -18,11 +16,48 @@ export default function Configuracion() {
 
   // Páginas legales
   const [paginasLegales, setPaginasLegales] = useState([])
-  const [editLegal, setEditLegal] = useState(null) // null = lista, objeto = editando
+  const [editLegal, setEditLegal] = useState(null)
   const [legalForm, setLegalForm] = useState({ titulo: '', contenido: '' })
   const [savingLegal, setSavingLegal] = useState(false)
 
-  useEffect(() => { loadCatsGenerales(); loadPaginasLegales() }, [])
+  useEffect(() => { loadConfig(); loadCatsGenerales(); loadPaginasLegales() }, [])
+
+  // ==================== CONFIGURACIÓN PLATAFORMA ====================
+
+  async function loadConfig() {
+    setConfigLoading(true)
+    const { data } = await supabase.from('configuracion_plataforma').select('clave, valor')
+    const map = {}
+    for (const row of (data || [])) map[row.clave] = row.valor
+    setConfig(map)
+    setConfigLoading(false)
+  }
+
+  function setConfigVal(clave, valor) {
+    setConfig(prev => ({ ...prev, [clave]: valor }))
+  }
+
+  async function guardarConfig() {
+    setConfigSaving(true)
+    setConfigMsg(null)
+    try {
+      const updates = Object.entries(config).map(([clave, valor]) => ({
+        clave,
+        valor: String(valor),
+        updated_at: new Date().toISOString(),
+      }))
+      for (const u of updates) {
+        await supabase.from('configuracion_plataforma').update({ valor: u.valor, updated_at: u.updated_at }).eq('clave', u.clave)
+      }
+      setConfigMsg('Configuración guardada correctamente')
+      setTimeout(() => setConfigMsg(null), 3000)
+    } catch (err) {
+      setConfigMsg('Error al guardar: ' + err.message)
+    }
+    setConfigSaving(false)
+  }
+
+  // ==================== CATEGORÍAS GENERALES ====================
 
   async function loadCatsGenerales() {
     const { data } = await supabase.from('categorias_generales').select('*').order('orden')
@@ -45,6 +80,8 @@ export default function Configuracion() {
     loadCatsGenerales()
   }
 
+  // ==================== PÁGINAS LEGALES ====================
+
   async function loadPaginasLegales() {
     const { data } = await supabase.from('paginas_legales').select('*').order('created_at')
     setPaginasLegales(data || [])
@@ -63,26 +100,139 @@ export default function Configuracion() {
     loadPaginasLegales()
   }
 
-  function guardar() {
-    setGuardado(true)
-    setTimeout(() => setGuardado(false), 2000)
-  }
+  // ==================== HELPERS ====================
 
-  function addCategoria() {
-    if (nuevaCat.trim() && !categorias.includes(nuevaCat.trim().toLowerCase())) {
-      setCategorias([...categorias, nuevaCat.trim().toLowerCase()])
-      setNuevaCat('')
-    }
+  const configNum = (clave, fallback = 0) => parseFloat(config[clave] ?? fallback)
+
+  // Simulador de ejemplo de envío
+  const ejemploEnvio = (km) => {
+    const base = configNum('envio_tarifa_base', 2.5)
+    const radio = configNum('envio_radio_base_km', 2)
+    const extra = configNum('envio_precio_km_adicional', 0.5)
+    const max = configNum('envio_tarifa_maxima', 15)
+    let cost = km <= radio ? base : base + ((km - radio) * extra)
+    if (cost > max) cost = max
+    return cost.toFixed(2)
   }
 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <h1 style={ds.h1}>Configuracion</h1>
-        {guardado && <span style={{ fontSize: 13, color: '#16A34A', fontWeight: 600 }}>Guardado</span>}
+        <h1 style={ds.h1}>Configuración</h1>
       </div>
 
-      {/* Categorías generales */}
+      {configLoading ? (
+        <div style={{ textAlign: 'center', padding: 40, color: 'rgba(255,255,255,0.4)' }}>Cargando configuración...</div>
+      ) : (
+        <>
+          {/* ==================== TARIFAS DE ENVÍO ==================== */}
+          <div style={styles.section}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+              <Truck size={18} color="#FF6B2C" />
+              <h2 style={styles.sectionTitle}>Tarifas de envío (canal Pido)</h2>
+            </div>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginBottom: 20, marginTop: -8 }}>
+              Estas tarifas se aplican cuando un cliente pide desde la app principal (pidoo.es). Los socios configuran sus propias tarifas desde su panel.
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 20 }}>
+              <div>
+                <label style={ds.label}>Tarifa base (€)</label>
+                <input type="number" step="0.10" min="0" value={config.envio_tarifa_base ?? '2.50'}
+                  onChange={e => setConfigVal('envio_tarifa_base', e.target.value)} style={ds.formInput} />
+                <div style={styles.hint}>Coste mínimo de envío</div>
+              </div>
+              <div>
+                <label style={ds.label}>Radio base (km)</label>
+                <input type="number" step="0.5" min="0.5" value={config.envio_radio_base_km ?? '2'}
+                  onChange={e => setConfigVal('envio_radio_base_km', e.target.value)} style={ds.formInput} />
+                <div style={styles.hint}>Distancia cubierta por la tarifa base</div>
+              </div>
+              <div>
+                <label style={ds.label}>€ por km adicional</label>
+                <input type="number" step="0.10" min="0" value={config.envio_precio_km_adicional ?? '0.50'}
+                  onChange={e => setConfigVal('envio_precio_km_adicional', e.target.value)} style={ds.formInput} />
+                <div style={styles.hint}>Cada km fuera del radio base</div>
+              </div>
+              <div>
+                <label style={ds.label}>Tarifa máxima (€)</label>
+                <input type="number" step="0.50" min="0" value={config.envio_tarifa_maxima ?? '15.00'}
+                  onChange={e => setConfigVal('envio_tarifa_maxima', e.target.value)} style={ds.formInput} />
+                <div style={styles.hint}>Tope máximo que paga el cliente</div>
+              </div>
+            </div>
+
+            {/* Simulador */}
+            <div style={{ background: 'rgba(255,107,44,0.08)', borderRadius: 12, padding: 16, border: '1px solid rgba(255,107,44,0.15)' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#FF6B2C', marginBottom: 10 }}>Vista previa de tarifas</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+                {[1, 2, 3, 5, 8, 10, 15].map(km => (
+                  <div key={km} style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 8, padding: '8px 14px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{km} km</div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: '#F5F5F5' }}>€{ejemploEnvio(km)}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* ==================== COMISIONES ==================== */}
+          <div style={styles.section}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+              <DollarSign size={18} color="#FF6B2C" />
+              <h2 style={styles.sectionTitle}>Porcentajes de comisiones</h2>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
+              <div>
+                <label style={ds.label}>Comisión plataforma (%)</label>
+                <input type="number" min={0} max={50} value={config.comision_plataforma ?? '10'}
+                  onChange={e => setConfigVal('comision_plataforma', e.target.value)} style={ds.formInput} />
+                <div style={styles.hint}>Se cobra al restaurante por cada pedido</div>
+              </div>
+              <div>
+                <label style={ds.label}>Comisión socio - Reparto (%)</label>
+                <input type="number" min={0} max={50} value={config.comision_socio_reparto ?? '10'}
+                  onChange={e => setConfigVal('comision_socio_reparto', e.target.value)} style={ds.formInput} />
+                <div style={styles.hint}>Se cobra al socio por pedidos de delivery</div>
+              </div>
+              <div>
+                <label style={ds.label}>Comisión socio - Recogida (%)</label>
+                <input type="number" min={0} max={50} value={config.comision_socio_recogida ?? '5'}
+                  onChange={e => setConfigVal('comision_socio_recogida', e.target.value)} style={ds.formInput} />
+                <div style={styles.hint}>Se cobra al socio por pedidos de recogida</div>
+              </div>
+            </div>
+          </div>
+
+          {/* ==================== RADIO DEFAULT ==================== */}
+          <div style={styles.section}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+              <MapPin size={18} color="#FF6B2C" />
+              <h2 style={styles.sectionTitle}>Radio de cobertura por defecto</h2>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <input type="range" min={1} max={30} value={config.radio_cobertura_default ?? '10'}
+                onChange={e => setConfigVal('radio_cobertura_default', e.target.value)} style={{ flex: 1, maxWidth: 400 }} />
+              <span style={{ fontSize: 20, fontWeight: 800, color: '#F5F5F5', minWidth: 60 }}>{config.radio_cobertura_default ?? 10} km</span>
+            </div>
+            <div style={styles.hint}>Radio que se asigna a nuevos establecimientos por defecto</div>
+          </div>
+
+          {/* Botón guardar toda la configuración */}
+          <div style={{ marginBottom: 24 }}>
+            <button onClick={guardarConfig} disabled={configSaving} style={{ ...ds.primaryBtn, padding: '14px 40px', fontSize: 15 }}>
+              {configSaving ? 'Guardando...' : 'Guardar toda la configuración'}
+            </button>
+            {configMsg && (
+              <span style={{ marginLeft: 16, fontSize: 13, fontWeight: 600, color: configMsg.includes('Error') ? '#EF4444' : '#16A34A' }}>
+                {configMsg}
+              </span>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* ==================== CATEGORÍAS GENERALES ==================== */}
       <div style={styles.section}>
         <h2 style={styles.sectionTitle}>Categorías generales (se muestran en pido-app)</h2>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
@@ -103,57 +253,11 @@ export default function Configuracion() {
         </div>
       </div>
 
-      {/* Comisiones */}
+      {/* ==================== NOTIFICACIÓN MASIVA ==================== */}
       <div style={styles.section}>
-        <h2 style={styles.sectionTitle}>Porcentajes de comisiones</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
-          <div>
-            <label style={ds.label}>Comision plataforma (%)</label>
-            <input type="number" value={comisionPlataforma} onChange={e => setComisionPlataforma(+e.target.value)} min={0} max={50} style={ds.formInput} />
-          </div>
-          <div>
-            <label style={ds.label}>Comision socio - Reparto (%)</label>
-            <input type="number" value={comisionSocioReparto} onChange={e => setComisionSocioReparto(+e.target.value)} min={0} max={50} style={ds.formInput} />
-          </div>
-          <div>
-            <label style={ds.label}>Comision socio - Recogida (%)</label>
-            <input type="number" value={comisionSocioRecogida} onChange={e => setComisionSocioRecogida(+e.target.value)} min={0} max={50} style={ds.formInput} />
-          </div>
-        </div>
-      </div>
-
-      {/* Radio */}
-      <div style={styles.section}>
-        <h2 style={styles.sectionTitle}>Radio de cobertura por defecto</h2>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <input type="range" min={1} max={30} value={radioDefault} onChange={e => setRadioDefault(+e.target.value)} style={{ flex: 1, maxWidth: 300 }} />
-          <span style={{ fontSize: 16, fontWeight: 700, color: '#F5F5F5' }}>{radioDefault} km</span>
-        </div>
-      </div>
-
-      {/* Categorias padre */}
-      <div style={styles.section}>
-        <h2 style={styles.sectionTitle}>Categorias padre (verticales)</h2>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-          {categorias.map(cat => (
-            <span key={cat} style={styles.tag}>
-              {cat}
-              <button onClick={() => setCategorias(categorias.filter(c => c !== cat))} style={styles.tagRemove}>x</button>
-            </span>
-          ))}
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input value={nuevaCat} onChange={e => setNuevaCat(e.target.value)} placeholder="Nueva categoria..." style={{ ...ds.formInput, width: 200 }}
-            onKeyDown={e => e.key === 'Enter' && addCategoria()} />
-          <button onClick={addCategoria} style={styles.addBtn}>Agregar</button>
-        </div>
-      </div>
-
-      {/* Notificaciones masivas */}
-      <div style={styles.section}>
-        <h2 style={styles.sectionTitle}>Notificacion masiva</h2>
+        <h2 style={styles.sectionTitle}>Notificación masiva</h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <input placeholder="Titulo de la notificacion" style={ds.formInput} />
+          <input placeholder="Título de la notificación" style={ds.formInput} />
           <textarea placeholder="Mensaje..." rows={3} style={{ ...ds.formInput, resize: 'vertical' }} />
           <div style={{ display: 'flex', gap: 8 }}>
             <select style={ds.select}>
@@ -161,12 +265,12 @@ export default function Configuracion() {
               <option value="socios">Solo socios</option>
               <option value="restaurantes">Solo restaurantes</option>
             </select>
-            <button style={styles.sendBtn}>Enviar notificacion</button>
+            <button style={styles.sendBtn}>Enviar notificación</button>
           </div>
         </div>
       </div>
 
-      {/* Páginas legales */}
+      {/* ==================== PÁGINAS LEGALES ==================== */}
       <div style={styles.section}>
         <h2 style={styles.sectionTitle}>Páginas legales</h2>
         <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginBottom: 16 }}>Edita los textos legales que se muestran en pidoo.es/terminos y pidoo.es/privacidad</p>
@@ -205,17 +309,15 @@ export default function Configuracion() {
           </div>
         )}
       </div>
-
-      <button onClick={guardar} style={ds.primaryBtn}>Guardar configuracion</button>
     </div>
   )
 }
 
 const styles = {
   section: { background: 'rgba(255,255,255,0.06)', borderRadius: 14, padding: 24, marginBottom: 16, border: '1px solid rgba(255,255,255,0.08)' },
-  sectionTitle: { fontSize: 15, fontWeight: 700, color: '#F5F5F5', marginBottom: 16 },
+  sectionTitle: { fontSize: 15, fontWeight: 700, color: '#F5F5F5', margin: 0 },
   tag: { display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 8, background: 'rgba(255,255,255,0.08)', fontSize: 12, fontWeight: 600, color: '#F5F5F5' },
   tagRemove: { background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.4)', fontSize: 12, fontWeight: 700, padding: 0, display: 'flex', alignItems: 'center' },
-  addBtn: { padding: '10px 18px', borderRadius: 8, border: 'none', background: 'rgba(255,255,255,0.08)', color: '#F5F5F5', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", whiteSpace: 'nowrap' },
+  hint: { fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 4 },
   sendBtn: { padding: '10px 18px', borderRadius: 8, border: 'none', background: '#3B82F6', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", whiteSpace: 'nowrap' },
 }

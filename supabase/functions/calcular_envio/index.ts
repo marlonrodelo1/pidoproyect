@@ -6,20 +6,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Tarifas por defecto del canal PIDO (configurables desde Super Admin)
-const PIDO_CONFIG = {
-  tarifa_base: 2.50,
-  radio_base_km: 2,
-  precio_km_adicional: 0.50,
-  tarifa_maxima: 15.00,
-}
-
 // Calcula distancia en km entre dos puntos usando fórmula de Haversine
 function calcularDistanciaKm(
   lat1: number, lng1: number,
   lat2: number, lng2: number
 ): number {
-  const R = 6371 // Radio de la Tierra en km
+  const R = 6371
   const dLat = (lat2 - lat1) * Math.PI / 180
   const dLng = (lng2 - lng1) * Math.PI / 180
   const a =
@@ -108,25 +100,40 @@ serve(async (req) => {
         precio_km_adicional: socio.precio_km_adicional,
       }
     } else {
-      // Canal PIDO: tarifas de la plataforma
-      if (distancia <= PIDO_CONFIG.radio_base_km) {
-        envio = PIDO_CONFIG.tarifa_base
-      } else {
-        const kmExtra = distancia - PIDO_CONFIG.radio_base_km
-        envio = PIDO_CONFIG.tarifa_base + (kmExtra * PIDO_CONFIG.precio_km_adicional)
+      // Canal PIDO: tarifas de la plataforma (desde configuracion_plataforma)
+      const { data: configRows } = await supabase
+        .from('configuracion_plataforma')
+        .select('clave, valor')
+        .in('clave', ['envio_tarifa_base', 'envio_radio_base_km', 'envio_precio_km_adicional', 'envio_tarifa_maxima'])
+
+      const config: Record<string, number> = {}
+      for (const row of (configRows || [])) {
+        config[row.clave] = parseFloat(row.valor)
       }
 
-      if (envio > PIDO_CONFIG.tarifa_maxima) {
-        envio = PIDO_CONFIG.tarifa_maxima
+      const tarifa_base = config.envio_tarifa_base ?? 2.50
+      const radio_base_km = config.envio_radio_base_km ?? 2
+      const precio_km_adicional = config.envio_precio_km_adicional ?? 0.50
+      const tarifa_maxima = config.envio_tarifa_maxima ?? 15.00
+
+      if (distancia <= radio_base_km) {
+        envio = tarifa_base
+      } else {
+        const kmExtra = distancia - radio_base_km
+        envio = tarifa_base + (kmExtra * precio_km_adicional)
+      }
+
+      if (envio > tarifa_maxima) {
+        envio = tarifa_maxima
       }
 
       envio = Math.round(envio * 100) / 100
 
       detalle = {
-        tarifa_base: PIDO_CONFIG.tarifa_base,
-        radio_base_km: PIDO_CONFIG.radio_base_km,
-        precio_km_adicional: PIDO_CONFIG.precio_km_adicional,
-        tarifa_maxima: PIDO_CONFIG.tarifa_maxima,
+        tarifa_base,
+        radio_base_km,
+        precio_km_adicional,
+        tarifa_maxima,
       }
     }
 
