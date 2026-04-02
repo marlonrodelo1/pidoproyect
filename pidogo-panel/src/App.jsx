@@ -104,7 +104,7 @@ function AppInner({ seccion, setSeccion, nav }) {
       {pedidosPendientes.length > 0 && seccion !== 'envivo' && (
         <button onClick={() => setSeccion('envivo')} style={{
           position: 'fixed', top: 60, left: '50%', transform: 'translateX(-50%)',
-          width: 'calc(100% - 32px)', maxWidth: 390, zIndex: 100,
+          width: 'calc(100% - 32px)', maxWidth: 500, zIndex: 100,
           background: 'linear-gradient(135deg, #FF5733, #FF8F73)',
           borderRadius: 14, padding: '14px 18px', border: 'none',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -139,7 +139,7 @@ function AppInner({ seccion, setSeccion, nav }) {
       </div>
 
       {/* Bottom nav */}
-      <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 420, background: 'rgba(13,13,13,0.92)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-around', padding: '8px 0 12px', zIndex: 50 }}>
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, width: '100%', background: 'rgba(13,13,13,0.92)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-around', padding: '8px 0 12px', zIndex: 50 }}>
         {nav.map(n => (
           <button key={n.id} onClick={() => setSeccion(n.id)} style={{
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
@@ -159,7 +159,7 @@ const shell = {
   '--c-accent': '#FF5733', '--c-accent-light': 'rgba(255,87,51,0.15)', '--c-accent-soft': 'rgba(255,87,51,0.25)',
   '--c-bg': '#0D0D0D', '--c-surface': 'rgba(255,255,255,0.08)', '--c-surface2': 'rgba(255,255,255,0.05)',
   '--c-border': 'rgba(255,255,255,0.1)', '--c-text': '#F5F5F5', '--c-muted': 'rgba(255,255,255,0.45)',
-  fontFamily: "'DM Sans', sans-serif", maxWidth: 420, margin: '0 auto',
+  fontFamily: "'DM Sans', sans-serif", width: '100%',
   background: 'var(--c-bg)', color: 'var(--c-text)',
 }
 
